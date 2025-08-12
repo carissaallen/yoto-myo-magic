@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoto MYO Magic - Settings</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="options-container">
+        <header class="options-header">
+            <h1>Yoto MYO Magic Settings</h1>
+            <p>Customize how the extension matches icons to your MYO playlists</p>
+        </header>
+
+        <main class="options-content">
+            <!-- Account Section -->
+            <section class="settings-section">
+                <h2>Account</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Yoto Connection</h3>
+                            <p>Manage your Yoto account connection</p>
+                        </div>
+                        <div class="setting-control">
+                            <div id="authStatus" class="auth-status">
+                                <span class="status-indicator" id="statusDot"></span>
+                                <span id="statusText">Checking...</span>
+                            </div>
+                            <button id="authButton" class="btn btn-secondary">Connect</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Matching Preferences -->
+            <section class="settings-section">
+                <h2>Icon Matching Preferences</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Confidence Threshold</h3>
+                            <p>Minimum confidence level for automatic icon suggestions</p>
+                        </div>
+                        <div class="setting-control">
+                            <input type="range" id="confidenceThreshold" min="0" max="100" value="70" class="slider">
+                            <span id="confidenceValue" class="value-display">70%</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Auto-Match on Page Load</h3>
+                            <p>Automatically suggest icons when you open a MYO playlist</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="switch">
+                                <input type="checkbox" id="autoMatchEnabled">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Include Synonyms</h3>
+                            <p>Use synonym matching (e.g., "puppy" → "dog")</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="switch">
+                                <input type="checkbox" id="synonymsEnabled" checked>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Default Icons -->
+            <section class="settings-section">
+                <h2>Default Icons & Themes</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Default Icon</h3>
+                            <p>Icon to use when no match is found</p>
+                        </div>
+                        <div class="setting-control">
+                            <select id="defaultIcon" class="select-input">
+                                <option value="question">Question Mark</option>
+                                <option value="star">Star</option>
+                                <option value="music">Music Note</option>
+                                <option value="random">Random</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Preferred Themes</h3>
+                            <p>Select your favorite icon themes</p>
+                        </div>
+                        <div class="setting-control">
+                            <div class="theme-chips" id="themeChips">
+                                <label class="theme-chip">
+                                    <input type="checkbox" value="animals" checked>
+                                    <span>Animals</span>
+                                </label>
+                                <label class="theme-chip">
+                                    <input type="checkbox" value="dinosaurs">
+                                    <span>Dinosaurs</span>
+                                </label>
+                                <label class="theme-chip">
+                                    <input type="checkbox" value="space">
+                                    <span>Space</span>
+                                </label>
+                                <label class="theme-chip">
+                                    <input type="checkbox" value="vehicles">
+                                    <span>Vehicles</span>
+                                </label>
+                                <label class="theme-chip">
+                                    <input type="checkbox" value="nature">
+                                    <span>Nature</span>
+                                </label>
+                                <label class="theme-chip">
+                                    <input type="checkbox" value="food">
+                                    <span>Food</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Advanced Settings -->
+            <section class="settings-section">
+                <h2>Advanced</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Icon Cache</h3>
+                            <p>Cached icon database for faster matching</p>
+                        </div>
+                        <div class="setting-control">
+                            <button id="clearCacheBtn" class="btn btn-secondary">Clear Cache</button>
+                            <span id="cacheSize" class="cache-info">0 icons cached</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Usage Statistics</h3>
+                            <p>Track icon matching statistics</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="switch">
+                                <input type="checkbox" id="statsEnabled" checked>
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Debug Mode</h3>
+                            <p>Show additional logging in browser console</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="switch">
+                                <input type="checkbox" id="debugMode">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data & Privacy -->
+            <section class="settings-section">
+                <h2>Data & Privacy</h2>
+                <div class="settings-group">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Reset All Settings</h3>
+                            <p>Restore all settings to their default values</p>
+                        </div>
+                        <div class="setting-control">
+                            <button id="resetSettingsBtn" class="btn btn-danger">Reset Settings</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <h3>Export Settings</h3>
+                            <p>Download your settings for backup</p>
+                        </div>
+                        <div class="setting-control">
+                            <button id="exportBtn" class="btn btn-secondary">Export</button>
+                            <button id="importBtn" class="btn btn-secondary">Import</button>
+                            <input type="file" id="importFile" accept=".json" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats Section -->
+            <section class="settings-section">
+                <h2>Usage Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalMatched">0</div>
+                        <div class="stat-label">Total Icons Matched</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="cardsProcessed">0</div>
+                        <div class="stat-label">Cards Processed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="averageConfidence">0%</div>
+                        <div class="stat-label">Average Confidence</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="timeSaved">0m</div>
+                        <div class="stat-label">Time Saved</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="options-footer">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="https://github.com/yourusername/yoto-card-magic" target="_blank">GitHub</a>
+                    <a href="#" id="helpLink">Help</a>
+                    <a href="#" id="privacyLink">Privacy Policy</a>
+                </div>
+                <div class="footer-info">
+                    <span>Version 1.0.0</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <div id="saveNotification" class="save-notification">Settings saved!</div>
+
+    <script src="options.js"></script>
+</body>
+</html>

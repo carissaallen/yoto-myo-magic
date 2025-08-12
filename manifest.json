@@ -1,0 +1,77 @@
+{
+  "manifest_version": 3,
+  "name": "Yoto Card Magic",
+  "version": "1.0.0",
+  "description": "Automatically match icons to MYO playlist tracks on Yoto",
+  
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://yotoplay.com/*",
+    "https://my.yotoplay.com/*",
+    "https://api.yotoplay.com/*",
+    "https://login.yotoplay.com/*",
+    "https://yotoicons.com/*"
+  ],
+  
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": [
+        "https://yotoplay.com/*",
+        "https://my.yotoplay.com/*"
+      ],
+      "js": [
+        "lib/utils.js",
+        "content/content.js"
+      ],
+      "css": [
+        "assets/styles/content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Yoto MYO Magic",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
+  },
+  
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+  
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/styles/*.css",
+        "lib/*.js"
+      ],
+      "matches": [
+        "https://yotoplay.com/*",
+        "https://my.yotoplay.com/*"
+      ]
+    }
+  ]
+}

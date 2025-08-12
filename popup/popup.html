@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoto Make-Your-Own Magic</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <header class="popup-header">
+            <h1>MYO Magic</h1>
+            <div class="status-indicator" id="statusIndicator">
+                <span class="status-dot"></span>
+                <span class="status-text">Checking...</span>
+            </div>
+        </header>
+
+        <main class="popup-content">
+            <!-- Not Authenticated View -->
+            <div id="authView" class="view" style="display: none;">
+                <div class="auth-prompt">
+                    <div style="font-size: 48px; margin-bottom: 20px;">🎧</div>
+                    <p style="font-size: 16px; color: #FF6B4A; font-weight: 600; margin-bottom: 10px;">Ready to add some magic?</p>
+                    <p>Connect your Yoto account to start matching icons to your MYO playlists.</p>
+                    <button id="connectBtn" class="btn btn-primary">
+                        Connect Yoto Account
+                    </button>
+                </div>
+            </div>
+
+            <!-- Authenticated View -->
+            <div id="mainView" class="view" style="display: none;">
+                <div class="current-page-info" id="currentPageInfo">
+                    <!-- Dynamic content based on current tab -->
+                </div>
+
+                <div class="quick-stats">
+                    <h3>Today's Activity</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value" id="iconsMatched">0</span>
+                            <span class="stat-label">Icons Matched</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="cardsUpdated">0</span>
+                            <span class="stat-label">Cards Updated</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-cards" id="recentCards">
+                    <h3>Recent Cards</h3>
+                    <div class="cards-list">
+                        <!-- Dynamic list of recent cards -->
+                    </div>
+                </div>
+
+                <div class="popup-actions">
+                    <button id="optionsBtn" class="btn btn-secondary">
+                        Settings
+                    </button>
+                    <button id="logoutBtn" class="btn btn-text">
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Connecting View -->
+            <div id="connectingView" class="view" style="display: none;">
+                <div class="connecting-content">
+                    <div class="device-code-display">
+                        <h3>Connect Your Yoto Account</h3>
+                        <p>Enter this code on the verification page:</p>
+                        <div class="user-code" id="userCode">----</div>
+                        <button id="copyCodeBtn" class="btn btn-secondary">Copy Code</button>
+                    </div>
+                    <div class="verification-link">
+                        <p>Visit this page to verify:</p>
+                        <a id="verificationLink" href="#" target="_blank" class="verification-url">
+                            Loading...
+                        </a>
+                    </div>
+                    <div class="connecting-status">
+                        <div class="spinner"></div>
+                        <p>Waiting for authorization...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="popup-footer">
+            <a href="https://github.com/carissaallen/yoto-myo-magic" target="_blank">Help</a>
+            <span class="version">v1.0.0</span>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
