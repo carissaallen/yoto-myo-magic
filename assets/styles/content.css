@@ -1,0 +1,282 @@
+/* These styles are injected into Yoto website pages */
+
+/* Animation keyframes */
+@keyframes yotoMagicFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes yotoMagicPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes yotoMagicSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Auto-match button */
+.yoto-magic-btn {
+  animation: yotoMagicFadeIn 0.3s ease;
+  position: relative;
+  z-index: 1000;
+}
+
+.yoto-magic-btn:active {
+  transform: scale(0.98) !important;
+}
+
+.yoto-magic-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+.yoto-magic-icon {
+  display: inline-block;
+  animation: yotoMagicPulse 2s infinite;
+}
+
+/* Preview overlay */
+.yoto-magic-overlay {
+  backdrop-filter: blur(5px);
+}
+
+.yoto-magic-modal {
+  animation: yotoMagicFadeIn 0.3s ease;
+}
+
+/* Notification styles */
+.yoto-magic-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+  z-index: 10001;
+  animation: yotoMagicFadeIn 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.yoto-magic-notification.success {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+}
+
+.yoto-magic-notification.error {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+}
+
+.yoto-magic-notification.info {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Loading spinner */
+.yoto-magic-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: yotoMagicSpin 1s linear infinite;
+}
+
+/* Icon preview grid */
+.yoto-magic-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.yoto-magic-icon-option {
+  width: 60px;
+  height: 60px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.yoto-magic-icon-option:hover {
+  border-color: #667eea;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.yoto-magic-icon-option.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.yoto-magic-icon-option img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+/* Confidence indicator */
+.yoto-magic-confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f3f4f6;
+}
+
+.yoto-magic-confidence.high {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.yoto-magic-confidence.medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.yoto-magic-confidence.low {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Progress bar */
+.yoto-magic-progress {
+  width: 100%;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.yoto-magic-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Tooltip */
+.yoto-magic-tooltip {
+  position: absolute;
+  background: #1f2937;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 10002;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.yoto-magic-tooltip.visible {
+  opacity: 1;
+}
+
+.yoto-magic-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid #1f2937;
+}
+
+/* Theme selector */
+.yoto-magic-theme-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.yoto-magic-theme-chip {
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.yoto-magic-theme-chip:hover {
+  border-color: #667eea;
+  background: #f9fafb;
+}
+
+.yoto-magic-theme-chip.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+/* Batch selection */
+.yoto-magic-batch-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.yoto-magic-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.yoto-magic-checkbox.checked {
+  background: #667eea;
+  border-color: #667eea;
+}
+
+.yoto-magic-checkbox.checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
