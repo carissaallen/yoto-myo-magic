@@ -17,19 +17,7 @@
         </header>
 
         <main class="popup-content">
-            <!-- Not Authenticated View -->
-            <div id="authView" class="view" style="display: none;">
-                <div class="auth-prompt">
-                    <div style="font-size: 48px; margin-bottom: 20px;">🎧</div>
-                    <p style="font-size: 16px; color: #FF6B4A; font-weight: 600; margin-bottom: 10px;">Ready to add some magic?</p>
-                    <p>Connect your Yoto account to start matching icons to your MYO playlists.</p>
-                    <button id="connectBtn" class="btn btn-primary">
-                        Connect Yoto Account
-                    </button>
-                </div>
-            </div>
-
-            <!-- Authenticated View -->
+            <!-- Main View -->
             <div id="mainView" class="view" style="display: none;">
                 <div class="current-page-info" id="currentPageInfo">
                     <!-- Dynamic content based on current tab -->
@@ -60,31 +48,6 @@
                     <button id="optionsBtn" class="btn btn-secondary">
                         Settings
                     </button>
-                    <button id="logoutBtn" class="btn btn-text">
-                        Logout
-                    </button>
-                </div>
-            </div>
-
-            <!-- Connecting View -->
-            <div id="connectingView" class="view" style="display: none;">
-                <div class="connecting-content">
-                    <div class="device-code-display">
-                        <h3>Connect Your Yoto Account</h3>
-                        <p>Enter this code on the verification page:</p>
-                        <div class="user-code" id="userCode">----</div>
-                        <button id="copyCodeBtn" class="btn btn-secondary">Copy Code</button>
-                    </div>
-                    <div class="verification-link">
-                        <p>Visit this page to verify:</p>
-                        <a id="verificationLink" href="#" target="_blank" class="verification-url">
-                            Loading...
-                        </a>
-                    </div>
-                    <div class="connecting-status">
-                        <div class="spinner"></div>
-                        <p>Waiting for authorization...</p>
-                    </div>
                 </div>
             </div>
         </main>
