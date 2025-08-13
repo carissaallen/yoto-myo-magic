@@ -7,7 +7,8 @@
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   
   "host_permissions": [
@@ -15,7 +16,8 @@
     "https://my.yotoplay.com/*",
     "https://api.yotoplay.com/*",
     "https://login.yotoplay.com/*",
-    "https://yotoicons.com/*"
+    "https://yotoicons.com/*",
+    "*://*.yotoplay.com/*"
   ],
   
   "background": {
@@ -25,17 +27,12 @@
   "content_scripts": [
     {
       "matches": [
-        "https://yotoplay.com/*",
         "https://my.yotoplay.com/*"
       ],
       "js": [
-        "lib/utils.js",
-        "content/content.js"
+        "content/content-simple.js"
       ],
-      "css": [
-        "assets/styles/content.css"
-      ],
-      "run_at": "document_idle"
+      "run_at": "document_end"
     }
   ],
   
@@ -66,11 +63,14 @@
     {
       "resources": [
         "assets/styles/*.css",
-        "lib/*.js"
+        "lib/*.js",
+        "callback.html",
+        "callback.js"
       ],
       "matches": [
         "https://yotoplay.com/*",
-        "https://my.yotoplay.com/*"
+        "https://my.yotoplay.com/*",
+        "<all_urls>"
       ]
     }
   ]
