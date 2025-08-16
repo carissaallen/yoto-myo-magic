@@ -1,0 +1,78 @@
+I found a payload that worked (200 Success) and updated the icon in the Yoto display via Postman. Now we need to update the code to follow the same
+  approach. When we get the card content, we MUST use the EXACT response we receive from Yoto as our payload for our request to update the icon. This must not be hard-coded. We need to get the response, update BOTH icon16x16 fields (in chapters and in tracks), then send our POST request to /content. See the following successful payload to ensure the fields match the fields in our POST request (must be an exact diff).
+
+{
+    "content": {
+        "chapters": [
+            {
+                "key": "00",
+                "title": "Test Chapter",
+                "tracks": [],
+                "display": {
+                    "icon16x16": "yoto:#tV9oErJz52FBaywOw_IYC5uc-ZGGjqV2bz1w9m6haTA"
+                },
+                "availableFrom": null,
+                "ambient": null,
+                "defaultTrackDisplay": null,
+                "defaultTrackAmbient": null,
+                "overlayLabel": "1",
+                "fileSize": 0,
+                "duration": 0
+            },
+            {
+                "key": "01",
+                "title": "Asia",
+                "overlayLabel": "2",
+                "tracks": [
+                    {
+                        "key": "01",
+                        "title": "Asia",
+                        "format": "aac",
+                        "trackUrl": "yoto:#1AKb56a7byEVAX7WedKDq3LG3SssBGGbnnZ2i6aPq94",
+                        "type": "audio",
+                        "overlayLabel": "2",
+                        "display": {
+                            "icon16x16": "yoto:#tV9oErJz52FBaywOw_IYC5uc-ZGGjqV2bz1w9m6haTA"
+                        },
+                        "duration": 890,
+                        "fileSize": 7274258,
+                        "channels": "mono",
+                        "ambient": null
+                    }
+                ],
+                "display": {
+                    "icon16x16": "yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q"
+                },
+                "availableFrom": null,
+                "ambient": null,
+                "defaultTrackDisplay": null,
+                "defaultTrackAmbient": null,
+                "fileSize": 7274258,
+                "duration": 890
+            }
+        ],
+        "playbackType": "linear",
+        "config": {
+            "resumeTimeout": 2592000
+        }
+    },
+    "metadata": {
+        "description": "My new Podcast",
+        "media": {
+            "duration": 890,
+            "readableDuration": "0h 14m 49s",
+            "fileSize": 7274258,
+            "readableFileSize": 6.9,
+            "hasStreams": false
+        },
+        "cover": {
+            "imageL": "https://card-content.yotoplay.com/1m5p7IexPoBo3CgZjqE29ysdVNROyX2VV_maVqylQFcI~/pub/gqBcxM9NZ6M1DGvDS-y7xzX4rKOprOvxRBS1wJ3QRI8"
+        }
+    },
+    "title": "Amazing Asia",
+    "createdByClientId": "90v6OFRB0bKTtpSCqT7edO7rlu9je8nb",
+    "cardId": "1idN9",
+    "userId": "auth0|67cf3970afc100640186bac8",
+    "createdAt": "2025-08-11T23:52:36.615Z",
+    "updatedAt": "2025-08-13T23:12:34.936Z"
+}
