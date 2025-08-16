@@ -1,3 +1,4 @@
+/* Content styles for Yoto Card Magic Extension */
 /* These styles are injected into Yoto website pages */
 
 /* Animation keyframes */
@@ -12,12 +13,14 @@
   }
 }
 
-@keyframes yotoMagicPulse {
-  0%, 100% {
-    transform: scale(1);
+@keyframes yotoMagicSlideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
   }
-  50% {
-    transform: scale(1.05);
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
@@ -30,61 +33,194 @@
   }
 }
 
-/* Auto-match button */
-.yoto-magic-btn {
+/* Our buttons - matching Yoto's style */
+#yoto-magic-match-btn,
+#yoto-magic-bulk-btn {
+  height: 40px;
+  min-height: 40px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   animation: yotoMagicFadeIn 0.3s ease;
-  position: relative;
-  z-index: 1000;
 }
 
-.yoto-magic-btn:active {
-  transform: scale(0.98) !important;
+#yoto-magic-match-btn:hover,
+#yoto-magic-bulk-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
-.yoto-magic-btn:disabled {
+#yoto-magic-match-btn:active,
+#yoto-magic-bulk-btn:active {
+  transform: translateY(0);
+}
+
+#yoto-magic-match-btn:disabled,
+#yoto-magic-bulk-btn:disabled {
   opacity: 0.6;
-  cursor: not-allowed !important;
-}
-
-.yoto-magic-icon {
-  display: inline-block;
-  animation: yotoMagicPulse 2s infinite;
-}
-
-/* Preview overlay */
-.yoto-magic-overlay {
-  backdrop-filter: blur(5px);
-}
-
-.yoto-magic-modal {
-  animation: yotoMagicFadeIn 0.3s ease;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Notification styles */
 .yoto-magic-notification {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  padding: 12px 20px;
-  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: white;
-  z-index: 10001;
+  max-width: 400px;
+  word-wrap: break-word;
+  animation: yotoMagicSlideUp 0.3s ease;
+}
+
+/* Preview overlay */
+.yoto-magic-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10000;
   animation: yotoMagicFadeIn 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
-.yoto-magic-notification.success {
-  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+.yoto-magic-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  animation: yotoMagicSlideUp 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-.yoto-magic-notification.error {
-  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+.yoto-magic-modal h2 {
+  margin: 0 0 20px 0;
+  color: #1f2937;
+  font-size: 24px;
+  font-weight: 600;
 }
 
-.yoto-magic-notification.info {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* Preview items */
+.preview-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.preview-item:hover {
+  background: #f3f4f6;
+  border-color: #3b82f6;
+  transform: translateX(2px);
+}
+
+.preview-icon {
+  width: 48px;
+  height: 48px;
+  background: #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.preview-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-details {
+  flex: 1;
+}
+
+.preview-details > div:first-child {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.preview-details > div:last-child {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Confidence badges */
+.confidence-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.confidence-badge.excellent {
+  background: #10b981;
+  color: white;
+}
+
+.confidence-badge.good {
+  background: #f59e0b;
+  color: white;
+}
+
+.confidence-badge.low {
+  background: #ef4444;
+  color: white;
+}
+
+/* Action buttons in modal */
+.yoto-magic-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.yoto-magic-actions button {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.yoto-magic-actions button:first-child {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.yoto-magic-actions button:first-child:hover {
+  background: #e5e7eb;
+}
+
+.yoto-magic-actions button:last-child {
+  background: #3b82f6;
+  color: white;
+}
+
+.yoto-magic-actions button:last-child:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
 }
 
 /* Loading spinner */
@@ -98,7 +234,49 @@
   animation: yotoMagicSpin 1s linear infinite;
 }
 
-/* Icon preview grid */
+/* Theme selector */
+.theme-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.theme-option {
+  padding: 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.theme-option:hover {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.theme-option.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.theme-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.theme-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+/* Icon grid for selection */
 .yoto-magic-icon-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
@@ -124,46 +302,20 @@
 }
 
 .yoto-magic-icon-option:hover {
-  border-color: #667eea;
+  border-color: #3b82f6;
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .yoto-magic-icon-option.selected {
-  border-color: #667eea;
-  background: #f0f4ff;
+  border-color: #3b82f6;
+  background: #eff6ff;
 }
 
 .yoto-magic-icon-option img {
   width: 48px;
   height: 48px;
   object-fit: contain;
-}
-
-/* Confidence indicator */
-.yoto-magic-confidence {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: #f3f4f6;
-}
-
-.yoto-magic-confidence.high {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.yoto-magic-confidence.medium {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.yoto-magic-confidence.low {
-  background: #fee2e2;
-  color: #991b1b;
 }
 
 /* Progress bar */
@@ -178,70 +330,9 @@
 
 .yoto-magic-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  background: #3b82f6;
   border-radius: 2px;
   transition: width 0.3s ease;
-}
-
-/* Tooltip */
-.yoto-magic-tooltip {
-  position: absolute;
-  background: #1f2937;
-  color: white;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  white-space: nowrap;
-  z-index: 10002;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.yoto-magic-tooltip.visible {
-  opacity: 1;
-}
-
-.yoto-magic-tooltip::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 4px solid #1f2937;
-}
-
-/* Theme selector */
-.yoto-magic-theme-selector {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 12px 0;
-}
-
-.yoto-magic-theme-chip {
-  padding: 6px 12px;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 20px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.yoto-magic-theme-chip:hover {
-  border-color: #667eea;
-  background: #f9fafb;
-}
-
-.yoto-magic-theme-chip.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-color: transparent;
 }
 
 /* Batch selection */
@@ -255,28 +346,21 @@
   margin-bottom: 16px;
 }
 
-.yoto-magic-checkbox {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #d1d5db;
+/* Scrollbar styling for modal */
+.yoto-magic-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.yoto-magic-modal::-webkit-scrollbar-track {
+  background: #f3f4f6;
   border-radius: 4px;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
 }
 
-.yoto-magic-checkbox.checked {
-  background: #667eea;
-  border-color: #667eea;
+.yoto-magic-modal::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
 }
 
-.yoto-magic-checkbox.checked::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
+.yoto-magic-modal::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
