@@ -459,13 +459,20 @@ function createButton() {
   const button = document.createElement('button');
   button.id = 'yoto-magic-btn';
   
+  // Define the puzzle piece icon for consistency
+  const puzzlePieceIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2L15.6 5.6C18 -0.7 24.7 6 18.4 8.4L22 12L18.4 15.6C16 9.3 9.3 16 15.6 18.4L12 22L8.4 18.4C6 24.7 -0.7 18 5.6 15.6L2 12L5.6 8.4C8 14.7 14.7 8 8.4 5.6L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+  
   button.style.cssText = `
-    background-color: #FFD700;
-    color: #000000;
-    border: none;
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
     padding: 8px 16px;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     cursor: pointer;
@@ -481,19 +488,21 @@ function createButton() {
   `;
   
   button.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-    </svg>
+    ${puzzlePieceIcon}
     <span>Icon Match</span>
   `;
   
   button.onmouseenter = () => {
-    button.style.backgroundColor = '#FFC700';
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#F85D41';
+    button.style.borderColor = '#F85D41';
     button.style.transform = 'translateY(-1px)';
   };
   
   button.onmouseleave = () => {
-    button.style.backgroundColor = '#FFD700';
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
     button.style.transform = 'translateY(0)';
   };
   
@@ -504,17 +513,13 @@ function createButton() {
     
     if (!authResponse.authenticated) {
       button.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
+        ${puzzlePieceIcon}
         <span>Authorizing...</span>
       `;
       chrome.runtime.sendMessage({ action: 'START_AUTH' });
       setTimeout(() => {
         button.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
+          ${puzzlePieceIcon}
           <span>Icon Match</span>
         `;
       }, 2000);
@@ -522,9 +527,7 @@ function createButton() {
       
       button.disabled = true;
       button.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
+        ${puzzlePieceIcon}
         <span>Fetching content...</span>
       `;
       button.style.opacity = '0.7';
@@ -536,9 +539,7 @@ function createButton() {
         alert('Could not identify card ID from URL');
         button.disabled = false;
         button.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
+          ${puzzlePieceIcon}
           <span>Icon Match</span>
         `;
         button.style.opacity = '1';
@@ -640,9 +641,7 @@ function createButton() {
         alert('No tracks found in this card. Please add some tracks first.');
         button.disabled = false;
         button.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
+          ${puzzlePieceIcon}
           <span>Icon Match</span>
         `;
         button.style.opacity = '1';
@@ -688,9 +687,7 @@ function createButton() {
       
       button.disabled = false;
       button.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
+        ${puzzlePieceIcon}
         <span>Icon Match</span>
       `;
       button.style.opacity = '1';
