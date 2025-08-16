@@ -25,6 +25,7 @@
   },
   
   "action": {
+    "default_popup": "popup/popup.html",
     "default_title": "Yoto MYO Magic",
     "default_icon": {
       "16": "assets/icons/icon-16.png",
