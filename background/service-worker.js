@@ -584,16 +584,28 @@ chrome.runtime.onInstalled.addListener(async () => {
     const isValid = await TokenManager.isTokenValid();
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url?.includes('my.yotoplay.com')) {
-        TokenManager.isTokenValid().then(isValid => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && 
+        tab.url?.includes('my.yotoplay.com') && 
+        tab.url?.includes('/card/') && 
+        tab.url?.includes('/edit')) {
+        
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: ['content/content-simple.js']
+            });
+            
+            const isValid = await TokenManager.isTokenValid();
             if (isValid) {
                 chrome.tabs.sendMessage(tabId, {
                     action: 'AUTH_STATUS',
                     authenticated: true
                 }).catch(() => {});
             }
-        });
+        } catch (error) {
+            // Content script injection failed
+        }
     }
 });
 
