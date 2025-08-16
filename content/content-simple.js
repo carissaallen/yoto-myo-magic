@@ -1,4 +1,10 @@
 
+// Only run extension on card edit pages
+(function() {
+  if (!location.href.includes('my.yotoplay.com/card/') || !location.href.includes('/edit')) {
+    return;
+  }
+
 const selectedIcons = {};
 function cycleIcon(trackId, direction) {
   const match = window.currentMatches.find(m => m.uniqueTrackId === trackId);
@@ -696,6 +702,11 @@ function checkAndInjectButton() {
     return;
   }
   
+  // Add a small delay to avoid interfering with React rendering
+  if (document.readyState !== 'complete') {
+    return;
+  }
+  
   const addAudioButton = Array.from(document.querySelectorAll('button')).find(btn => 
     btn.textContent?.trim() === 'Add audio'
   );
@@ -759,43 +770,106 @@ function startChecking() {
   }, 500);
 }
 
+let urlCheckTimeout;
 const urlObserver = new MutationObserver(() => {
-  const url = location.href;
-  if (url !== lastUrl) {
-    lastUrl = url;
-    const existingButton = document.querySelector('#yoto-magic-btn');
-    if (existingButton && existingButton.parentElement) {
-      existingButton.parentElement.remove();
+  clearTimeout(urlCheckTimeout);
+  urlCheckTimeout = setTimeout(() => {
+    try {
+      const url = location.href;
+      if (url !== lastUrl) {
+        lastUrl = url;
+        const existingButton = document.querySelector('#yoto-magic-btn');
+        if (existingButton && existingButton.parentElement) {
+          existingButton.parentElement.remove();
+        }
+        
+        if (url.includes('my.yotoplay.com/card/') && url.includes('/edit')) {
+          startChecking();
+          startContentObserver();
+        } else {
+          stopContentObserver();
+          // Disconnect all observers when leaving edit page
+          urlObserver.disconnect();
+          contentObserver.disconnect();
+        }
+      }
+    } catch (error) {
+      // Silently handle errors to avoid interfering with page functionality
     }
-    
-    if (url.includes('my.yotoplay.com/card/') && url.includes('/edit')) {
-      startChecking();
-    }
-  }
+  }, 150);
 });
 
-urlObserver.observe(document, {subtree: true, childList: true});
+// Use pushstate/popstate events instead of DOM mutations for URL changes
+window.addEventListener('popstate', () => {
+  clearTimeout(urlCheckTimeout);
+  urlCheckTimeout = setTimeout(() => {
+    const url = location.href;
+    if (url !== lastUrl) {
+      lastUrl = url;
+      const existingButton = document.querySelector('#yoto-magic-btn');
+      if (existingButton && existingButton.parentElement) {
+        existingButton.parentElement.remove();
+      }
+      
+      if (url.includes('my.yotoplay.com/card/') && url.includes('/edit')) {
+        startChecking();
+        startContentObserver();
+      } else {
+        stopContentObserver();
+        // Disconnect all observers when leaving edit page
+        urlObserver.disconnect();
+        contentObserver.disconnect();
+      }
+    }
+  }, 100);
+});
 
+// Observe only the head for title changes which indicate navigation
+urlObserver.observe(document.head, {childList: true, subtree: true});
+
+let contentCheckTimeout;
 const contentObserver = new MutationObserver((mutations) => {
-  const url = location.href;
-  if (url.includes('my.yotoplay.com/card/') && url.includes('/edit')) {
-    const addAudioButton = Array.from(document.querySelectorAll('button')).find(btn => 
-      btn.textContent?.trim() === 'Add audio'
-    );
-    const ourButton = document.querySelector('#yoto-magic-btn');
-    
-    if (addAudioButton && !ourButton) {
-      checkAndInjectButton();
+  clearTimeout(contentCheckTimeout);
+  contentCheckTimeout = setTimeout(() => {
+    try {
+      const url = location.href;
+      if (url.includes('my.yotoplay.com/card/') && url.includes('/edit')) {
+        const addAudioButton = Array.from(document.querySelectorAll('button')).find(btn => 
+          btn.textContent?.trim() === 'Add audio'
+        );
+        const ourButton = document.querySelector('#yoto-magic-btn');
+        
+        if (addAudioButton && !ourButton) {
+          checkAndInjectButton();
+        }
+      }
+    } catch (error) {
+      // Silently handle errors to avoid interfering with page functionality
     }
-  }
+  }, 300);
 });
 
-contentObserver.observe(document.body, {
-  childList: true,
-  subtree: true,
-  attributes: false,
-  characterData: false
-});
+// Only observe when we're actually on an edit page to reduce interference
+function startContentObserver() {
+  if (location.href.includes('my.yotoplay.com/card/') && location.href.includes('/edit')) {
+    const mainContent = document.querySelector('main') || document.querySelector('[role="main"]') || document.body;
+    contentObserver.observe(mainContent, {
+      childList: true,
+      subtree: true,
+      attributes: false,
+      characterData: false
+    });
+  }
+}
+
+function stopContentObserver() {
+  contentObserver.disconnect();
+}
+
+// Start content observer initially if on edit page
+if (location.href.includes('my.yotoplay.com/card/') && location.href.includes('/edit')) {
+  startContentObserver();
+}
 
 function showRefreshIndicator() {
   const indicator = document.createElement('div');
@@ -844,3 +918,5 @@ function showRefreshIndicator() {
   
   document.body.appendChild(indicator);
 }
+
+})(); // End IIFE - only run on edit pages
