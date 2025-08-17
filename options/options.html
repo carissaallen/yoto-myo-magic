@@ -10,7 +10,7 @@
     <div class="options-container">
         <header class="options-header">
             <div class="header-content">
-                <img src="../assets/icons/icon-48.png" alt="Yoto Card Magic" class="header-icon">
+                <img src="../assets/icons/icon-128.png" alt="Yoto Card Magic" class="header-icon">
                 <div class="header-text">
                     <h1>Yoto Card Magic Settings</h1>
                     <p>Customize how the extension matches icons to your MYO playlists</p>
@@ -19,8 +19,9 @@
         </header>
 
         <main class="options-content">
-            <!-- Account Section -->
-            <section class="settings-section">
+            <div class="settings-card">
+                <!-- Account Section -->
+                <section class="settings-section">
                 <h2>Account</h2>
                 <div class="settings-group">
                     <div class="setting-item">
@@ -153,18 +154,6 @@
                         </div>
                     </div>
 
-                    <div class="setting-item">
-                        <div class="setting-info">
-                            <h3>Usage Statistics</h3>
-                            <p>Track icon matching statistics</p>
-                        </div>
-                        <div class="setting-control">
-                            <label class="switch">
-                                <input type="checkbox" id="statsEnabled" checked>
-                                <span class="slider-toggle"></span>
-                            </label>
-                        </div>
-                    </div>
 
                     <div class="setting-item">
                         <div class="setting-info">
@@ -209,28 +198,7 @@
                 </div>
             </section>
 
-            <!-- Stats Section -->
-            <section class="settings-section">
-                <h2>Usage Statistics</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalMatched">0</div>
-                        <div class="stat-label">Total Icons Matched</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="cardsProcessed">0</div>
-                        <div class="stat-label">Cards Processed</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="averageConfidence">0%</div>
-                        <div class="stat-label">Average Confidence</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="timeSaved">0m</div>
-                        <div class="stat-label">Time Saved</div>
-                    </div>
-                </div>
-            </section>
+            </div>
         </main>
 
         <footer class="options-footer">
