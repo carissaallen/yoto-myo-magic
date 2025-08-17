@@ -6,7 +6,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    background: #4ECDC4;
+    background: white;
     min-height: 100vh;
     color: #2c3e50;
 }
@@ -20,8 +20,8 @@ body {
 /* Header */
 .options-header {
     text-align: center;
-    color: white;
-    background: #4ECDC4;
+    color: black;
+    background: white;
     padding: 60px 20px;
     margin: 0;
 }
@@ -60,41 +60,23 @@ body {
 .options-content {
     background: white;
     margin: 0;
-    padding: 0;
+    padding: 60px 40px;
+}
+
+/* Settings Card */
+.settings-card {
+    background: #FFD700;
+    border-radius: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 /* Settings Sections */
 .settings-section {
-    margin: 0;
-    padding: 60px 40px;
-    max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.settings-section:nth-child(1) {
-    background: white;
-}
-
-.settings-section:nth-child(2) {
-    background: #FFB347;
-}
-
-.settings-section:nth-child(3) {
-    background: white;
-}
-
-.settings-section:nth-child(4) {
-    background: #FFB347;
-}
-
-.settings-section:nth-child(5) {
-    background: white;
-}
-
-.settings-section:nth-child(6) {
-    background: #2C3E50;
-    color: white;
+    margin: 0 0 40px 0;
+    padding: 0;
 }
 
 .settings-section:last-child {
@@ -102,18 +84,13 @@ body {
 }
 
 .settings-section h2 {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
-    margin-bottom: 32px;
-    text-align: center;
-}
-
-.settings-section:nth-child(6) h2 {
-    color: white;
-}
-
-.settings-section h2:not(.settings-section:nth-child(6) h2) {
+    margin-bottom: 24px;
     color: #2C3E50;
+    text-align: left;
+    border-bottom: 2px solid rgba(44, 62, 80, 0.1);
+    padding-bottom: 12px;
 }
 
 .settings-group {
@@ -128,19 +105,16 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 20px;
-    background: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.3);
     border-radius: 12px;
     transition: all 0.2s ease;
     margin-bottom: 16px;
-}
-
-.settings-section:nth-child(6) .setting-item {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    border: 1px solid rgba(44, 62, 80, 0.1);
 }
 
 .setting-item:hover {
-    background: #f3f4f6;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translateY(-1px);
 }
 
 .setting-info {
@@ -177,26 +151,26 @@ body {
 }
 
 .btn-primary {
-    background: #FFD700;
-    color: #000;
+    background: #1a5b3f;
+    color: white;
 }
 
 .btn-primary:hover {
-    background: #FFC700;
+    background: #155230;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+    box-shadow: 0 4px 12px rgba(26, 91, 63, 0.4);
 }
 
 .btn-secondary {
-    background: white;
-    color: #4ECDC4;
-    border: 1px solid #e5e7eb;
+    background: rgba(255, 255, 255, 0.8);
+    color: #1a5b3f;
+    border: 1px solid rgba(26, 91, 63, 0.3);
 }
 
 .btn-secondary:hover {
-    background: #f9fafb;
-    border-color: #4ECDC4;
-    color: #45B7D1;
+    background: white;
+    border-color: #1a5b3f;
+    color: #155230;
 }
 
 .btn-danger {
@@ -247,7 +221,7 @@ body {
 }
 
 .switch input:checked + .slider-toggle {
-    background: linear-gradient(135deg, #FFD700 0%, #FFC700 100%);
+    background: #1a5b3f;
 }
 
 .switch input:checked + .slider-toggle:before {
@@ -270,7 +244,7 @@ body {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #FFD700 0%, #FFC700 100%);
+    background: #1a5b3f;
     cursor: pointer;
 }
 
@@ -278,14 +252,14 @@ body {
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #FFD700 0%, #FFC700 100%);
+    background: #1a5b3f;
     cursor: pointer;
 }
 
 .value-display {
     font-size: 14px;
     font-weight: 500;
-    color: #4ECDC4;
+    color: #1a5b3f;
     min-width: 40px;
 }
 
@@ -334,14 +308,14 @@ body {
 }
 
 .theme-chip input:checked + span {
-    background: linear-gradient(135deg, #FFD700 0%, #FFC700 100%);
-    color: #000;
+    background: #1a5b3f;
+    color: white;
     border-color: transparent;
     font-weight: 600;
 }
 
 .theme-chip:hover span {
-    border-color: #4ECDC4;
+    border-color: #1a5b3f;
 }
 
 /* Auth Status */
@@ -385,28 +359,28 @@ body {
 }
 
 .stat-card {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.3);
     padding: 30px 20px;
     border-radius: 16px;
     text-align: center;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(44, 62, 80, 0.1);
 }
 
 .stat-value {
     font-size: 36px;
     font-weight: 700;
-    color: #FFB347;
+    color: #1a5b3f;
     margin-bottom: 8px;
 }
 
 .stat-label {
     font-size: 14px;
-    color: rgba(255, 255, 255, 0.8);
+    color: #2C3E50;
 }
 
 /* Footer */
 .options-footer {
-    background: #2C3E50;
+    background: white;
     margin: 0;
     padding: 40px;
 }
@@ -415,7 +389,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    color: white;
+    color: black;
     opacity: 0.9;
 }
 
@@ -425,7 +399,7 @@ body {
 }
 
 .footer-links a {
-    color: white;
+    color: black;
     text-decoration: none;
     font-size: 14px;
 }
