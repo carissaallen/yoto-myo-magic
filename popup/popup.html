@@ -1,63 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yoto Make-Your-Own Magic</title>
-    <link rel="stylesheet" href="popup.css">
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <div class="popup-container">
-        <header class="popup-header">
-            <h1>MYO Magic</h1>
-            <div class="status-indicator" id="statusIndicator">
-                <span class="status-dot"></span>
-                <span class="status-text">Checking...</span>
-            </div>
-        </header>
-
-        <main class="popup-content">
-            <!-- Main View -->
-            <div id="mainView" class="view" style="display: none;">
-                <div class="current-page-info" id="currentPageInfo">
-                    <!-- Dynamic content based on current tab -->
-                </div>
-
-                <div class="quick-stats">
-                    <h3>Today's Activity</h3>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-value" id="iconsMatched">0</span>
-                            <span class="stat-label">Icons Matched</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-value" id="cardsUpdated">0</span>
-                            <span class="stat-label">Cards Updated</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="recent-cards" id="recentCards">
-                    <h3>Recent Cards</h3>
-                    <div class="cards-list">
-                        <!-- Dynamic list of recent cards -->
-                    </div>
-                </div>
-
-                <div class="popup-actions">
-                    <button id="optionsBtn" class="btn btn-secondary">
-                        Settings
-                    </button>
-                </div>
-            </div>
-        </main>
-
-        <footer class="popup-footer">
-            <a href="https://github.com/carissaallen/yoto-myo-magic" target="_blank">Help</a>
-            <span class="version">v1.0.0</span>
-        </footer>
+  <div class="popup-container">
+    <div class="popup-header">
+      <img src="../assets/icons/icon-32.png" alt="Yoto Card Magic" class="popup-icon">
+      <h1>Yoto Card Magic</h1>
     </div>
-
-    <script src="popup.js"></script>
+    
+    <div class="popup-content">
+      <p>Automatically match icons to your MYO playlist tracks.</p>
+      
+      <div class="popup-actions">
+        <button id="open-options" class="popup-button primary">
+          Manage Extension
+        </button>
+        
+        <button id="view-permissions" class="popup-button secondary">
+          View Permissions
+        </button>
+      </div>
+      
+      <div class="popup-info">
+        <p class="popup-note">Visit a Yoto card edit page to use the Icon Match feature.</p>
+      </div>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
 </body>
 </html>

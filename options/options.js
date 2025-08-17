@@ -4,7 +4,6 @@ const DEFAULT_SETTINGS = {
   synonymsEnabled: true,
   defaultIcon: 'question',
   preferredThemes: ['animals'],
-  statsEnabled: true,
   debugMode: false
 };
 
@@ -28,7 +27,6 @@ const elements = {
   // Advanced
   clearCacheBtn: document.getElementById('clearCacheBtn'),
   cacheSize: document.getElementById('cacheSize'),
-  statsEnabled: document.getElementById('statsEnabled'),
   debugMode: document.getElementById('debugMode'),
   
   // Data & Privacy
@@ -37,11 +35,6 @@ const elements = {
   importBtn: document.getElementById('importBtn'),
   importFile: document.getElementById('importFile'),
   
-  // Stats
-  totalMatched: document.getElementById('totalMatched'),
-  cardsProcessed: document.getElementById('cardsProcessed'),
-  averageConfidence: document.getElementById('averageConfidence'),
-  timeSaved: document.getElementById('timeSaved'),
   
   // Other
   saveNotification: document.getElementById('saveNotification')
@@ -53,7 +46,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   await loadSettings();
   await checkAuthStatus();
-  await loadStats();
   await loadCacheInfo();
   
   setupEventListeners();
@@ -71,7 +63,6 @@ async function loadSettings() {
     elements.autoMatchEnabled.checked = settings.autoMatchEnabled;
     elements.synonymsEnabled.checked = settings.synonymsEnabled;
     elements.defaultIcon.value = settings.defaultIcon;
-    elements.statsEnabled.checked = settings.statsEnabled;
     elements.debugMode.checked = settings.debugMode;
     
     // Set theme chips
@@ -97,7 +88,6 @@ async function saveSettings() {
       synonymsEnabled: elements.synonymsEnabled.checked,
       defaultIcon: elements.defaultIcon.value,
       preferredThemes: preferredThemes,
-      statsEnabled: elements.statsEnabled.checked,
       debugMode: elements.debugMode.checked
     };
     
@@ -134,32 +124,6 @@ function updateAuthStatus(isAuthenticated) {
   }
 }
 
-// Load statistics
-async function loadStats() {
-  try {
-    const result = await chrome.storage.local.get('stats');
-    const stats = result.stats || {
-      totalMatched: 0,
-      cardsProcessed: 0,
-      totalConfidence: 0,
-      timeSaved: 0
-    };
-    
-    elements.totalMatched.textContent = stats.totalMatched.toLocaleString();
-    elements.cardsProcessed.textContent = stats.cardsProcessed.toLocaleString();
-    
-    const avgConfidence = stats.totalMatched > 0 
-      ? Math.round(stats.totalConfidence / stats.totalMatched) 
-      : 0;
-    elements.averageConfidence.textContent = `${avgConfidence}%`;
-    
-    // Estimate time saved (30 seconds per icon)
-    const minutesSaved = Math.round((stats.totalMatched * 30) / 60);
-    elements.timeSaved.textContent = `${minutesSaved}m`;
-  } catch (error) {
-    console.error('Error loading stats:', error);
-  }
-}
 
 // Load cache information
 async function loadCacheInfo() {
@@ -186,7 +150,6 @@ function setupEventListeners() {
   elements.autoMatchEnabled.addEventListener('change', debouncedSave);
   elements.synonymsEnabled.addEventListener('change', debouncedSave);
   elements.defaultIcon.addEventListener('change', debouncedSave);
-  elements.statsEnabled.addEventListener('change', debouncedSave);
   elements.debugMode.addEventListener('change', debouncedSave);
   
   // Theme chips
