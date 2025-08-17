@@ -229,6 +229,7 @@ async function searchIcons(query) {
             const yotoResponse = await makeAuthenticatedRequest('/media/displayIcons/user/yoto');
             if (yotoResponse && !yotoResponse.error) {
                 const yotoIcons = Array.isArray(yotoResponse) ? yotoResponse : (yotoResponse.displayIcons || []);
+                
                 yotoIcons.forEach(icon => {
                     icon.source = 'yoto-public';
                 });
@@ -240,7 +241,6 @@ async function searchIcons(query) {
             const allText = [
                 icon.title,
                 icon.mediaId,
-                icon.description,
                 ...(icon.publicTags || [])
             ].filter(Boolean).join(' ').toLowerCase();
             return allText.includes(lowerQuery);
@@ -266,8 +266,6 @@ async function searchIcons(query) {
             const allText = [
                 icon.title,
                 icon.mediaId,
-                icon.description,
-                icon.displayIconId,
                 ...(icon.publicTags || [])
             ].filter(Boolean).join(' ').toLowerCase();
             return allText.includes(lowerQuery);
@@ -295,49 +293,85 @@ async function matchIcons(tracks) {
     const matches = [];
 
     for (const track of tracks) {
-        let bestMatch = null;
-        let highestConfidence = 0;
+        let iconOptions = [];
 
         try {
             const fullResults = await searchIcons(track.title);
             if (fullResults.icons && fullResults.icons.length > 0) {
-                bestMatch = fullResults.icons[0];
-                highestConfidence = 90;
+                const validIcons = fullResults.icons.filter(icon => 
+                    !icon.isPlaceholder && 
+                    !icon.url?.includes('yotoicons.com')
+                ).slice(0, 10);
+                
+                iconOptions = validIcons.map(icon => {
+                    let iconUrl = icon.url || icon.mediaUrl || null;
+                    
+                    if (!iconUrl && icon.mediaId) {
+                        iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
+                    }
+                    
+                    const isValidUrl = iconUrl && 
+                                     iconUrl.startsWith('http') && 
+                                     iconUrl.length < 2000 && 
+                                     !iconUrl.includes('data:');
+                    
+                    return {
+                        url: isValidUrl ? iconUrl : null,
+                        iconId: icon.mediaId || icon.id || icon.displayIconId,
+                        title: icon.title || null
+                    };
+                });
+                
+                iconOptions = iconOptions.filter(option => option.url !== null);
             }
         } catch (error) {}
 
-        if (!bestMatch) {
+        if (iconOptions.length < 5) {
             const keywords = track.title.toLowerCase().split(' ').filter(word => word.length >= 3);
 
             for (const keyword of keywords) {
+                if (iconOptions.length >= 10) break;
+                
                 try {
                     const results = await searchIcons(keyword);
                     if (results.icons && results.icons.length > 0) {
-                        const exactMatch = results.icons.find(icon =>
-                            icon.title?.toLowerCase().includes(keyword) ||
-                            icon.publicTags?.some(tag => tag.toLowerCase() === keyword)
+                        const validIcons = results.icons.filter(icon =>
+                            !icon.isPlaceholder && 
+                            !icon.url?.includes('yotoicons.com') &&
+                            !iconOptions.some(opt => opt.iconId === (icon.mediaId || icon.id || icon.displayIconId))
                         );
 
-                        bestMatch = exactMatch || results.icons[0];
-                        highestConfidence = exactMatch ? 80 : 60;
-                        break;
+                        const newOptions = validIcons.slice(0, 10 - iconOptions.length).map(icon => {
+                            let iconUrl = icon.url || icon.mediaUrl || null;
+                            
+                            if (!iconUrl && icon.mediaId) {
+                                iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
+                            }
+                            
+                            const isValidUrl = iconUrl && 
+                                             iconUrl.startsWith('http') && 
+                                             iconUrl.length < 2000 && 
+                                             !iconUrl.includes('data:');
+                            
+                            return {
+                                url: isValidUrl ? iconUrl : null,
+                                iconId: icon.mediaId || icon.id || icon.displayIconId,
+                                title: icon.title || null
+                            };
+                        });
+
+                        const validNewOptions = newOptions.filter(option => option.url !== null);
+                        iconOptions = iconOptions.concat(validNewOptions);
                     }
                 } catch (error) {}
             }
         }
 
-        let iconId = null;
-        if (bestMatch) {
-            iconId = bestMatch.mediaId || bestMatch.id || bestMatch.displayIconId;
-        }
-
         const matchResult = {
             trackId: track.id,
             trackTitle: track.title,
-            suggestedIcon: bestMatch?.url || bestMatch?.mediaUrl || null,
-            iconId: iconId,
-            iconTitle: bestMatch?.title || null,
-            confidence: highestConfidence
+            iconOptions: iconOptions,
+            selectedIndex: 0
         };
 
         matches.push(matchResult);
@@ -550,16 +584,28 @@ chrome.runtime.onInstalled.addListener(async () => {
     const isValid = await TokenManager.isTokenValid();
 });
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url?.includes('my.yotoplay.com')) {
-        TokenManager.isTokenValid().then(isValid => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && 
+        tab.url?.includes('my.yotoplay.com') && 
+        tab.url?.includes('/card/') && 
+        tab.url?.includes('/edit')) {
+        
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: ['content/content-simple.js']
+            });
+            
+            const isValid = await TokenManager.isTokenValid();
             if (isValid) {
                 chrome.tabs.sendMessage(tabId, {
                     action: 'AUTH_STATUS',
                     authenticated: true
                 }).catch(() => {});
             }
-        });
+        } catch (error) {
+            // Content script injection failed
+        }
     }
 });
 

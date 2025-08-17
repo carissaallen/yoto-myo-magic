@@ -24,18 +24,6 @@
     "service_worker": "background/service-worker.js"
   },
   
-  "content_scripts": [
-    {
-      "matches": [
-        "https://my.yotoplay.com/*"
-      ],
-      "js": [
-        "content/content-simple.js"
-      ],
-      "run_at": "document_end"
-    }
-  ],
-  
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "Yoto MYO Magic",

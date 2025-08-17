@@ -1,5 +1,61 @@
 
+(function() {
+'use strict';
+
+const selectedIcons = {};
+let currentMatches = [];
+
+function cycleIcon(trackId, direction) {
+  const match = currentMatches.find(m => m.uniqueTrackId === trackId);
+  if (!match || !match.iconOptions || match.iconOptions.length <= 1) return;
+
+  const currentIndex = selectedIcons[trackId] || 0;
+  let newIndex;
+  
+  if (direction === 'next') {
+    newIndex = (currentIndex + 1) % match.iconOptions.length;
+  } else {
+    newIndex = currentIndex - 1 < 0 ? match.iconOptions.length - 1 : currentIndex - 1;
+  }
+  
+  selectedIcons[trackId] = newIndex;
+  const iconContainer = document.querySelector(`[data-track-id="${trackId}"] .icon-display`);
+  const iconCountDisplay = document.querySelector(`[data-track-id="${trackId}"] .icon-count`);
+  const iconTitleDisplay = document.querySelector(`[data-track-id="${trackId}"] .icon-title`);
+  
+  if (iconContainer && match.iconOptions[newIndex]) {
+    const selectedIcon = match.iconOptions[newIndex];
+    iconContainer.classList.add('icon-transition');
+    setTimeout(() => iconContainer.classList.remove('icon-transition'), 300);
+    
+    if (selectedIcon.url && selectedIcon.url.startsWith('http') && selectedIcon.url.length < 2000) {
+      iconContainer.innerHTML = `<img src="${selectedIcon.url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" onerror="this.style.display='none'; this.parentElement.innerHTML='❌';">`;
+    } else {
+      iconContainer.innerHTML = '🎵';
+    }
+  }
+  
+  if (iconCountDisplay) {
+    iconCountDisplay.textContent = `${newIndex + 1}/${match.iconOptions.length}`;
+  }
+  
+  if (iconTitleDisplay && match.iconOptions[newIndex]) {
+    iconTitleDisplay.textContent = match.iconOptions[newIndex].title || 'Untitled Icon';
+  }
+}
+
 function showIconPreview(matches) {
+  currentMatches = matches;
+  
+  matches.forEach((match, index) => {
+    const uniqueTrackId = `${match.trackId}-${index}`;
+    match.uniqueTrackId = uniqueTrackId;
+    
+    if (!selectedIcons[uniqueTrackId]) {
+      selectedIcons[uniqueTrackId] = 0;
+    }
+  });
+
   const existingPreview = document.querySelector('#yoto-magic-preview');
   if (existingPreview) {
     existingPreview.remove();
@@ -39,10 +95,13 @@ function showIconPreview(matches) {
     </div>
     <div id="match-list" style="display: flex; flex-direction: column; gap: 12px;">
       ${matches.map(match => {
-        const isYotoiconsLink = match.suggestedIcon && match.suggestedIcon.includes('yotoicons.com');
+        const hasMultipleIcons = match.iconOptions && match.iconOptions.length > 1;
+        const selectedIndex = selectedIcons[match.uniqueTrackId] || 0;
+        const selectedIcon = match.iconOptions && match.iconOptions[selectedIndex];
+        const hasValidIcon = selectedIcon && selectedIcon.url && !selectedIcon.url.includes('yotoicons.com');
         
         return `
-        <div style="
+        <div data-track-id="${match.uniqueTrackId}" style="
           display: flex;
           align-items: center;
           gap: 12px;
@@ -51,30 +110,67 @@ function showIconPreview(matches) {
           border-radius: 8px;
           border: 1px solid #e0e0e0;
         ">
-          <div style="
+          ${hasMultipleIcons ? `
+          <button data-action="prev" data-track-id="${match.uniqueTrackId}" class="icon-nav-button" style="
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: #e0e0e0;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+          ">‹</button>
+          ` : ''}
+          
+          <div class="icon-display" style="
             width: 48px;
             height: 48px;
-            background: ${match.suggestedIcon ? '#e0e0e0' : '#FFD700'};
+            background: ${hasValidIcon ? '#e0e0e0' : '#FFD700'};
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
           ">
-            ${isYotoiconsLink ? 
-              '🔗' :
-              (match.suggestedIcon ? 
-                `<img src="${match.suggestedIcon}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" onerror="this.style.display='none'; this.parentElement.innerHTML='❌';">` :
-                '🎵')}
+            ${hasValidIcon ? 
+              `<img src="${selectedIcon.url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" onerror="this.style.display='none'; this.parentElement.innerHTML='❌';">` :
+              '🎵'}
           </div>
+          
+          ${hasMultipleIcons ? `
+          <button data-action="next" data-track-id="${match.uniqueTrackId}" class="icon-nav-button" style="
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: #e0e0e0;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+          ">›</button>
+          ` : ''}
+          
           <div style="flex: 1;">
             <div style="font-weight: 500; color: #2c3e50;">${match.trackTitle}</div>
-            <div style="font-size: 12px; color: #999; margin-top: 4px;">
-              ${isYotoiconsLink ? 
-                `<a href="${match.suggestedIcon}" target="_blank" style="color: #0066cc; text-decoration: underline;">Search on yotoicons.com</a>` :
-                (match.confidence > 0 ? `Confidence: ${match.confidence}%` : 'No match found')}
+            ${hasMultipleIcons ? `
+            <div class="icon-count" style="font-size: 12px; color: #999; margin-top: 4px;">
+              ${selectedIndex + 1}/${match.iconOptions.length} icons available
             </div>
-            ${match.iconTitle ? `<div style="font-size: 11px; color: #666; margin-top: 2px;">Icon: ${match.iconTitle}</div>` : ''}
+            ` : `
+            <div style="font-size: 12px; color: #999; margin-top: 4px;">
+              ${match.iconOptions && match.iconOptions.length > 0 ? 'Icon found' : 'No icons found'}
+            </div>
+            `}
+            ${selectedIcon && selectedIcon.title ? `
+            <div class="icon-title" style="font-size: 11px; color: #666; margin-top: 2px;">
+              Icon: ${selectedIcon.title}
+            </div>
+            ` : ''}
           </div>
         </div>
       `}).join('')}
@@ -111,7 +207,7 @@ function showIconPreview(matches) {
   modal.appendChild(content);
   document.body.appendChild(modal);
   
-  // Add animation style if not present
+  // Add animation styles if not present
   if (!document.querySelector('#yoto-magic-animation-style')) {
     const style = document.createElement('style');
     style.id = 'yoto-magic-animation-style';
@@ -120,10 +216,51 @@ function showIconPreview(matches) {
         from { opacity: 0; }
         to { opacity: 1; }
       }
+      
+      @keyframes iconTransition {
+        0% { transform: scale(0.8); opacity: 0.3; }
+        50% { transform: scale(1.1); opacity: 0.7; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      
+      .icon-transition {
+        animation: iconTransition 0.3s ease;
+      }
+      
+      .icon-nav-button {
+        transition: all 0.2s ease;
+      }
+      
+      .icon-nav-button:hover {
+        transform: scale(1.1);
+      }
+      
+      .icon-nav-button:active {
+        transform: scale(0.95);
+      }
     `;
     document.head.appendChild(style);
   }
   
+  // Add event listeners for navigation buttons
+  const navButtons = content.querySelectorAll('.icon-nav-button');
+  navButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const trackId = this.getAttribute('data-track-id');
+      const action = this.getAttribute('data-action');
+      cycleIcon(trackId, action);
+    });
+    
+    // Add hover effects
+    button.addEventListener('mouseenter', function() {
+      this.style.background = '#d0d0d0';
+    });
+    
+    button.addEventListener('mouseleave', function() {
+      this.style.background = '#e0e0e0';
+    });
+  });
+
   // Add event listeners
   document.querySelector('#cancel-preview').onclick = () => {
     modal.remove();
@@ -155,12 +292,27 @@ function showIconPreview(matches) {
         return;
       }
       
-      // Filter out yotoicons.com links and only get real icon URLs
-      const validMatches = matches.filter(match => 
-        match.suggestedIcon && 
-        !match.suggestedIcon.includes('yotoicons.com') &&
-        match.suggestedIcon.startsWith('http')
-      );
+      // Build selected icon matches based on user selection
+      const selectedMatches = matches.map(match => {
+        if (!match.iconOptions || match.iconOptions.length === 0) return null;
+        
+        const selectedIndex = selectedIcons[match.uniqueTrackId] || 0;
+        const selectedIcon = match.iconOptions[selectedIndex];
+        
+        if (!selectedIcon || !selectedIcon.url || selectedIcon.url.includes('yotoicons.com')) {
+          return null;
+        }
+        
+        return {
+          trackId: match.trackId, // Use original trackId for the API call
+          trackTitle: match.trackTitle,
+          suggestedIcon: selectedIcon.url,
+          iconId: selectedIcon.iconId,
+          iconTitle: selectedIcon.title
+        };
+      }).filter(Boolean);
+      
+      const validMatches = selectedMatches;
       
       if (validMatches.length === 0) {
         alert('No valid icons to apply. Please search for icons on yotoicons.com manually.');
@@ -307,13 +459,20 @@ function createButton() {
   const button = document.createElement('button');
   button.id = 'yoto-magic-btn';
   
+  // Define the puzzle piece icon for consistency
+  const puzzlePieceIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 2L15.6 5.6C18 -0.7 24.7 6 18.4 8.4L22 12L18.4 15.6C16 9.3 9.3 16 15.6 18.4L12 22L8.4 18.4C6 24.7 -0.7 18 5.6 15.6L2 12L5.6 8.4C8 14.7 14.7 8 8.4 5.6L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+  
   button.style.cssText = `
-    background-color: #FFD700;
-    color: #000000;
-    border: none;
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
     padding: 8px 16px;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     cursor: pointer;
@@ -329,19 +488,21 @@ function createButton() {
   `;
   
   button.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-    </svg>
+    ${puzzlePieceIcon}
     <span>Icon Match</span>
   `;
   
   button.onmouseenter = () => {
-    button.style.backgroundColor = '#FFC700';
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#F85D41';
+    button.style.borderColor = '#F85D41';
     button.style.transform = 'translateY(-1px)';
   };
   
   button.onmouseleave = () => {
-    button.style.backgroundColor = '#FFD700';
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
     button.style.transform = 'translateY(0)';
   };
   
@@ -352,17 +513,13 @@ function createButton() {
     
     if (!authResponse.authenticated) {
       button.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
+        ${puzzlePieceIcon}
         <span>Authorizing...</span>
       `;
       chrome.runtime.sendMessage({ action: 'START_AUTH' });
       setTimeout(() => {
         button.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
+          ${puzzlePieceIcon}
           <span>Icon Match</span>
         `;
       }, 2000);
@@ -370,9 +527,7 @@ function createButton() {
       
       button.disabled = true;
       button.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
+        ${puzzlePieceIcon}
         <span>Fetching content...</span>
       `;
       button.style.opacity = '0.7';
@@ -384,9 +539,7 @@ function createButton() {
         alert('Could not identify card ID from URL');
         button.disabled = false;
         button.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
+          ${puzzlePieceIcon}
           <span>Icon Match</span>
         `;
         button.style.opacity = '1';
@@ -488,9 +641,7 @@ function createButton() {
         alert('No tracks found in this card. Please add some tracks first.');
         button.disabled = false;
         button.innerHTML = `
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
+          ${puzzlePieceIcon}
           <span>Icon Match</span>
         `;
         button.style.opacity = '1';
@@ -536,9 +687,7 @@ function createButton() {
       
       button.disabled = false;
       button.innerHTML = `
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-        </svg>
+        ${puzzlePieceIcon}
         <span>Icon Match</span>
       `;
       button.style.opacity = '1';
@@ -549,11 +698,6 @@ function createButton() {
 }
 
 function checkAndInjectButton() {
-  const url = window.location.href;
-  if (!url.includes('my.yotoplay.com/card/') || !url.includes('/edit')) {
-    return;
-  }
-  
   if (document.querySelector('#yoto-magic-btn')) {
     return;
   }
@@ -597,67 +741,63 @@ function checkAndInjectButton() {
   }
 }
 
-setTimeout(checkAndInjectButton, 2000);
-
-let lastUrl = location.href;
-let checkInterval = null;
-
-function startChecking() {
-  if (checkInterval) {
-    clearInterval(checkInterval);
-  }
+function initialize() {
+  if (document.querySelector('#yoto-magic-btn')) return;
   
-  checkAndInjectButton();
-  
-  let checks = 0;
-  checkInterval = setInterval(() => {
-    checks++;
-    checkAndInjectButton();
-    
-    if (checks >= 10) {
-      clearInterval(checkInterval);
-      checkInterval = null;
-    }
-  }, 500);
+  const attempts = [500, 2000, 4000];
+  attempts.forEach((delay) => {
+    setTimeout(() => {
+      if (!document.querySelector('#yoto-magic-btn')) {
+        checkAndInjectButton();
+      }
+    }, delay);
+  });
 }
 
-const urlObserver = new MutationObserver(() => {
-  const url = location.href;
-  if (url !== lastUrl) {
-    lastUrl = url;
-    const existingButton = document.querySelector('#yoto-magic-btn');
-    if (existingButton && existingButton.parentElement) {
-      existingButton.parentElement.remove();
-    }
-    
-    if (url.includes('my.yotoplay.com/card/') && url.includes('/edit')) {
-      startChecking();
+let currentUrl = location.href;
+const urlCheckInterval = setInterval(() => {
+  const newUrl = location.href;
+  if (newUrl !== currentUrl) {
+    currentUrl = newUrl;
+    if (!newUrl.includes('/edit')) {
+      cleanup();
     }
   }
-});
+}, 500);
 
-urlObserver.observe(document, {subtree: true, childList: true});
-
-const contentObserver = new MutationObserver((mutations) => {
-  const url = location.href;
-  if (url.includes('my.yotoplay.com/card/') && url.includes('/edit')) {
-    const addAudioButton = Array.from(document.querySelectorAll('button')).find(btn => 
-      btn.textContent?.trim() === 'Add audio'
-    );
-    const ourButton = document.querySelector('#yoto-magic-btn');
-    
-    if (addAudioButton && !ourButton) {
-      checkAndInjectButton();
-    }
+function cleanup() {
+  if (urlCheckInterval) {
+    clearInterval(urlCheckInterval);
   }
-});
+  
+  try {
+    const elements = [
+      '#yoto-magic-btn',
+      '#yoto-magic-preview', 
+      '#yoto-refresh-indicator',
+      '#yoto-magic-animation-style',
+      '#yoto-magic-spinner-style',
+      '#yoto-refresh-styles'
+    ];
+    
+    elements.forEach(selector => {
+      const element = document.querySelector(selector);
+      if (element) {
+        if (selector === '#yoto-magic-btn' && element.parentElement) {
+          element.parentElement.remove();
+        } else {
+          element.remove();
+        }
+      }
+    });
+  } catch (error) {
+    // Ignore cleanup errors
+  }
+}
 
-contentObserver.observe(document.body, {
-  childList: true,
-  subtree: true,
-  attributes: false,
-  characterData: false
-});
+initialize();
+window.addEventListener('beforeunload', cleanup);
+window.addEventListener('pagehide', cleanup);
 
 function showRefreshIndicator() {
   const indicator = document.createElement('div');
@@ -706,3 +846,5 @@ function showRefreshIndicator() {
   
   document.body.appendChild(indicator);
 }
+
+})(); // End of IIFE
