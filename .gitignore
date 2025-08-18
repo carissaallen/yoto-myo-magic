@@ -22,6 +22,9 @@ build/
 .env.local
 .env.*.local
 
+# Configuration with secrets
+config.js
+
 # Chrome extension development
 *.crx
 *.pem

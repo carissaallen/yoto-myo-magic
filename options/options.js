@@ -42,7 +42,7 @@ const elements = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('Options page initialized');
+  
   
   await loadSettings();
   await checkAuthStatus();
@@ -71,7 +71,7 @@ async function loadSettings() {
       input.checked = settings.preferredThemes.includes(input.value);
     });
   } catch (error) {
-    console.error('Error loading settings:', error);
+    
   }
 }
 
@@ -94,7 +94,7 @@ async function saveSettings() {
     await chrome.storage.sync.set({ settings });
     showSaveNotification();
   } catch (error) {
-    console.error('Error saving settings:', error);
+    
   }
 }
 
@@ -104,7 +104,7 @@ async function checkAuthStatus() {
     const response = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
     updateAuthStatus(response.authenticated);
   } catch (error) {
-    console.error('Error checking auth status:', error);
+    
     updateAuthStatus(false);
   }
 }
@@ -132,7 +132,7 @@ async function loadCacheInfo() {
     const cache = result.yoto_icon_cache || [];
     elements.cacheSize.textContent = `${cache.length} icons cached`;
   } catch (error) {
-    console.error('Error loading cache info:', error);
+    
   }
 }
 
@@ -198,7 +198,7 @@ async function handleAuthToggle() {
         updateAuthStatus(false);
         showNotification('Successfully disconnected from Yoto');
       } catch (error) {
-        console.error('Logout error:', error);
+        
         showNotification('Failed to disconnect', 'error');
       }
     }
@@ -216,7 +216,7 @@ async function handleClearCache() {
       elements.cacheSize.textContent = '0 icons cached';
       showNotification('Cache cleared successfully');
     } catch (error) {
-      console.error('Clear cache error:', error);
+      
       showNotification('Failed to clear cache', 'error');
     }
   }
@@ -230,7 +230,7 @@ async function handleResetSettings() {
       await loadSettings();
       showNotification('Settings reset to defaults');
     } catch (error) {
-      console.error('Reset settings error:', error);
+      
       showNotification('Failed to reset settings', 'error');
     }
   }
@@ -254,7 +254,7 @@ async function handleExportSettings() {
     
     showNotification('Settings exported successfully');
   } catch (error) {
-    console.error('Export error:', error);
+    
     showNotification('Failed to export settings', 'error');
   }
 }
@@ -280,7 +280,7 @@ async function handleImportSettings(e) {
     // Clear file input
     elements.importFile.value = '';
   } catch (error) {
-    console.error('Import error:', error);
+    
     showNotification('Failed to import settings', 'error');
   }
 }
@@ -310,4 +310,3 @@ function showNotification(message, type = 'success') {
   }, 3000);
 }
 
-console.log('Options script loaded');
