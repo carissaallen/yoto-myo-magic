@@ -1,4 +1,4 @@
-console.log('[Yoto MYO Magic] Content script loaded at:', window.location.href);
+// Content script loaded
 
 // Configuration
 const CONFIG = {
@@ -46,11 +46,11 @@ let state = {
 
 // Initialize
 function init() {
-  console.log('[Yoto MYO Magic] Initializing content script');
+  // Initialize content script
   
   // Check auth status first
   chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(response => {
-    console.log('[Yoto MYO Magic] Auth status:', response.authenticated);
+    // Auth status received
     state.authenticated = response.authenticated;
   });
   
@@ -65,13 +65,13 @@ function init() {
   
   // Additional check specifically for the playlists page
   if (window.location.pathname.includes('/my-cards/playlists')) {
-    console.log('[Yoto MYO Magic] Detected playlists page, setting up additional checks');
+    // Detected playlists page, setting up additional checks
     // Try multiple times to inject the button
     const injectAttempts = [1500, 2500, 3500, 5000];
     injectAttempts.forEach(delay => {
       setTimeout(() => {
         if (!document.querySelector('#yoto-import-btn')) {
-          console.log(`[Yoto MYO Magic] Retry injection at ${delay}ms`);
+          // Retry injection
           injectMyPlaylistsUI(null);
         }
       }, delay);
@@ -84,7 +84,7 @@ function init() {
   // Listen for auth status updates
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTH_STATUS') {
-      console.log('[Yoto MYO Magic] Auth status updated:', request.authenticated);
+      // Auth status updated
       state.authenticated = request.authenticated;
       
       // Update button icon
@@ -103,38 +103,38 @@ function checkForMyoPage() {
   const url = window.location.href;
   const path = window.location.pathname;
   
-  console.log('[Yoto MYO Magic] Checking page:', url);
+  // Check page URL
   
   // Check if we're on my.yotoplay.com
   if (!url.includes('my.yotoplay.com')) {
-    console.log('[Yoto MYO Magic] Not on my.yotoplay.com, skipping');
+    // Not on my.yotoplay.com
     return;
   }
   
   // Determine page type
   if (path.includes('/my-cards/playlists')) {
-    console.log('[Yoto MYO Magic] On playlists page');
+    // On playlists page
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
-    console.log('[Yoto MYO Magic] On card edit page');
+    // On card edit page
     state.isMyoPage = true;
     state.pageType = 'edit-card';
     // For edit pages, we need to inject the Icon Match button using content-simple.js
     // That's handled by the service worker
   } else {
-    console.log('[Yoto MYO Magic] Not on a relevant page');
+    // Not on a relevant page
   }
   
-  console.log('[Yoto MYO Magic] Page type:', state.pageType);
+  // Page type determined
 }
 
 // Wait for MYO elements to appear
 function waitForMyoElements() {
   // For playlists page, we only need to inject the Import button
   if (window.location.pathname.includes('/my-cards/playlists')) {
-    console.log('[Yoto MYO Magic] On playlists page, injecting Import button');
+    // Inject Import button for playlists page
     // Give the page a moment to render, then inject
     setTimeout(() => {
       injectMyPlaylistsUI(null);
@@ -163,7 +163,7 @@ function findMyoContainer() {
 
 // Initialize MYO features
 function initializeMyoFeatures(container) {
-  console.log('Initializing MYO features');
+  // Initialize MYO features
   
   // Extract track information
   extractTracks(container);
@@ -184,12 +184,12 @@ function extractTracks(container) {
   
   // This will be implemented when we have access to the actual edit page
   // For now, we'll focus on button injection
-  console.log('Track extraction will be implemented for edit pages');
+  // Track extraction for edit pages
 }
 
 // Inject UI elements
 function injectUI(container) {
-  console.log('Injecting UI for page type:', state.pageType);
+  // Inject UI based on page type
   
   if (state.pageType === 'add-playlist') {
     injectAddPlaylistUI(container);
@@ -218,7 +218,7 @@ function injectAddPlaylistUI(container) {
       const button = createAutoMatchButton();
       // Insert after the last button in the row
       row.appendChild(button);
-      console.log('Added Auto-Match button to Add Playlist page');
+      // Auto-Match button added
       break;
     }
   }
@@ -499,13 +499,13 @@ function createPreviewOverlay() {
 
 // Handle auto-match button click
 async function handleAutoMatchClick() {
-  console.log('[Yoto MYO Magic] Auto-match clicked');
+  // Auto-match clicked
   
   // Check if we're authenticated with Yoto API
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    console.log('[Yoto MYO Magic] Not authenticated, starting auth flow');
+    // Start auth flow
     // Start authentication
     chrome.runtime.sendMessage({ action: 'START_AUTH' });
     return;
@@ -528,14 +528,14 @@ async function handleAutoMatchClick() {
   
   try {
     // For now, show a demo of what will happen
-    // TODO: Implement actual API integration
+    // API integration placeholder
     setTimeout(() => {
       showNotification(`Icon matching for "${playlistName}" will be implemented soon!`, 'info');
       button.innerHTML = originalContent;
       button.disabled = false;
     }, 1500);
   } catch (error) {
-    console.error('Matching error:', error);
+    showNotification('Error matching icons. Please try again.', 'error');
     showNotification('Failed to match icons. Please try again.', 'error');
     button.innerHTML = originalContent;
     button.disabled = false;
@@ -544,13 +544,13 @@ async function handleAutoMatchClick() {
 
 // Handle bulk match button click
 async function handleBulkMatchClick() {
-  console.log('[Yoto MYO Magic] Bulk match clicked');
+  
   
   // Check if we're authenticated with Yoto API
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    console.log('[Yoto MYO Magic] Not authenticated, starting auth flow');
+    // Start auth flow
     showNotification('Please authorize the app to continue...', 'info');
     // Start authentication
     await chrome.runtime.sendMessage({ action: 'START_AUTH' });
@@ -565,7 +565,7 @@ async function handleBulkMatchClick() {
   
   // Test API by fetching cards
   const cardsResponse = await chrome.runtime.sendMessage({ action: 'GET_CARDS' });
-  console.log('[Yoto MYO Magic] Cards response:', cardsResponse);
+  
   
   if (cardsResponse.error) {
     if (cardsResponse.needsAuth) {
@@ -582,7 +582,7 @@ async function handleBulkMatchClick() {
   
   if (cardsResponse.cards && cardsResponse.cards.length > 0) {
     showNotification(`Found ${cardsResponse.cards.length} cards! Feature coming soon...`, 'success');
-    // TODO: Show card selection UI
+    // Card selection UI would go here
   } else {
     showNotification('No cards found. Create a card first to use this feature.', 'info');
   }
@@ -590,18 +590,18 @@ async function handleBulkMatchClick() {
 
 // Handle import button click
 async function handleImportClick() {
-  console.log('[Yoto MYO Magic] Import clicked');
+  // Import clicked
   
   try {
     // Check authentication first
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-    console.log('[Yoto MYO Magic] Auth response:', authResponse);
+    // Check auth response
     
     if (!authResponse || !authResponse.authenticated) {
       showNotification('Please authenticate first. Click the extension icon.', 'info');
       // Try to start auth
       chrome.runtime.sendMessage({ action: 'START_AUTH' }).catch(err => {
-        console.error('[Yoto MYO Magic] Failed to start auth:', err);
+        showNotification('Failed to start authentication. Please try again.', 'error');
       });
       return;
     }
@@ -609,7 +609,7 @@ async function handleImportClick() {
     // Show import options
     openFolderSelector();
   } catch (error) {
-    console.error('[Yoto MYO Magic] Error in handleImportClick:', error);
+    showNotification('Error occurred. Please try again.', 'error');
     // If auth check fails, still show the import options
     showNotification('Proceeding without auth check...', 'warning');
     openFolderSelector();
@@ -624,7 +624,7 @@ function openFolderSelector() {
 
 // Show modal with import options
 function showImportOptionsModal() {
-  console.log('[Yoto MYO Magic] Showing import options modal');
+  // Show import options
   
   // Remove any existing modal
   const existingModal = document.getElementById('yoto-import-options-modal');
@@ -977,18 +977,12 @@ async function processFolderFiles(files) {
     return;
   }
   
-  // Log what we found for debugging
-  console.log('[Yoto MYO Magic] Folder import found:', {
-    audioFiles: audioFiles.length,
-    trackIcons: trackIcons.length,
-    coverImage: coverImage ? coverImage.name : 'none',
-    audioFormats: [...new Set(audioFiles.map(f => f.name.split('.').pop()))]
-  });
+  // Files processed successfully
   
   showNotification(`Folder processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
   
   // Show import modal with the files
-  showImportModal(audioFiles, trackIcons, coverImage, folderName);
+  showImportModal(audioFiles, trackIcons, coverImage, folderName, 'folder');
 }
 
 // Process ZIP file
@@ -1176,21 +1170,15 @@ async function processZipFile(file) {
       return;
     }
     
-    // Log what we found for debugging
-    console.log('[Yoto MYO Magic] Found:', {
-      audioFiles: audioFiles.length,
-      trackIcons: trackIcons.length,
-      coverImage: coverImage ? coverImage.name : 'none',
-      audioFormats: [...new Set(audioFiles.map(f => f.name.split('.').pop()))]
-    });
+    // Files processed successfully
     
     showNotification(`ZIP processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
     
     // Show import modal with the extracted files
-    showImportModal(audioFiles, trackIcons, coverImage, folderName);
+    showImportModal(audioFiles, trackIcons, coverImage, folderName, 'zip');
     
   } catch (error) {
-    console.error('[Yoto MYO Magic] Error processing ZIP file:', error);
+    showNotification('Error processing file. Please check the file format.', 'error');
     showNotification('Failed to process ZIP file. Error: ' + error.message, 'error');
   }
 }
@@ -1283,12 +1271,12 @@ function hideOverlay() {
 
 // Apply icon changes
 async function applyIconChanges() {
-  console.log('Applying icon changes');
+  
   
   const overlay = document.getElementById('yoto-magic-overlay');
   const matches = JSON.parse(overlay.dataset.matches || '[]');
   
-  // TODO: Implement actual API calls to update icons
+  // Update icons via API
   // This would involve calling the Yoto API through the background script
   
   alert('Icon changes would be applied here (implementation pending)');
@@ -1301,6 +1289,16 @@ async function applyIconChanges() {
     stats: {
       iconsMatched: matches.length,
       cardsUpdated: 1
+    }
+  });
+  
+  // Track icon matching
+  chrome.runtime.sendMessage({
+    action: 'TRACK_EVENT',
+    eventName: 'icon_match',
+    parameters: {
+      matchCount: matches.length,
+      automated: false
     }
   });
 }
@@ -1435,7 +1433,7 @@ async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000) {
 }
 
 // Show import modal
-function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist') {
+function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist', sourceType = 'unknown') {
   // Remove existing modal if any
   const existing = document.querySelector('#yoto-import-modal');
   if (existing) existing.remove();
@@ -1560,7 +1558,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       // Automatically choose upload strategy based on file count
       // Use chunked strategy for 20+ audio files to prevent browser overload
       const uploadStrategy = audioFiles.length >= 20 ? 'chunked' : 'parallel';
-      console.log(`[Import] Using ${uploadStrategy} upload strategy for ${audioFiles.length} audio files`);
+      
       
       let uploadedCoverUrl = null;
       const uploadedIconIds = [];
@@ -1712,7 +1710,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               if (!value.error && value.url) {
                 uploadedCoverUrl = value.url;
               } else {
-                console.warn('Failed to upload cover:', value.error);
+                
               }
             } else if (type === 'icon') {
               const { response, iconFile } = value;
@@ -1721,7 +1719,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
                 const iconNumber = parseInt(iconFile.name.match(/\d+/)[0]) - 1;
                 uploadedIconIds[iconNumber] = response.iconId;
               } else {
-                console.warn(`Failed to upload icon ${iconFile.name}:`, response.error);
+                
               }
             } else if (type === 'audio') {
               const { response, audioFile, index: audioIndex } = value;
@@ -1739,7 +1737,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             if (type === 'audio') {
               throw new Error(`Audio upload failed: ${result.reason}`);
             } else {
-              console.warn(`${type} upload failed:`, result.reason);
+              
             }
           }
         });
@@ -1865,14 +1863,35 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       
       showNotification('Playlist created successfully!', 'success');
       
+      // Track successful import
+      chrome.runtime.sendMessage({
+        action: 'TRACK_EVENT',
+        eventName: 'import_playlist',
+        parameters: {
+          source: sourceType,
+          fileCount: audioFiles.length,
+          success: true
+        }
+      });
+      
       // Auto refresh after a short delay
       setTimeout(() => {
         window.location.reload();
       }, 2000);
       
     } catch (error) {
-      console.error('Import error:', error);
       showNotification('Import failed: ' + error.message, 'error');
+      
+      // Track failed import
+      chrome.runtime.sendMessage({
+        action: 'TRACK_EVENT',
+        eventName: 'import_playlist',
+        parameters: {
+          source: sourceType,
+          fileCount: audioFiles ? audioFiles.length : 0,
+          success: false
+        }
+      });
       
       // Show error in modal
       progressDiv.innerHTML = `

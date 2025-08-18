@@ -1,96 +1,177 @@
 # Yoto MYO Magic
 
-> _Automatically match icons to your MYO playlist tracks on Yoto._
+> _Import playlists from ZIP files or folders to Yoto MYO cards with automatic icon matching._
 
-Transform the way you create Yoto cards! Yoto MYO Magic is a Chrome Extension that intelligently matches icons to your Make Your Own (MYO) playlist tracks, saving you time and making your cards more visually appealing.
+Transform how you create Yoto cards! Yoto MYO Magic is a Chrome Extension that lets you import entire playlists from ZIP files or folders directly to your Make Your Own (MYO) cards, complete with automatic icon matching for each track.
 
-## What It Does
+## 🎯 What It Does
 
-Instead of manually selecting an icon for each track in your MYO playlists, Yoto MYO Magic automatically analyzes your track titles and suggests the perfect icons from Yoto's collection.
+Skip the tedious manual upload process! Import complete playlists with audio files, artwork, and icons in one click, then let the extension automatically match perfect icons to each track.
 
 **Before Yoto MYO Magic:**
+- Upload audio files one by one through Yoto's interface
 - Manually browse through hundreds of icons for each track
-- Spend minutes per track finding the right visual match
+- Spend hours creating a single playlist
 - Risk inconsistent styling across your playlist
 
 **After Yoto MYO Magic:**
-- One-click automatic icon matching for entire playlists
-- Smart suggestions based on track titles and themes
-- Cohesive, professional-looking cards in seconds
+- Import entire playlists from ZIP files or folders in seconds
+- Automatic icon matching for all tracks
+- Batch upload audio, cover art, and track icons
+- Professional-looking cards in minutes, not hours
 
-## Features
+## ✨ Features
 
-### Smart Icon Matching
-- **Intelligent Analysis**: Automatically understands track titles like "Baby Owl Story" → 🦉
-- **Synonym Recognition**: Knows that "puppy" means "dog" and "kitty" means "cat"
-- **Confidence Scoring**: Shows how certain we are about each match
-- **Manual Override**: Easy to change any suggestion you don't like
+### 📁 Bulk Import from ZIP or Folder
+- **ZIP File Import**: Upload a complete playlist from a single ZIP file
+- **Folder Import**: Select a folder containing your audio files
+- **Smart File Detection**: Automatically identifies audio files, cover art, and track icons
+- **Supported Formats**: MP3, M4A, WAV, OGG, FLAC, AAC, OPUS, WMA
+- **Automatic Transcoding**: Files are automatically converted to Yoto-compatible format
 
-### Theme-Based Matching
-- **Automatic Theme Detection**: Recognizes when your card is about dinosaurs, animals, or space
-- **Cohesive Styling**: Applies consistent icon themes across all tracks
-- **Category Selection**: Choose from predefined themes like Animals, Dinosaurs, or Vehicles
+### 🎨 Automatic Icon Management
+- **Smart Icon Matching**: AI-powered matching based on track titles
+- **Bulk Icon Import**: Include custom icons in your ZIP/folder (1.png, 2.png, etc.)
+- **Yoto Icon Library**: Access and search Yoto's entire icon collection
+- **Confidence Scoring**: See how certain the matches are
+- **Manual Override**: Easily change any suggestion
 
-### Seamless Integration
-- **Works on Yoto Website**: Adds features directly to your existing MYO editing experience
-- **One-Click Processing**: Process entire playlists with a single button
-- **Preview Before Apply**: See all changes before they're made
-- **No Account Required**: Uses your existing Yoto login
+### 📊 Smart Upload Strategies
+- **Parallel Upload**: Fast upload for small playlists (< 20 tracks)
+- **Chunked Upload**: Reliable upload for large playlists (20+ tracks)
+- **Progress Tracking**: Real-time upload progress with percentage complete
+- **Error Recovery**: Automatic retry on failed uploads
 
-## Perfect For
+### 🔐 Secure Authentication
+- **OAuth 2.0**: Secure login through Yoto's official authentication
+- **No Password Storage**: We never store your Yoto credentials
+- **Token Management**: Automatic token refresh for seamless experience
 
-- **Busy Parents**: Save time when creating educational content for your kids
-- **Content Creators**: Quickly produce professional-looking Yoto cards
-- **Teachers**: Easily create themed learning materials
-- **Anyone**: Who wants better-looking MYO cards without the tedious work
+## 🚀 Installation
 
-## Installation
+### From Chrome Web Store
+1. Visit the [Chrome Web Store](https://chrome.google.com/webstore) (link coming soon)
+2. Click "Add to Chrome"
+3. Confirm the installation
 
-### From Chrome Web Store (Recommended)
-*Coming soon - we're preparing for release*
+### Manual Installation (for testing)
+1. Download the latest release ZIP
+2. Open Chrome and go to `chrome://extensions/`
+3. Enable "Developer mode" (top right)
+4. Click "Load unpacked" and select the extracted folder
 
-### Manual Installation (Development)
-*Instructions will be added when the extension is ready for testing*
+## 📖 How to Use
 
-## How to Use
+### Import a Playlist
 
-1. **Install the Extension**: Add Yoto MYO Magic to your Chrome browser
-2. **Visit Yoto**: Go to your MYO card editing page on yotoplay.com
-3. **Click Auto-Match**: Look for the "Auto-Match Icons" button on your playlist
-4. **Preview Results**: Review the suggested icons and confidence scores
-5. **Apply Changes**: Confirm to update your card with the new icons
+1. **Prepare Your Files**:
+   - Create a folder with your audio files
+   - Optional: Add `cover.jpg/png` for album art
+   - Optional: Add numbered icons (`1.png`, `2.png`, etc.) for custom track icons
+   - Optional: Create a ZIP file of the folder
 
-*Detailed screenshots and video tutorial coming soon*
+2. **Go to Yoto**:
+   - Navigate to [my.yotoplay.com](https://my.yotoplay.com)
+   - Go to "My Cards" → "Add a playlist"
 
-## Requirements
+3. **Import Your Playlist**:
+   - Click the "Import Playlist" button (added by the extension)
+   - Choose either ZIP file or folder import
+   - Enter a playlist name
+   - Click "Start Import"
 
-- **Browser**: Google Chrome (other Chromium browsers may work)
-- **Yoto Account**: You'll need to be logged into your Yoto account
-- **Internet Connection**: Required for accessing icon databases and Yoto's API
+4. **Watch the Magic**:
+   - Files are uploaded automatically
+   - Progress bar shows upload status
+   - Icons are matched to track titles
+   - Playlist is created on your MYO card
 
-## Support
+### File Structure Example
+
+```
+my-playlist/
+├── cover.jpg          # Album artwork (optional)
+├── 01 - Track One.mp3
+├── 02 - Track Two.mp3
+├── 03 - Track Three.mp3
+├── 1.png             # Icon for track 1 (optional)
+├── 2.png             # Icon for track 2 (optional)
+└── 3.png             # Icon for track 3 (optional)
+```
+
+## 🔧 Configuration
+
+Access settings through the extension popup or options page:
+
+- **Confidence Threshold**: Minimum score for automatic icon matching (default: 70%)
+- **Auto-Match**: Enable/disable automatic icon matching
+- **Synonyms**: Enable smart synonym recognition
+- **Debug Mode**: Show detailed logging (for troubleshooting)
+
+## 📊 Privacy & Analytics
+
+- **Google Analytics 4**: Used to track feature usage (no personal data)
+- **Local Storage Only**: All settings stored locally in your browser
+- **No Server Storage**: We don't store any of your content or data
+- **Open Source**: Full code transparency
+
+## 🆘 Support
 
 ### Getting Help
-- **Issues**: Found a bug or have a feature request? [Open an issue](../../issues)
-- **Questions**: Need help using the extension? Check our [FAQ](#faq) below
+- **Issues**: [Report bugs or request features](https://github.com/yourusername/yoto-myo-magic/issues)
+- **Documentation**: Check the [Wiki](https://github.com/yourusername/yoto-myo-magic/wiki)
 
-### FAQ
+### Common Issues
 
-**Q: Does this cost money?**  
-A: Yoto MYO Magic is completely free to use.
+**Import button not appearing?**
+- Make sure you're on the "Add a playlist" page
+- Try refreshing the page
+- Check that the extension is enabled
 
-**Q: Do you store my Yoto login information?**  
-A: No, we use Yoto's secure authentication system and don't store your password.
+**Upload failing?**
+- Check file formats (MP3, M4A, WAV, etc.)
+- Ensure files are under 100MB each
+- Try the chunked upload option for large playlists
 
-**Q: What if the icon suggestions aren't good?**  
-A: You can easily override any suggestion manually, just like you would normally.
+**Icons not matching?**
+- Make sure track titles are descriptive
+- Use the manual search feature
+- Include custom icons in your import
 
-**Q: Does this work with all MYO cards?**  
-A: Yes, it works with any MYO playlist that you can edit on the Yoto website.
+## 🛠️ Development
 
-**Q: Will this slow down the Yoto website?**  
-A: No, the extension is designed to be lightweight and won't affect your browsing experience.
+### Building from Source
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/yoto-myo-magic.git
+cd yoto-myo-magic
+
+# Copy config template
+cp config.template.js config.js
+# Edit config.js with your values
+
+# Build for Chrome Web Store
+chmod +x build.sh
+./build.sh
+```
+
+### Configuration
+Edit `config.js` with:
+- Your GA4 Measurement ID
+- Your Chrome Extension ID
+
+## 📝 License
+
+MIT License - See [LICENSE](LICENSE) file for details
+
+## 🙏 Acknowledgments
+
+- Thanks to the Yoto community for inspiration
+- Icon matching powered by Yoto's icon library
+- Built with love for busy parents and creative kids
 
 ---
 
-_Built on a foundation of trial, error, and a stubborn grit — this one's for the rule-benders and the card-makers._
+_Built on a foundation of trial, error, and stubborn grit — this one's for the rule-benders and the card-makers._
+
+**Not affiliated with Yoto. Yoto is a trademark of Yoto Limited.**

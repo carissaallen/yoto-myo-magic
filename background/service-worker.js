@@ -1,13 +1,9 @@
-const CONFIG = {
-    YOTO_API_BASE: 'https://api.yotoplay.com',
-    YOTO_AUTH_BASE: 'https://login.yotoplay.com',
-    CLIENT_ID: '91cvZsRLdqJpX2PDNJxjsm9yvco0xnQh',
-    CLIENT_SECRET: '',
-    EXTENSION_ID: 'mjljammaehdojchngjnooekefnogdhol',
-    TOKEN_STORAGE_KEY: 'yoto_auth_tokens',
-    ICON_CACHE_KEY: 'yoto_icon_cache',
-    STATS_KEY: 'yoto_stats'
-};
+// Import configuration and analytics
+importScripts('../config.js');
+importScripts('../lib/analytics.js');
+
+// Use config from the centralized config file
+const CONFIG = ExtensionConfig;
 
 function getRedirectUri() {
     return `chrome-extension://${CONFIG.EXTENSION_ID}/callback.html`;
@@ -54,7 +50,7 @@ class TokenManager {
                 },
                 body: new URLSearchParams({
                     grant_type: 'refresh_token',
-                    client_id: CONFIG.CLIENT_ID,
+                    client_id: CONFIG.YOTO_CLIENT_ID,
                     refresh_token: tokens.refresh_token
                 })
             });
@@ -94,7 +90,7 @@ async function startOAuthFlow() {
         audience: 'https://api.yotoplay.com',
         scope: scopes.join(' '),
         response_type: 'code',
-        client_id: CONFIG.CLIENT_ID,
+        client_id: CONFIG.YOTO_CLIENT_ID,
         redirect_uri: getRedirectUri()
     });
 
@@ -113,7 +109,7 @@ async function exchangeCodeForTokens(code) {
             },
             body: new URLSearchParams({
                 grant_type: 'authorization_code',
-                client_id: CONFIG.CLIENT_ID,
+                client_id: CONFIG.YOTO_CLIENT_ID,
                 code: code,
                 redirect_uri: getRedirectUri()
             })
@@ -126,6 +122,12 @@ async function exchangeCodeForTokens(code) {
 
         const tokens = await response.json();
         await TokenManager.setTokens(tokens);
+        
+        // Track successful authentication
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackAuth(true);
+        }
+        
         return {success: true, tokens};
     } catch (error) {
         return {success: false, error: error.message};
@@ -602,7 +604,7 @@ async function uploadAudio(fileData) {
             title: transcodedAudio.transcodedInfo?.metadata?.title || fileName
         };
     } catch (error) {
-        console.error('Error uploading audio:', error);
+        
         throw error;
     }
 }
@@ -655,12 +657,12 @@ async function uploadCoverImage(imageFileData) {
             return { error: response.error };
         }
         
-        console.log('[uploadCoverImage] Response from Yoto:', response);
+        
         
         // The response should contain the URL for the uploaded cover image
         // Based on the actual response structure: { coverImage: { mediaId, mediaUrl } }
         if (response.coverImage && response.coverImage.mediaUrl) {
-            console.log('[uploadCoverImage] Cover uploaded successfully:', response.coverImage.mediaUrl);
+            
             return {
                 success: true,
                 url: response.coverImage.mediaUrl,
@@ -687,7 +689,7 @@ async function uploadCoverImage(imageFileData) {
         }
         
         // If we get here, log the entire response to understand its structure
-        console.error('[uploadCoverImage] Unexpected response structure:', response);
+        
         return { error: 'Unexpected response structure from cover upload' };
     } catch (error) {
         return { error: error.message };
@@ -857,7 +859,7 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
                 const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
                 userId = payload.sub || 'unknown';
             } catch (e) {
-                console.error('Error parsing token:', e);
+                
             }
         }
         
@@ -878,12 +880,12 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
         
         // Only add cover if we have a valid URL
         if (coverUrlString) {
-            console.log('[createPlaylistContent] Adding cover URL to metadata:', coverUrlString);
+            
             metadata.cover = {
                 imageL: coverUrlString
             };
         } else {
-            console.log('[createPlaylistContent] No cover URL provided');
+            
         }
         
         const content = {
@@ -896,12 +898,12 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             },
             metadata: metadata,
             title: title,
-            createdByClientId: CONFIG.CLIENT_ID,
+            createdByClientId: CONFIG.YOTO_CLIENT_ID,
             userId: userId,
             createdAt: new Date().toISOString()
         };
         
-        console.log('[createPlaylistContent] Sending content to Yoto:', JSON.stringify(content, null, 2));
+        
         
         let createResponse = await makeAuthenticatedRequest('/content', {
             method: 'POST',
@@ -913,7 +915,7 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
         
         // If it fails with a cover, try without the cover
         if (createResponse.error && coverUrlString) {
-            console.log('[createPlaylistContent] Failed with cover, retrying without cover...');
+            
             delete metadata.cover;
             const contentWithoutCover = {
                 ...content,
@@ -929,7 +931,7 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             });
             
             if (!createResponse.error) {
-                console.log('[createPlaylistContent] Success without cover. Cover URL might be the issue.');
+                
             }
         }
         
@@ -1055,6 +1057,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     await TokenManager.clearTokens();
                     sendResponse({success: true});
                     break;
+                    
+                case 'TRACK_EVENT':
+                    // Track analytics events
+                    if (typeof YotoAnalytics !== 'undefined') {
+                        if (request.eventName === 'import_playlist') {
+                            YotoAnalytics.trackImport(
+                                request.parameters.source,
+                                request.parameters.fileCount,
+                                request.parameters.success
+                            );
+                        } else if (request.eventName === 'icon_match') {
+                            YotoAnalytics.trackIconMatch(
+                                request.parameters.matchCount,
+                                request.parameters.automated
+                            );
+                        } else {
+                            YotoAnalytics.track(
+                                request.eventName,
+                                request.parameters.category,
+                                request.parameters.label,
+                                request.parameters.value
+                            );
+                        }
+                    }
+                    sendResponse({success: true});
+                    break;
 
                 default:
                     sendResponse({error: 'Unknown action'});
@@ -1067,7 +1095,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
 });
 
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(async (details) => {
+    // Track installation/update
+    if (typeof YotoAnalytics !== 'undefined') {
+        await YotoAnalytics.loadEnabledState();
+        
+        if (details.reason === 'install') {
+            YotoAnalytics.sendEvent('extension_installed', {
+                version: chrome.runtime.getManifest().version
+            });
+        } else if (details.reason === 'update') {
+            YotoAnalytics.sendEvent('extension_updated', {
+                version: chrome.runtime.getManifest().version,
+                previous_version: details.previousVersion
+            });
+        }
+    }
+    
     const isValid = await TokenManager.isTokenValid();
 });
 
