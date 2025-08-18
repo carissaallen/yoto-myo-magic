@@ -899,6 +899,15 @@ async function handleImportClick() {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     
+    // Extract folder name from the first file's path
+    let folderName = 'Imported Playlist';
+    if (files[0] && files[0].webkitRelativePath) {
+      const pathParts = files[0].webkitRelativePath.split('/');
+      if (pathParts.length > 0) {
+        folderName = pathParts[0]; // Get the root folder name
+      }
+    }
+    
     // Sort files into audio and images
     const audioFiles = files.filter(f => 
       /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
@@ -916,7 +925,8 @@ async function handleImportClick() {
         return numA - numB;
       });
     
-    const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()));
+    // Find cover image (non-numeric filename)
+    const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
     
     if (audioFiles.length === 0) {
       alert('No audio files found in audio_files folder');
@@ -924,13 +934,13 @@ async function handleImportClick() {
     }
     
     // Show import modal
-    showImportModal(audioFiles, trackIcons, coverImage);
+    showImportModal(audioFiles, trackIcons, coverImage, folderName);
   };
   
   input.click();
 }
 
-function showImportModal(audioFiles, trackIcons, coverImage) {
+function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist') {
   // Remove existing modal if any
   const existing = document.querySelector('#yoto-import-modal');
   if (existing) existing.remove();
@@ -974,7 +984,7 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
     </div>
     <div style="margin-bottom: 20px;">
       <label style="display: block; margin-bottom: 5px; font-weight: 500;">Playlist Name:</label>
-      <input type="text" id="import-playlist-name" value="Imported Playlist" style="
+      <input type="text" id="import-playlist-name" value="${defaultName}" style="
         width: 100%;
         padding: 8px 12px;
         border: 1px solid #ddd;
@@ -1014,6 +1024,20 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
   modal.appendChild(content);
   document.body.appendChild(modal);
   
+  // Prevent input from causing modal to close
+  const nameInput = document.querySelector('#import-playlist-name');
+  if (nameInput) {
+    nameInput.onclick = (e) => e.stopPropagation();
+    nameInput.onkeydown = (e) => e.stopPropagation();
+    nameInput.onkeyup = (e) => e.stopPropagation();
+    nameInput.onfocus = (e) => e.stopPropagation();
+  }
+  
+  // Prevent content area clicks from bubbling up
+  content.onclick = (e) => {
+    e.stopPropagation();
+  };
+  
   // Event handlers
   document.querySelector('#cancel-import').onclick = () => modal.remove();
   
@@ -1038,7 +1062,28 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
         cardId = cardId.split('/')[0];
       }
       
-      // Step 1: Upload icons
+      // Step 1: Upload cover image (if any)
+      let coverUrl = null;
+      if (coverImage) {
+        statusText.textContent = 'Uploading cover image...';
+        progressBar.style.width = '5%';
+        
+        try {
+          const coverBase64 = await fileToBase64(coverImage);
+          const coverResponse = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_COVER',
+            file: coverBase64
+          });
+          
+          if (coverResponse.url) {
+            coverUrl = coverResponse.url;
+          }
+        } catch (error) {
+          console.warn('Error uploading cover:', error);
+        }
+      }
+      
+      // Step 2: Upload icons
       statusText.textContent = 'Uploading icons...';
       progressBar.style.width = '10%';
       
@@ -1102,7 +1147,8 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
         title: playlistName,
         audioTracks: audioTracks,
         iconIds: iconIds,
-        cardId: cardId
+        cardId: cardId,
+        coverUrl: coverUrl
       });
       
       if (!createResponse.success) {
@@ -1110,27 +1156,101 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
       }
       
       progressBar.style.width = '100%';
-      statusText.textContent = 'Import complete! Refreshing page...';
+      statusText.textContent = 'Import complete!';
       
-      // Show success message
+      // Show success message with auto-refresh
       setTimeout(() => {
-        const successDiv = document.createElement('div');
-        successDiv.style.cssText = `
+        // Clear modal but keep it centered
+        modal.innerHTML = '';
+        modal.style.cssText = `
           position: fixed;
-          top: 20px;
-          right: 20px;
-          background: #4CAF50;
-          color: white;
-          padding: 12px 20px;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          z-index: 10001;
-          font-size: 14px;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.8);
+          z-index: 10000;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: fadeIn 0.3s ease;
         `;
-        successDiv.textContent = `✓ Successfully imported "${playlistName}" with ${audioTracks.length} tracks!`;
-        document.body.appendChild(successDiv);
         
-        modal.remove();
+        const successContent = document.createElement('div');
+        successContent.style.cssText = `
+          background: white;
+          border-radius: 12px;
+          padding: 30px;
+          max-width: 500px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+          text-align: center;
+        `;
+        
+        successContent.innerHTML = `
+            <div style="
+              width: 60px;
+              height: 60px;
+              background: #10b981;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin: 0 auto 20px;
+            ">
+              <svg width="30" height="30" fill="white" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Import Complete!</h2>
+            <p style="margin: 0 0 20px 0; color: #666; font-size: 16px;">
+              <strong>"${playlistName}"</strong> has been created
+            </p>
+            <div style="
+              background: #f3f4f6;
+              border-radius: 8px;
+              padding: 15px;
+              margin-bottom: 25px;
+            ">
+              <p style="margin: 0 0 10px 0; color: #4b5563; font-size: 14px;">Successfully imported:</p>
+              <div style="display: flex; justify-content: center; gap: 30px; color: #2c3e50; font-size: 14px;">
+                <span>${audioTracks.length} audio file${audioTracks.length !== 1 ? 's' : ''}</span>
+                ${iconIds.filter(id => id).length > 0 ? `<span>${iconIds.filter(id => id).length} icon${iconIds.filter(id => id).length !== 1 ? 's' : ''}</span>` : ''}
+              </div>
+            </div>
+            <div style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 10px;
+              color: #6b7280;
+              font-size: 14px;
+            ">
+              <div style="
+                width: 20px;
+                height: 20px;
+                border: 2px solid #3b82f6;
+                border-top-color: transparent;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+              "></div>
+              <span>Refreshing page...</span>
+            </div>
+          </div>
+        `;
+        
+        modal.appendChild(successContent);
+        
+        // Add animation style if not already present
+        if (!document.getElementById('yoto-spin-animation')) {
+          const style = document.createElement('style');
+          style.id = 'yoto-spin-animation';
+          style.textContent = `
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `;
+          document.head.appendChild(style);
+        }
         
         // Refresh the page after a short delay
         setTimeout(() => {
