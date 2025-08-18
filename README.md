@@ -8,27 +8,27 @@ Transform how you create Yoto cards! Yoto MYO Magic is a Chrome Extension that l
 
 Skip the tedious manual upload process! Import complete playlists with audio files, artwork, and icons in one click, then let the extension automatically match perfect icons to each track.
 
-### 📂 Bulk Import from ZIP or Folder
+#### 📂 Bulk Import from ZIP or Folder
 - **ZIP File Import**: Upload a complete playlist from a single ZIP file
 - **Folder Import**: Select a folder containing your audio files
 - **Smart File Detection**: Automatically identifies audio files, cover art, and track icons
 - **Supported Formats**: MP3, M4A, WAV, OGG, FLAC, AAC, OPUS, WMA
 - **Automatic Transcoding**: Files are automatically converted to Yoto-compatible format
 
-### 🐙 Automatic Icon Management
+#### 🐙 Automatic Icon Management
 - **Smart Icon Matching**: AI-powered matching based on track titles
 - **Bulk Icon Import**: Include custom icons in your ZIP/folder (1.png, 2.png, etc.)
 - **Yoto Icon Library**: Access and search Yoto's entire icon collection
 - **Confidence Scoring**: See how certain the matches are
 - **Manual Override**: Easily change any suggestion
 
-### 📤 Smart Upload Strategies
+#### 📤 Smart Upload Strategies
 - **Parallel Upload**: Fast upload for small playlists (< 20 tracks)
 - **Chunked Upload**: Reliable upload for large playlists (20+ tracks)
 - **Progress Tracking**: Real-time upload progress with percentage complete
 - **Error Recovery**: Automatic retry on failed uploads
 
-### 🔒 Secure Authentication
+#### 🔒 Secure Authentication
 - **OAuth 2.0**: Secure login through Yoto's official authentication
 - **No Password Storage**: We never store your Yoto credentials
 - **Token Management**: Automatic token refresh for seamless experience
@@ -42,7 +42,7 @@ Skip the tedious manual upload process! Import complete playlists with audio fil
 
 ## 📖 How to Use
 
-### Import a Playlist
+#### Import a Playlist
 
 1. **Prepare Your Files**:
    - Create a folder with your audio files
@@ -66,7 +66,7 @@ Skip the tedious manual upload process! Import complete playlists with audio fil
    - Icons are matched to track titles
    - Playlist is created on your MYO card
 
-### File Structure Example
+#### File Structure Example
 
 ```
 my-playlist/
