@@ -1,0 +1,38 @@
+Track Details
+================
+TrackNumber:: 1
+Title:: Introduction
+Type:: audio
+Duration:: 27
+ReadableDuration:: 0:00:27
+FileSize:: 441970
+ReadableFileSize:: 431.6 KB
+Channels:: stereo
+
+TrackNumber:: 2
+Title:: I Eat Poop
+Type:: audio
+Duration:: 486
+ReadableDuration:: 0:08:06
+FileSize:: 7870659
+ReadableFileSize:: 7.5 MB
+Channels:: stereo
+
+TrackNumber:: 3
+Title:: School Yearbook - Mr. Longlegs's Class
+Type:: audio
+Duration:: 293
+ReadableDuration:: 0:04:53
+FileSize:: 4754366
+ReadableFileSize:: 4.5 MB
+Channels:: stereo
+
+TrackNumber:: 4
+Title:: Credits
+Type:: audio
+Duration:: 47
+ReadableDuration:: 0:00:47
+FileSize:: 760747
+ReadableFileSize:: 742.9 KB
+Channels:: stereo
+

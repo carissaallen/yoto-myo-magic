@@ -1,0 +1,35 @@
+# Files to exclude when packaging for Chrome Web Store
+
+# Test files
+test-files/
+test-icon-upload.md
+yoto_extension_plan.md
+
+# Development files
+.git/
+.gitignore
+.chromeignore
+.idea/
+.DS_Store
+*.log
+*.md
+LICENSE
+
+# Node modules (if any)
+node_modules/
+package.json
+package-lock.json
+
+# Source control
+.github/
+
+# Development/debug files
+*.map
+*.test.js
+*.spec.js
+
+# Editor files
+.vscode/
+*.swp
+*.swo
+*~

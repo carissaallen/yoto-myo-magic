@@ -1,5 +1,4 @@
 // Handle OAuth callback
-console.log('OAuth callback handler loaded');
 
 // Get the authorization code from URL
 const urlParams = new URLSearchParams(window.location.search);
@@ -34,7 +33,7 @@ if (error) {
             statusEl.textContent = 'Authentication successful!';
             spinnerEl.style.display = 'none';
             messageEl.className = 'success';
-            messageEl.textContent = '✓ You can now use Yoto Card Magic';
+            messageEl.textContent = '✓ You can now use Yoto MYO Magic';
             
             // Close window and redirect to Yoto
             setTimeout(() => {
