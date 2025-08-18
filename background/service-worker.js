@@ -150,9 +150,11 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
     try {
         const url = endpoint.startsWith('http') ? endpoint : `${CONFIG.YOTO_API_BASE}${endpoint}`;
 
+        // Don't set Content-Type for FormData - let browser set it with boundary
+        const isFormData = options.body instanceof FormData;
         const authHeaders = {
             'Authorization': `Bearer ${tokens.access_token}`,
-            'Content-Type': 'application/json',
+            ...(isFormData ? {} : {'Content-Type': 'application/json'}),
             ...options.headers
         };
 
@@ -501,6 +503,480 @@ async function updateCardIcons(cardId, iconMatches) {
     }
 }
 
+// Upload icon to Yoto
+async function uploadIcon(fileData) {
+    try {
+        // Handle base64 encoded file data from content script
+        let fileBuffer;
+        let filename = 'icon';
+        let contentType = 'image/png';
+        
+        if (fileData.data) {
+            // Convert base64 to ArrayBuffer
+            const binaryString = atob(fileData.data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            fileBuffer = bytes.buffer;
+            filename = fileData.name ? fileData.name.split('.')[0] : 'icon';
+            contentType = fileData.type || 'image/png';
+        } else {
+            fileBuffer = fileData;
+        }
+        
+        const response = await makeAuthenticatedRequest(
+            `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(filename)}`,
+            {
+                method: 'POST',
+                body: fileBuffer,
+                headers: {
+                    'Content-Type': contentType
+                }
+            }
+        );
+
+        if (response.error) {
+            throw new Error(response.error);
+        }
+
+        // Return the icon ID in the format needed for tracks
+        const iconId = response.displayIcon?.mediaId;
+        return iconId ? `yoto:#${iconId}` : null;
+    } catch (error) {
+        console.error('Error uploading icon:', error);
+        throw error;
+    }
+}
+
+// Upload audio file and handle transcoding
+async function uploadAudio(fileData) {
+    try {
+        // Handle base64 encoded file data from content script
+        let fileBuffer;
+        let contentType = 'audio/mpeg';
+        let fileName = 'audio';
+        
+        if (fileData.data) {
+            // Convert base64 to ArrayBuffer
+            const binaryString = atob(fileData.data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            fileBuffer = bytes.buffer;
+            contentType = fileData.type || 'audio/mpeg';
+            fileName = fileData.name || 'audio';
+        } else {
+            fileBuffer = fileData;
+        }
+        // Step 1: Get upload URL
+        const uploadUrlResponse = await makeAuthenticatedRequest(
+            '/media/transcode/audio/uploadUrl',
+            {
+                method: 'GET'
+            }
+        );
+
+        if (uploadUrlResponse.error) {
+            throw new Error(`Failed to get upload URL: ${uploadUrlResponse.error}`);
+        }
+
+        const { upload: { uploadUrl: audioUploadUrl, uploadId } } = uploadUrlResponse;
+
+        if (!audioUploadUrl) {
+            throw new Error('Failed to get upload URL');
+        }
+
+        // Step 2: Upload audio file
+        const uploadResponse = await fetch(audioUploadUrl, {
+            method: 'PUT',
+            body: fileBuffer,
+            headers: {
+                'Content-Type': contentType
+            }
+        });
+
+        if (!uploadResponse.ok) {
+            throw new Error(`Failed to upload audio: ${uploadResponse.status}`);
+        }
+
+        // Step 3: Wait for transcoding
+        let transcodedAudio = null;
+        let attempts = 0;
+        const maxAttempts = 60; // 30 seconds with 500ms intervals
+
+        while (attempts < maxAttempts) {
+            const transcodeResponse = await makeAuthenticatedRequest(
+                `/media/upload/${uploadId}/transcoded?loudnorm=false`,
+                {
+                    method: 'GET'
+                }
+            );
+
+            if (transcodeResponse.transcode?.transcodedSha256) {
+                transcodedAudio = transcodeResponse.transcode;
+                break;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+        }
+
+        if (!transcodedAudio) {
+            throw new Error('Transcoding timed out');
+        }
+
+        // Return the transcoded audio data
+        return {
+            trackUrl: `yoto:#${transcodedAudio.transcodedSha256}`,
+            duration: transcodedAudio.transcodedInfo?.duration,
+            fileSize: transcodedAudio.transcodedInfo?.fileSize,
+            channels: transcodedAudio.transcodedInfo?.channels,
+            format: transcodedAudio.transcodedInfo?.format,
+            title: transcodedAudio.transcodedInfo?.metadata?.title || fileName
+        };
+    } catch (error) {
+        console.error('Error uploading audio:', error);
+        throw error;
+    }
+}
+
+// Create or update playlist content with uploaded audio and icons
+async function createPlaylistContent(title, audioTracks, iconIds, cardId) {
+    try {
+        // If we have a valid cardId, fetch existing content first
+        let existingContent = null;
+        if (cardId && cardId.length === 5) {
+            try {
+                existingContent = await getCardContent(cardId);
+                if (existingContent.error) {
+                    console.log('Could not fetch existing card, creating new content');
+                    existingContent = null;
+                }
+            } catch (e) {
+                console.log('Error fetching existing card:', e);
+                existingContent = null;
+            }
+        }
+
+        const chapters = [];
+        
+        // Create a chapter for each audio track
+        audioTracks.forEach((track, index) => {
+            const chapterKey = String(index).padStart(2, '0');
+            const iconId = iconIds[index] || 'yoto:#fqAuu4nSrOwNU-xbNVsGG-Om_PEe3S161UJ-nTXeBIQ'; // Default icon
+            
+            chapters.push({
+                key: chapterKey,
+                title: track.title || `Track ${index + 1}`,
+                overlayLabel: String(index + 1),
+                tracks: [{
+                    key: chapterKey,
+                    title: track.title || `Track ${index + 1}`,
+                    trackUrl: track.trackUrl,
+                    duration: track.duration,
+                    fileSize: track.fileSize,
+                    channels: track.channels || 'stereo',
+                    format: track.format || 'aac',
+                    type: 'audio',
+                    overlayLabel: String(index + 1),
+                    display: {
+                        icon16x16: iconId
+                    }
+                }],
+                display: {
+                    icon16x16: iconId
+                },
+                fileSize: track.fileSize,
+                duration: track.duration,
+                availableFrom: null,
+                ambient: null,
+                defaultTrackDisplay: null,
+                defaultTrackAmbient: null
+            });
+        });
+
+        // Calculate total duration and file size
+        const totalDuration = audioTracks.reduce((sum, track) => sum + (track.duration || 0), 0);
+        const totalFileSize = audioTracks.reduce((sum, track) => sum + (track.fileSize || 0), 0);
+
+        // Get user info from token
+        const tokens = await TokenManager.getTokens();
+        let userId = 'unknown';
+        if (tokens?.access_token) {
+            try {
+                const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
+                userId = payload.sub || 'unknown';
+            } catch (e) {
+                console.error('Error parsing token:', e);
+            }
+        }
+
+        // Build request body based on whether we're updating or creating
+        let requestBody;
+        
+        if (existingContent && existingContent.card) {
+            // Update existing card - use the exact structure from the existing card
+            requestBody = {
+                createdByClientId: existingContent.card.createdByClientId || CONFIG.CLIENT_ID,
+                cardId: cardId,
+                userId: existingContent.card.userId || userId,
+                createdAt: existingContent.card.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                content: {
+                    chapters,
+                    playbackType: 'linear',
+                    config: {
+                        resumeTimeout: 2592000
+                    }
+                },
+                metadata: {
+                    description: `Imported playlist: ${title}`,
+                    media: {
+                        duration: totalDuration,
+                        readableDuration: formatDuration(totalDuration),
+                        fileSize: totalFileSize,
+                        readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
+                        hasStreams: false
+                    },
+                    cover: existingContent.card.metadata?.cover || {}
+                },
+                title: title
+            };
+        } else {
+            // Create new playlist
+            requestBody = {
+                content: {
+                    chapters,
+                    playbackType: 'linear',
+                    config: {
+                        resumeTimeout: 2592000
+                    }
+                },
+                metadata: {
+                    description: `Imported playlist: ${title}`,
+                    media: {
+                        duration: totalDuration,
+                        readableDuration: formatDuration(totalDuration),
+                        fileSize: totalFileSize,
+                        readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
+                        hasStreams: false
+                    }
+                },
+                title: title,
+                createdByClientId: CONFIG.CLIENT_ID,
+                userId: userId,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Only add cardId if it's provided and valid (5 characters)
+            if (cardId && cardId.length === 5) {
+                requestBody.cardId = cardId;
+            }
+        }
+
+        const response = await makeAuthenticatedRequest('/content', {
+            method: 'POST',
+            body: JSON.stringify(requestBody)
+        });
+
+        if (response.error) {
+            throw new Error(`Failed to create/update playlist: ${response.error}`);
+        }
+
+        return response;
+    } catch (error) {
+        console.error('Error creating playlist content:', error);
+        throw error;
+    }
+}
+
+// Helper function to format duration
+function formatDuration(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes}m ${secs}s`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${secs}s`;
+    } else {
+        return `${secs}s`;
+    }
+}
+
+// Upload icon to Yoto
+async function uploadIcon(iconFileData) {
+    try {
+        // Convert base64 to blob if needed
+        const iconBlob = iconFileData.blob || new Blob(
+            [Uint8Array.from(atob(iconFileData.data), c => c.charCodeAt(0))],
+            { type: iconFileData.type || 'image/png' }
+        );
+        
+        // Build FormData for the icon upload
+        const formData = new FormData();
+        formData.append('file', iconBlob, iconFileData.name || 'icon.png');
+        
+        // Upload the icon
+        const response = await makeAuthenticatedRequest(
+            `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(iconFileData.name || 'icon')}`,
+            {
+                method: 'POST',
+                body: formData
+            }
+        );
+        
+        if (response.error) {
+            return { error: response.error };
+        }
+        
+        if (response.displayIcon) {
+            // Return the icon ID in the correct format for use in tracks
+            const iconId = response.displayIcon.mediaId;
+            return {
+                success: true,
+                iconId: iconId.startsWith('yoto:#') ? iconId : `yoto:#${iconId}`,
+                displayIconId: response.displayIcon.displayIconId,
+                isNew: response.displayIcon.new || false
+            };
+        }
+        
+        return { error: 'No icon data in response' };
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
+// Upload audio file to Yoto
+async function uploadAudioFile(audioFileData) {
+    try {
+        // Step 1: Get upload URL
+        const uploadUrlResponse = await makeAuthenticatedRequest('/media/transcode/audio/uploadUrl', {
+            method: 'GET'
+        });
+        
+        if (uploadUrlResponse.error) {
+            return { error: uploadUrlResponse.error };
+        }
+        
+        const { upload } = uploadUrlResponse;
+        if (!upload?.uploadUrl || !upload?.uploadId) {
+            return { error: 'Failed to get upload URL' };
+        }
+        
+        // Step 2: Upload the file
+        const uploadResponse = await fetch(upload.uploadUrl, {
+            method: 'PUT',
+            body: audioFileData.blob,
+            headers: {
+                'Content-Type': audioFileData.type || 'audio/mpeg'
+            }
+        });
+        
+        if (!uploadResponse.ok) {
+            return { error: 'Failed to upload audio file' };
+        }
+        
+        // Step 3: Wait for transcoding
+        let transcodedAudio = null;
+        let attempts = 0;
+        const maxAttempts = 30;
+        
+        while (attempts < maxAttempts) {
+            const transcodeResponse = await makeAuthenticatedRequest(
+                `/media/upload/${upload.uploadId}/transcoded?loudnorm=false`
+            );
+            
+            if (!transcodeResponse.error && transcodeResponse.transcode?.transcodedSha256) {
+                transcodedAudio = transcodeResponse.transcode;
+                break;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
+        }
+        
+        if (!transcodedAudio) {
+            return { error: 'Transcoding timed out' };
+        }
+        
+        return {
+            success: true,
+            transcodedAudio,
+            uploadId: upload.uploadId
+        };
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
+// Create playlist with uploaded content
+async function createPlaylistContent(title, audioTracks, iconIds = []) {
+    try {
+        const chapters = audioTracks.map((audio, index) => {
+            const chapterKey = String(index + 1).padStart(2, '0');
+            const iconId = iconIds[index] || 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q'; // Default icon
+            
+            return {
+                key: chapterKey,
+                title: audio.title || `Track ${index + 1}`,
+                overlayLabel: String(index + 1),
+                tracks: [{
+                    key: chapterKey,
+                    title: audio.title || `Track ${index + 1}`,
+                    trackUrl: `yoto:#${audio.transcodedAudio.transcodedSha256}`,
+                    duration: audio.transcodedAudio.transcodedInfo?.duration,
+                    fileSize: audio.transcodedAudio.transcodedInfo?.fileSize,
+                    channels: audio.transcodedAudio.transcodedInfo?.channels,
+                    format: audio.transcodedAudio.transcodedInfo?.format,
+                    type: 'audio',
+                    overlayLabel: String(index + 1),
+                    display: {
+                        icon16x16: iconId
+                    }
+                }],
+                display: {
+                    icon16x16: iconId
+                }
+            };
+        });
+        
+        const totalDuration = audioTracks.reduce((sum, audio) => 
+            sum + (audio.transcodedAudio.transcodedInfo?.duration || 0), 0);
+        const totalFileSize = audioTracks.reduce((sum, audio) => 
+            sum + (audio.transcodedAudio.transcodedInfo?.fileSize || 0), 0);
+        
+        const content = {
+            title: title,
+            content: {
+                chapters
+            },
+            metadata: {
+                media: {
+                    duration: totalDuration,
+                    fileSize: totalFileSize,
+                    readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10
+                }
+            }
+        };
+        
+        const createResponse = await makeAuthenticatedRequest('/content', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(content)
+        });
+        
+        return createResponse;
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
         try {
@@ -549,6 +1025,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     const updateResult = await updateCardIcons(request.cardId, request.iconMatches);
                     sendResponse(updateResult);
                     break;
+                    
+                case 'UPLOAD_AUDIO':
+                    // Convert base64 to blob
+                    const audioBlob = new Blob([Uint8Array.from(atob(request.file.data), c => c.charCodeAt(0))], {
+                        type: request.file.type
+                    });
+                    sendResponse(await uploadAudioFile({
+                        blob: audioBlob,
+                        type: request.file.type,
+                        name: request.file.name
+                    }));
+                    break;
+                    
+                case 'UPLOAD_ICON':
+                    sendResponse(await uploadIcon({
+                        data: request.file.data,
+                        type: request.file.type,
+                        name: request.file.name
+                    }));
+                    break;
+                    
+                case 'CREATE_PLAYLIST':
+                    sendResponse(await createPlaylistContent(
+                        request.title,
+                        request.audioTracks,
+                        request.iconIds
+                    ));
+                    break;
 
 
                 case 'GET_ACCESS_TOKEN':
@@ -567,6 +1071,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 case 'LOGOUT':
                     await TokenManager.clearTokens();
                     sendResponse({success: true});
+                    break;
+
+                case 'UPLOAD_ICON':
+                    const iconId = await uploadIcon(request.file);
+                    sendResponse({success: true, iconId});
+                    break;
+
+                case 'UPLOAD_AUDIO':
+                    const audioData = await uploadAudio(request.file);
+                    sendResponse({success: true, ...audioData});
+                    break;
+
+                case 'CREATE_PLAYLIST_CONTENT':
+                    const result = await createPlaylistContent(
+                        request.title,
+                        request.audioTracks,
+                        request.iconIds,
+                        request.cardId
+                    );
+                    sendResponse({success: true, result});
                     break;
 
                 default:

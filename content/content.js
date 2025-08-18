@@ -63,6 +63,21 @@ function init() {
     setupObserver();
   }, 1000);
   
+  // Additional check specifically for the playlists page
+  if (window.location.pathname.includes('/my-cards/playlists')) {
+    console.log('[Yoto Card Magic] Detected playlists page, setting up additional checks');
+    // Try multiple times to inject the button
+    const injectAttempts = [1500, 2500, 3500, 5000];
+    injectAttempts.forEach(delay => {
+      setTimeout(() => {
+        if (!document.querySelector('#yoto-import-btn')) {
+          console.log(`[Yoto Card Magic] Retry injection at ${delay}ms`);
+          injectMyPlaylistsUI(null);
+        }
+      }, delay);
+    });
+  }
+  
   // Listen for messages from popup/background
   chrome.runtime.onMessage.addListener(handleMessage);
   
@@ -96,128 +111,53 @@ function checkForMyoPage() {
     return;
   }
   
-  // We're on the right domain, let's inject our UI
-  console.log('[Yoto Card Magic] On my.yotoplay.com, looking for injection point');
-  state.isMyoPage = true;
-  
   // Determine page type
-  if (path.includes('/my-cards')) {
+  if (path.includes('/my-cards/playlists')) {
+    console.log('[Yoto Card Magic] On playlists page');
+    state.isMyoPage = true;
     state.pageType = 'my-playlists';
-  } else if (path.includes('/card')) {
-    state.pageType = 'add-playlist';
+    waitForMyoElements();
+  } else if (path.includes('/card/') && path.includes('/edit')) {
+    console.log('[Yoto Card Magic] On card edit page');
+    state.isMyoPage = true;
+    state.pageType = 'edit-card';
+    // For edit pages, we need to inject the Icon Match button using content-simple.js
+    // That's handled by the service worker
   } else {
-    state.pageType = 'unknown';
+    console.log('[Yoto Card Magic] Not on a relevant page');
   }
   
   console.log('[Yoto Card Magic] Page type:', state.pageType);
-  waitForMyoElements();
 }
 
 // Wait for MYO elements to appear
 function waitForMyoElements() {
-  let attempts = 0;
-  const maxAttempts = 30;
-  
-  console.log('[Yoto Card Magic] Starting to look for container...');
-  
-  const checkInterval = setInterval(() => {
-    attempts++;
-    console.log(`[Yoto Card Magic] Attempt ${attempts}/${maxAttempts}`);
-    
-    const container = findMyoContainer();
-    
-    if (container) {
-      clearInterval(checkInterval);
-      console.log('[Yoto Card Magic] Container found!', container);
-      initializeMyoFeatures(container);
-    } else if (attempts >= maxAttempts) {
-      clearInterval(checkInterval);
-      console.log('[Yoto Card Magic] Giving up after', maxAttempts, 'attempts');
-      
-      // Try one more time with a fallback approach
-      fallbackInject();
-    }
-  }, CONFIG.CHECK_INTERVAL);
-}
-
-// Fallback injection method
-function fallbackInject() {
-  console.log('[Yoto Card Magic] Trying fallback injection...');
-  
-  // Check if button already exists
-  if (document.querySelector('#yoto-magic-bulk-btn')) {
-    console.log('[Yoto Card Magic] Button already exists');
+  // For playlists page, we only need to inject the Import button
+  if (window.location.pathname.includes('/my-cards/playlists')) {
+    console.log('[Yoto Card Magic] On playlists page, injecting Import button');
+    // Give the page a moment to render, then inject
+    setTimeout(() => {
+      injectMyPlaylistsUI(null);
+    }, 500);
+    // Try again after a bit more time in case the page loads slowly
+    setTimeout(() => {
+      if (!document.querySelector('#yoto-import-btn')) {
+        injectMyPlaylistsUI(null);
+      }
+    }, 1500);
+    // No need to look for containers or do 30 attempts
     return;
   }
-  
-  // Find the button container with MYO Studio buttons
-  const container = document.querySelector('.flex.gap-2');
-  
-  if (container && container.querySelector('button')) {
-    const button = createBulkMatchButton();
-    button.style.marginLeft = '8px';
-    container.appendChild(button);
-    console.log('[Yoto Card Magic] Added button to button container (fallback)');
-  } else {
-    // Last resort: fixed position
-    const button = createBulkMatchButton();
-    button.style.position = 'fixed';
-    button.style.bottom = '20px';
-    button.style.right = '20px';
-    button.style.zIndex = '9999';
-    button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-    document.body.appendChild(button);
-    console.log('[Yoto Card Magic] Added floating button (fallback)');
-  }
 }
 
-// Find MYO container element
+// These functions are no longer needed since we're not adding the Bulk Match button
+// Keeping them empty to avoid breaking any references
+function fallbackInject() {
+  // Not used anymore
+}
+
 function findMyoContainer() {
-  console.log('Looking for container to inject button...');
-  
-  // First, look for MYO Studio's button container
-  const sortButton = Array.from(document.querySelectorAll('button')).find(btn => 
-    btn.textContent?.trim() === 'Sort Playlists'
-  );
-  
-  if (sortButton) {
-    console.log('Found Sort Playlists button, using its parent');
-    // Get the parent that contains all the buttons
-    let parent = sortButton.parentElement;
-    
-    // Walk up to find the flex container
-    while (parent && !parent.classList.contains('flex')) {
-      parent = parent.parentElement;
-    }
-    
-    if (parent) {
-      return parent;
-    }
-  }
-  
-  // Look for any container with multiple buttons
-  const allButtons = document.querySelectorAll('button');
-  console.log(`Found ${allButtons.length} buttons on page`);
-  
-  // Find a flex container that has buttons
-  const flexContainers = document.querySelectorAll('.flex');
-  for (const container of flexContainers) {
-    const buttons = container.querySelectorAll('button');
-    if (buttons.length >= 1) {
-      // Check if any button mentions MYO Studio features
-      const hasMYOButton = Array.from(buttons).some(btn => {
-        const text = btn.textContent || '';
-        return text.includes('Sort') || text.includes('Print') || text.includes('Filter');
-      });
-      
-      if (hasMYOButton) {
-        console.log('Found flex container with MYO Studio buttons');
-        return container;
-      }
-    }
-  }
-  
-  console.log('No suitable container found');
+  // Not used anymore
   return null;
 }
 
@@ -286,26 +226,76 @@ function injectAddPlaylistUI(container) {
 
 // Inject UI for My Playlists page  
 function injectMyPlaylistsUI(container) {
-  console.log('Injecting UI for My Playlists/Cards page');
-  
-  // Check if we already added our button
-  if (document.querySelector('#yoto-magic-bulk-btn')) {
-    console.log('Button already exists');
+  // Check if we already added the Import button
+  if (document.querySelector('#yoto-import-btn')) {
     return;
   }
   
-  // Simply add our button to the container
-  const button = createBulkMatchButton();
+  // Try multiple approaches to find the right place for the Import button
   
-  // If container is valid, add the button
-  if (container) {
-    // Add some spacing
-    button.style.marginLeft = '8px';
-    container.appendChild(button);
-    console.log('Added Bulk Match button to container');
+  // Approach 1: Find the heading "My playlists"
+  const heading = Array.from(document.querySelectorAll('h1, h2, h3')).find(el => 
+    el.textContent?.trim() === 'My playlists'
+  );
+  
+  if (heading) {
+    // Look for the subtitle text after the heading
+    let targetElement = heading.nextElementSibling;
+    while (targetElement && !targetElement.textContent?.includes('Create playlists here')) {
+      targetElement = targetElement.nextElementSibling;
+      if (targetElement && targetElement.querySelector('h1, h2, h3')) {
+        // Stop if we hit another heading
+        break;
+      }
+    }
+    
+    if (targetElement) {
+      // Create a container for the Import button
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'margin-top: 20px; margin-bottom: 24px;';
+      
+      // Add Import button
+      const importButton = createImportButton();
+      buttonContainer.appendChild(importButton);
+      
+      // Insert after the subtitle
+      if (targetElement.nextSibling) {
+        targetElement.parentNode.insertBefore(buttonContainer, targetElement.nextSibling);
+      } else {
+        targetElement.parentNode.appendChild(buttonContainer);
+      }
+    } else {
+      // Just place it after the heading
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'margin-top: 20px; margin-bottom: 24px;';
+      
+      const importButton = createImportButton();
+      buttonContainer.appendChild(importButton);
+      
+      if (heading.nextSibling) {
+        heading.parentNode.insertBefore(buttonContainer, heading.nextSibling);
+      } else {
+        heading.parentNode.appendChild(buttonContainer);
+      }
+    }
   } else {
-    console.log('No valid container found');
+    // Approach 2: Find the first playlist card and insert before it
+    // Look for the "Add Playlist" card or the container with playlist cards
+    const addPlaylistCard = document.querySelector('[href*="/card/new"]')?.closest('div');
+    const playlistGrid = addPlaylistCard?.parentElement;
+    
+    if (playlistGrid) {
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'margin-bottom: 24px;';
+      
+      const importButton = createImportButton();
+      buttonContainer.appendChild(importButton);
+      
+      playlistGrid.parentNode.insertBefore(buttonContainer, playlistGrid);
+    }
   }
+  
+  // We're not adding the Bulk Match button anymore - it wasn't working properly
 }
 
 // Create auto-match button (Yoto-styled)
@@ -322,6 +312,65 @@ function createAutoMatchButton() {
   
   // Add click handler
   button.addEventListener('click', handleAutoMatchClick);
+  
+  return button;
+}
+
+// Create import button for My Playlists page
+function createImportButton() {
+  const button = document.createElement('button');
+  button.id = 'yoto-import-btn';
+  
+  // Import icon SVG
+  const importIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <g id="Import">
+        <g>
+          <path d="M5.552,20.968a2.577,2.577,0,0,1-2.5-2.73c-.012-2.153,0-4.306,0-6.459a.5.5,0,0,1,1,0c0,2.2-.032,4.4,0,6.6.016,1.107.848,1.589,1.838,1.589H18.353A1.546,1.546,0,0,0,19.825,19a3.023,3.023,0,0,0,.1-1.061V11.779h0a.5.5,0,0,1,1,0c0,2.224.085,4.465,0,6.687a2.567,2.567,0,0,1-2.67,2.5Z" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M11.63,15.818a.459.459,0,0,0,.312.138c.014,0,.027.005.042.006s.027,0,.041-.006a.457.457,0,0,0,.312-.138l3.669-3.669a.5.5,0,0,0-.707-.707l-2.815,2.815V3.515a.5.5,0,0,0-1,0V14.257L8.668,11.442a.5.5,0,0,0-.707.707Z" stroke="currentColor" stroke-width="2" fill="none"/>
+        </g>
+      </g>
+    </svg>
+  `;
+  
+  button.style.cssText = `
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
+  `;
+  
+  button.innerHTML = `
+    ${importIcon}
+    <span>Import Playlist</span>
+  `;
+  
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#2563eb';
+    button.style.borderColor = '#2563eb';
+    button.style.transform = 'translateY(-1px)';
+  };
+  
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+  };
+  
+  button.addEventListener('click', handleImportClick);
   
   return button;
 }
@@ -537,6 +586,168 @@ async function handleBulkMatchClick() {
   }
 }
 
+// Handle import button click
+async function handleImportClick() {
+  console.log('[Yoto Card Magic] Import clicked');
+  
+  // Check authentication first
+  const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+  if (!authResponse.authenticated) {
+    showNotification('Authorizing...', 'info');
+    chrome.runtime.sendMessage({ action: 'START_AUTH' });
+    return;
+  }
+  
+  // Show a simple import modal first, before file selection
+  showImportStartModal();
+}
+
+// Show initial import modal
+function showImportStartModal() {
+  // Remove existing modal if any
+  const existing = document.querySelector('#yoto-import-start-modal');
+  if (existing) existing.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'yoto-import-start-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 500px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Playlist</h2>
+    <div style="margin-bottom: 20px; color: #666;">
+      <p>Select a folder with the following structure:</p>
+      <ul style="margin: 10px 0; padding-left: 20px; font-size: 14px;">
+        <li><strong>audio_files/</strong> - Your audio files (MP3, M4A, etc.)</li>
+        <li><strong>images/</strong> - Track icons (1.png, 2.png, etc.)</li>
+      </ul>
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
+      <button id="cancel-import-start" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Cancel</button>
+      <button id="select-folder" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Select Folder</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // Event handlers
+  document.querySelector('#cancel-import-start').onclick = () => modal.remove();
+  
+  document.querySelector('#select-folder').onclick = () => {
+    // Create file input for folder selection
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.webkitdirectory = true;
+    input.directory = true;
+    input.multiple = true;
+    input.style.display = 'none'; // Hide the input
+    
+    // Add to document temporarily
+    document.body.appendChild(input);
+    
+    // Set up the change handler BEFORE triggering click
+    input.addEventListener('change', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Get files immediately
+      const files = e.target.files ? Array.from(e.target.files) : [];
+      
+      // Remove the input element
+      input.remove();
+      
+      if (files.length === 0) {
+        // User cancelled - don't close the modal
+        return;
+      }
+      
+      // Close the start modal only after we have files
+      if (modal && modal.parentNode) {
+        modal.remove();
+      }
+      
+      // Sort files into audio and images
+      const audioFiles = files.filter(f => 
+        /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
+      ).sort((a, b) => a.name.localeCompare(b.name));
+      
+      const imageFiles = files.filter(f => 
+        /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
+      );
+      
+      // Separate track icons (numeric names) from cover images
+      const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()))
+        .sort((a, b) => {
+          const numA = parseInt(a.name.match(/\d+/)[0]);
+          const numB = parseInt(b.name.match(/\d+/)[0]);
+          return numA - numB;
+        });
+      
+      const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()));
+      
+      if (audioFiles.length === 0) {
+        showNotification('No audio files found in audio_files folder', 'error');
+        return;
+      }
+      
+      // Show import modal with the files - add small delay to ensure clean transition
+      setTimeout(() => {
+        showImportModal(audioFiles, trackIcons, coverImage);
+      }, 100);
+    });
+    
+    // Trigger the file picker after a small delay to ensure event handlers are set
+    setTimeout(() => {
+      input.click();
+    }, 50);
+  };
+  
+  // Close on background click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  };
+}
+
 // Show notification
 function showNotification(message, type = 'info') {
   // Remove existing notification
@@ -731,6 +942,286 @@ function injectStyles() {
     }
   `;
   document.head.appendChild(style);
+}
+
+// Show import modal
+function showImportModal(audioFiles, trackIcons, coverImage) {
+  // Remove existing modal if any
+  const existing = document.querySelector('#yoto-import-modal');
+  if (existing) existing.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'yoto-import-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Playlist</h2>
+    <div style="margin-bottom: 20px; color: #666;">
+      <p>Ready to import:</p>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>
+        <li>${trackIcons.length} track icon${trackIcons.length !== 1 ? 's' : ''}</li>
+        ${coverImage ? '<li>1 cover image</li>' : ''}
+      </ul>
+    </div>
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: 500;">Playlist Name:</label>
+      <input type="text" id="import-playlist-name" value="Imported Playlist" style="
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+      ">
+    </div>
+    <div id="import-progress" style="display: none; margin: 20px 0;">
+      <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
+        <div id="import-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+      </div>
+      <p id="import-status" style="margin-top: 10px; color: #666; font-size: 14px;"></p>
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
+      <button id="cancel-import" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Cancel</button>
+      <button id="start-import" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Start Import</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // Event handlers
+  document.querySelector('#cancel-import').onclick = () => modal.remove();
+  
+  document.querySelector('#start-import').onclick = async () => {
+    const playlistName = document.querySelector('#import-playlist-name').value || 'Imported Playlist';
+    const progressDiv = document.querySelector('#import-progress');
+    const progressBar = document.querySelector('#import-progress-bar');
+    const statusText = document.querySelector('#import-status');
+    const startButton = document.querySelector('#start-import');
+    
+    progressDiv.style.display = 'block';
+    startButton.disabled = true;
+    startButton.textContent = 'Importing...';
+    
+    try {
+      const uploadedTracks = [];
+      const uploadedIconIds = [];
+      const totalFiles = audioFiles.length + trackIcons.length;
+      let currentFile = 0;
+      
+      // Upload icons first (if any)
+      if (trackIcons.length > 0) {
+        statusText.textContent = 'Uploading track icons...';
+        
+        for (let i = 0; i < trackIcons.length; i++) {
+          const iconFile = trackIcons[i];
+          currentFile++;
+          statusText.textContent = `Uploading icon ${i + 1} of ${trackIcons.length}: ${iconFile.name}`;
+          progressBar.style.width = `${(currentFile / totalFiles) * 70}%`;
+          
+          // Convert icon to base64
+          const iconBase64 = await fileToBase64(iconFile);
+          
+          // Upload icon via background script
+          const iconResponse = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_ICON',
+            file: iconBase64
+          });
+          
+          if (iconResponse.error) {
+            console.warn(`Failed to upload icon ${iconFile.name}: ${iconResponse.error}`);
+            // Continue without this icon - use default
+            uploadedIconIds[i] = null;
+          } else {
+            // Store the icon ID at the correct index (based on numeric filename)
+            const iconNumber = parseInt(iconFile.name.match(/\d+/)[0]) - 1; // Convert to 0-based index
+            uploadedIconIds[iconNumber] = iconResponse.iconId;
+          }
+        }
+      }
+      
+      // Upload each audio file
+      for (let i = 0; i < audioFiles.length; i++) {
+        const file = audioFiles[i];
+        currentFile++;
+        statusText.textContent = `Uploading audio ${i + 1} of ${audioFiles.length}: ${file.name}`;
+        progressBar.style.width = `${(currentFile / totalFiles) * 70}%`;
+        
+        // Convert file to base64
+        const base64Data = await fileToBase64(file);
+        
+        // Upload via background script
+        const uploadResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_AUDIO',
+          file: base64Data
+        });
+        
+        if (uploadResponse.error) {
+          throw new Error(`Failed to upload ${file.name}: ${uploadResponse.error}`);
+        }
+        
+        uploadedTracks.push({
+          title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+          transcodedAudio: uploadResponse.transcodedAudio
+        });
+      }
+      
+      // Create the playlist with icons
+      statusText.textContent = 'Creating playlist...';
+      progressBar.style.width = '90%';
+      
+      const createResponse = await chrome.runtime.sendMessage({
+        action: 'CREATE_PLAYLIST',
+        title: playlistName,
+        audioTracks: uploadedTracks,
+        iconIds: uploadedIconIds // Pass the uploaded icon IDs
+      });
+      
+      if (createResponse.error) {
+        throw new Error(`Failed to create playlist: ${createResponse.error}`);
+      }
+      
+      progressBar.style.width = '100%';
+      statusText.textContent = 'Import complete!';
+      
+      // Show success message
+      modal.innerHTML = `
+        <div style="
+          background: white;
+          border-radius: 12px;
+          padding: 30px;
+          max-width: 600px;
+          margin: auto;
+          position: relative;
+          top: 50%;
+          transform: translateY(-50%);
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        ">
+          <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">✅ Import Complete!</h2>
+          <div style="margin-bottom: 20px; color: #666;">
+            <p><strong>Playlist "${playlistName}" has been created!</strong></p>
+            <p style="margin-top: 15px;">Successfully uploaded:</p>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>
+              ${trackIcons.length > 0 ? `<li>${trackIcons.length} track icon${trackIcons.length !== 1 ? 's' : ''}</li>` : ''}
+            </ul>
+            <div style="background: #d1fae5; border: 1px solid #10b981; border-radius: 6px; padding: 12px; margin-top: 20px;">
+              <p style="margin: 0; color: #065f46; font-size: 14px;">
+                Your playlist is now available in your Yoto library. You can link it to a Make Your Own card via the Yoto app or player.
+              </p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
+            <button onclick="window.location.href='https://my.yotoplay.com/my-cards/playlists'" style="
+              padding: 10px 20px;
+              background: #f3f4f6;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            ">View Playlists</button>
+            <button onclick="document.querySelector('#yoto-import-modal').remove()" style="
+              padding: 10px 20px;
+              background: #3b82f6;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            ">Close</button>
+          </div>
+        </div>
+      `;
+      
+      showNotification('Playlist created successfully!', 'success');
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      showNotification('Import failed: ' + error.message, 'error');
+      
+      // Show error in modal
+      progressDiv.innerHTML = `
+        <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 12px; margin-top: 20px;">
+          <p style="margin: 0; color: #991b1b; font-size: 14px;">
+            <strong>Error:</strong> ${error.message}
+          </p>
+        </div>
+      `;
+      
+      startButton.disabled = false;
+      startButton.textContent = 'Start Import';
+    }
+  };
+  
+  // Helper function to convert File to base64
+  async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result;
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        const base64 = btoa(binary);
+        resolve({
+          data: base64,
+          type: file.type,
+          name: file.name
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  }
+  
+  // Close on background click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  };
 }
 
 // Initialize the content script

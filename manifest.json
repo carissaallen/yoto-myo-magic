@@ -47,6 +47,16 @@
     "open_in_tab": true
   },
   
+  "content_scripts": [
+    {
+      "matches": [
+        "https://my.yotoplay.com/*"
+      ],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  
   "web_accessible_resources": [
     {
       "resources": [

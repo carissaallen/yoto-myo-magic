@@ -455,6 +455,70 @@ function showIconPreview(matches) {
   };
 }
 
+function createImportButton() {
+  const button = document.createElement('button');
+  button.id = 'yoto-import-btn';
+  
+  // Import icon SVG
+  const importIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <g id="Import">
+        <g>
+          <path d="M5.552,20.968a2.577,2.577,0,0,1-2.5-2.73c-.012-2.153,0-4.306,0-6.459a.5.5,0,0,1,1,0c0,2.2-.032,4.4,0,6.6.016,1.107.848,1.589,1.838,1.589H18.353A1.546,1.546,0,0,0,19.825,19a3.023,3.023,0,0,0,.1-1.061V11.779h0a.5.5,0,0,1,1,0c0,2.224.085,4.465,0,6.687a2.567,2.567,0,0,1-2.67,2.5Z" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M11.63,15.818a.459.459,0,0,0,.312.138c.014,0,.027.005.042.006s.027,0,.041-.006a.457.457,0,0,0,.312-.138l3.669-3.669a.5.5,0,0,0-.707-.707l-2.815,2.815V3.515a.5.5,0,0,0-1,0V14.257L8.668,11.442a.5.5,0,0,0-.707.707Z" stroke="currentColor" stroke-width="2" fill="none"/>
+        </g>
+      </g>
+    </svg>
+  `;
+  
+  button.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-left: 8px;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
+  `;
+  
+  button.innerHTML = `
+    ${importIcon}
+    <span>Import</span>
+  `;
+  
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#F85D41';
+    button.style.borderColor = '#F85D41';
+    button.style.transform = 'translateY(-1px)';
+  };
+  
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+  };
+  
+  button.onclick = async () => {
+    // Import functionality will be implemented here
+    handleImportClick();
+  };
+  
+  return button;
+}
+
 function createButton() {
   const button = document.createElement('button');
   button.id = 'yoto-magic-btn';
@@ -710,6 +774,7 @@ function checkAndInjectButton() {
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'flex gap-2 mt-2';
     
+    // Only add Icon Match button on edit page
     const button = createButton();
     buttonContainer.appendChild(button);
     
@@ -728,6 +793,7 @@ function checkAndInjectButton() {
       const buttonContainer = document.createElement('div');
       buttonContainer.className = 'flex gap-2 mt-4';
       
+      // Only add Icon Match button on edit page
       const button = createButton();
       buttonContainer.appendChild(button);
       
@@ -790,8 +856,314 @@ function cleanup() {
         }
       }
     });
+    
+    // Also clean up the import button
+    const importBtn = document.querySelector('#yoto-import-btn');
+    if (importBtn && importBtn.parentElement) {
+      importBtn.parentElement.remove();
+    }
   } catch (error) {
     // Ignore cleanup errors
+  }
+}
+
+// Import functionality
+async function handleImportClick() {
+  const button = document.querySelector('#yoto-import-btn');
+  const originalContent = button.innerHTML;
+  
+  // Check authentication first
+  const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+  if (!authResponse.authenticated) {
+    button.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Authorizing...</span>
+    `;
+    chrome.runtime.sendMessage({ action: 'START_AUTH' });
+    setTimeout(() => {
+      button.innerHTML = originalContent;
+    }, 2000);
+    return;
+  }
+  
+  // Create file input for folder selection
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.webkitdirectory = true;
+  input.directory = true;
+  input.multiple = true;
+  
+  input.onchange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    // Sort files into audio and images
+    const audioFiles = files.filter(f => 
+      /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    
+    const imageFiles = files.filter(f => 
+      /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
+    );
+    
+    // Separate track icons (numeric names) from cover images
+    const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()))
+      .sort((a, b) => {
+        const numA = parseInt(a.name.match(/\d+/)[0]);
+        const numB = parseInt(b.name.match(/\d+/)[0]);
+        return numA - numB;
+      });
+    
+    const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()));
+    
+    if (audioFiles.length === 0) {
+      alert('No audio files found in audio_files folder');
+      return;
+    }
+    
+    // Show import modal
+    showImportModal(audioFiles, trackIcons, coverImage);
+  };
+  
+  input.click();
+}
+
+function showImportModal(audioFiles, trackIcons, coverImage) {
+  // Remove existing modal if any
+  const existing = document.querySelector('#yoto-import-modal');
+  if (existing) existing.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'yoto-import-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Playlist</h2>
+    <div style="margin-bottom: 20px; color: #666;">
+      <p>Ready to import:</p>
+      <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>
+        <li>${trackIcons.length} track icon${trackIcons.length !== 1 ? 's' : ''}</li>
+        ${coverImage ? '<li>1 cover image</li>' : ''}
+      </ul>
+    </div>
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 5px; font-weight: 500;">Playlist Name:</label>
+      <input type="text" id="import-playlist-name" value="Imported Playlist" style="
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+      ">
+    </div>
+    <div id="import-progress" style="display: none; margin: 20px 0;">
+      <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
+        <div id="import-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+      </div>
+      <p id="import-status" style="margin-top: 10px; color: #666; font-size: 14px;"></p>
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
+      <button id="cancel-import" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Cancel</button>
+      <button id="start-import" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Start Import</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // Event handlers
+  document.querySelector('#cancel-import').onclick = () => modal.remove();
+  
+  document.querySelector('#start-import').onclick = async () => {
+    const playlistName = document.querySelector('#import-playlist-name').value || 'Imported Playlist';
+    const progressDiv = document.querySelector('#import-progress');
+    const progressBar = document.querySelector('#import-progress-bar');
+    const statusText = document.querySelector('#import-status');
+    const startButton = document.querySelector('#start-import');
+    
+    progressDiv.style.display = 'block';
+    startButton.disabled = true;
+    startButton.textContent = 'Importing...';
+    
+    try {
+      // Get current card ID from URL (optional - only if editing existing card)
+      const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
+      let cardId = urlMatch ? urlMatch[1] : null;
+      
+      // Clean up cardId - remove /edit if present
+      if (cardId && cardId.includes('/')) {
+        cardId = cardId.split('/')[0];
+      }
+      
+      // Step 1: Upload icons
+      statusText.textContent = 'Uploading icons...';
+      progressBar.style.width = '10%';
+      
+      const iconIds = [];
+      for (let i = 0; i < trackIcons.length; i++) {
+        const iconFile = trackIcons[i];
+        statusText.textContent = `Uploading icon ${i + 1} of ${trackIcons.length}...`;
+        
+        try {
+          const response = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_ICON',
+            file: await fileToBase64(iconFile)
+          });
+          
+          if (response.success && response.iconId) {
+            iconIds[i] = response.iconId;
+          }
+        } catch (error) {
+          console.error(`Failed to upload icon ${i + 1}:`, error);
+        }
+        
+        progressBar.style.width = `${10 + (30 * (i + 1) / trackIcons.length)}%`;
+      }
+      
+      // Step 2: Upload and transcode audio files
+      statusText.textContent = 'Uploading audio files...';
+      progressBar.style.width = '40%';
+      
+      const audioTracks = [];
+      for (let i = 0; i < audioFiles.length; i++) {
+        const audioFile = audioFiles[i];
+        statusText.textContent = `Processing audio ${i + 1} of ${audioFiles.length} (this may take a moment)...`;
+        
+        const response = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_AUDIO',
+          file: await fileToBase64(audioFile)
+        });
+        
+        if (response.success) {
+          audioTracks.push({
+            trackUrl: response.trackUrl,
+            duration: response.duration,
+            fileSize: response.fileSize,
+            channels: response.channels,
+            format: response.format,
+            title: response.title || audioFile.name.replace(/\.[^/.]+$/, '')
+          });
+        } else {
+          throw new Error(`Failed to upload audio ${i + 1}: ${response.error}`);
+        }
+        
+        progressBar.style.width = `${40 + (40 * (i + 1) / audioFiles.length)}%`;
+      }
+      
+      // Step 3: Create playlist content
+      statusText.textContent = 'Creating playlist...';
+      progressBar.style.width = '80%';
+      
+      const createResponse = await chrome.runtime.sendMessage({
+        action: 'CREATE_PLAYLIST_CONTENT',
+        title: playlistName,
+        audioTracks: audioTracks,
+        iconIds: iconIds,
+        cardId: cardId
+      });
+      
+      if (!createResponse.success) {
+        throw new Error(`Failed to create playlist: ${createResponse.error}`);
+      }
+      
+      progressBar.style.width = '100%';
+      statusText.textContent = 'Import complete! Refreshing page...';
+      
+      // Show success message
+      setTimeout(() => {
+        const successDiv = document.createElement('div');
+        successDiv.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #4CAF50;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 10001;
+          font-size: 14px;
+        `;
+        successDiv.textContent = `✓ Successfully imported "${playlistName}" with ${audioTracks.length} tracks!`;
+        document.body.appendChild(successDiv);
+        
+        modal.remove();
+        
+        // Refresh the page after a short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }, 500);
+      
+    } catch (error) {
+      alert('Import failed: ' + error.message);
+      modal.remove();
+    }
+  };
+  
+  // Helper function to convert File to base64
+  async function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const arrayBuffer = reader.result;
+        // Convert ArrayBuffer to base64 string for message passing
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        const base64 = btoa(binary);
+        resolve({
+          data: base64,
+          type: file.type,
+          name: file.name
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
   }
 }
 
