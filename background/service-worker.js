@@ -624,6 +624,76 @@ function formatDuration(seconds) {
     }
 }
 
+// Upload cover image and get public URL
+async function uploadCoverImage(imageFileData) {
+    try {
+        // Convert base64 string to binary array
+        const binaryString = atob(imageFileData.data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        // Create a File object from the bytes
+        const imageFile = new File([bytes], imageFileData.name || 'cover.png', {
+            type: imageFileData.type || 'image/png'
+        });
+        
+        // Upload the cover image using the dedicated coverImage endpoint
+        const response = await makeAuthenticatedRequest(
+            `/media/coverImage/user/me/upload?coverType=default`,
+            {
+                method: 'POST',
+                body: bytes.buffer, // Send the ArrayBuffer directly
+                headers: {
+                    'Content-Type': imageFileData.type || 'image/png'
+                }
+            }
+        );
+        
+        if (response.error) {
+            return { error: response.error };
+        }
+        
+        console.log('[uploadCoverImage] Response from Yoto:', response);
+        
+        // The response should contain the URL for the uploaded cover image
+        // Based on the actual response structure: { coverImage: { mediaId, mediaUrl } }
+        if (response.coverImage && response.coverImage.mediaUrl) {
+            console.log('[uploadCoverImage] Cover uploaded successfully:', response.coverImage.mediaUrl);
+            return {
+                success: true,
+                url: response.coverImage.mediaUrl,
+                mediaId: response.coverImage.mediaId
+            };
+        }
+        
+        // Fallback checks for other possible response structures
+        if (response.url) {
+            return {
+                success: true,
+                url: response.url
+            };
+        } else if (response.imageUrl) {
+            return {
+                success: true,
+                url: response.imageUrl
+            };
+        } else if (response.mediaUrl) {
+            return {
+                success: true,
+                url: response.mediaUrl
+            };
+        }
+        
+        // If we get here, log the entire response to understand its structure
+        console.error('[uploadCoverImage] Unexpected response structure:', response);
+        return { error: 'Unexpected response structure from cover upload' };
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
 // Upload icon to Yoto
 async function uploadIcon(iconFileData) {
     try {
@@ -735,7 +805,7 @@ async function uploadAudioFile(audioFileData) {
 }
 
 // Create playlist with uploaded content
-async function createPlaylistContent(title, audioTracks, iconIds = []) {
+async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl = null) {
     try {
         const chapters = audioTracks.map((audio, index) => {
             const chapterKey = String(index + 1).padStart(2, '0');
@@ -791,6 +861,31 @@ async function createPlaylistContent(title, audioTracks, iconIds = []) {
             }
         }
         
+        // Ensure coverUrl is a string or null
+        const coverUrlString = typeof coverUrl === 'string' ? coverUrl : null;
+        
+        // Build metadata object
+        const metadata = {
+            description: '',
+            media: {
+                duration: totalDuration,
+                readableDuration: formatDuration(totalDuration),
+                fileSize: totalFileSize,
+                readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
+                hasStreams: false
+            }
+        };
+        
+        // Only add cover if we have a valid URL
+        if (coverUrlString) {
+            console.log('[createPlaylistContent] Adding cover URL to metadata:', coverUrlString);
+            metadata.cover = {
+                imageL: coverUrlString
+            };
+        } else {
+            console.log('[createPlaylistContent] No cover URL provided');
+        }
+        
         const content = {
             content: {
                 chapters,
@@ -799,30 +894,44 @@ async function createPlaylistContent(title, audioTracks, iconIds = []) {
                     resumeTimeout: 2592000
                 }
             },
-            metadata: {
-                description: `Imported playlist: ${title}`,
-                media: {
-                    duration: totalDuration,
-                    readableDuration: formatDuration(totalDuration),
-                    fileSize: totalFileSize,
-                    readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
-                    hasStreams: false
-                },
-                cover: {}
-            },
+            metadata: metadata,
             title: title,
             createdByClientId: CONFIG.CLIENT_ID,
             userId: userId,
             createdAt: new Date().toISOString()
         };
         
-        const createResponse = await makeAuthenticatedRequest('/content', {
+        console.log('[createPlaylistContent] Sending content to Yoto:', JSON.stringify(content, null, 2));
+        
+        let createResponse = await makeAuthenticatedRequest('/content', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(content)
         });
+        
+        // If it fails with a cover, try without the cover
+        if (createResponse.error && coverUrlString) {
+            console.log('[createPlaylistContent] Failed with cover, retrying without cover...');
+            delete metadata.cover;
+            const contentWithoutCover = {
+                ...content,
+                metadata: metadata
+            };
+            
+            createResponse = await makeAuthenticatedRequest('/content', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(contentWithoutCover)
+            });
+            
+            if (!createResponse.error) {
+                console.log('[createPlaylistContent] Success without cover. Cover URL might be the issue.');
+            }
+        }
         
         return createResponse;
     } catch (error) {
@@ -900,11 +1009,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse(iconResponse);
                     break;
                     
+                case 'UPLOAD_COVER':
+                    // Upload cover image and get its public URL
+                    const coverResponse = await uploadCoverImage({
+                        data: request.file.data,
+                        type: request.file.type,
+                        name: request.file.name
+                    });
+                    sendResponse(coverResponse);
+                    break;
+                    
                 case 'CREATE_PLAYLIST':
                     sendResponse(await createPlaylistContent(
                         request.title,
                         request.audioTracks,
-                        request.iconIds
+                        request.iconIds,
+                        request.coverUrl
                     ));
                     break;
 
@@ -913,7 +1033,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         request.title,
                         request.audioTracks,
                         request.iconIds,
-                        request.cardId
+                        request.coverUrl
                     );
                     sendResponse({success: true, result});
                     break;

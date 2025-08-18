@@ -699,6 +699,15 @@ function showImportStartModal() {
         return;
       }
       
+      // Extract folder name from the first file's path
+      let folderName = 'Imported Playlist';
+      if (files[0] && files[0].webkitRelativePath) {
+        const pathParts = files[0].webkitRelativePath.split('/');
+        if (pathParts.length > 0) {
+          folderName = pathParts[0]; // Get the root folder name
+        }
+      }
+      
       // Close the start modal only after we have files
       if (modal && modal.parentNode) {
         modal.remove();
@@ -721,7 +730,8 @@ function showImportStartModal() {
           return numA - numB;
         });
       
-      const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()));
+      // Find cover image (non-numeric filename)
+      const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
       
       if (audioFiles.length === 0) {
         showNotification('No audio files found in audio_files folder', 'error');
@@ -730,7 +740,7 @@ function showImportStartModal() {
       
       // Show import modal with the files - add small delay to ensure clean transition
       setTimeout(() => {
-        showImportModal(audioFiles, trackIcons, coverImage);
+        showImportModal(audioFiles, trackIcons, coverImage, folderName);
       }, 100);
     });
     
@@ -945,7 +955,7 @@ function injectStyles() {
 }
 
 // Show import modal
-function showImportModal(audioFiles, trackIcons, coverImage) {
+function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist') {
   // Remove existing modal if any
   const existing = document.querySelector('#yoto-import-modal');
   if (existing) existing.remove();
@@ -989,7 +999,7 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
     </div>
     <div style="margin-bottom: 20px;">
       <label style="display: block; margin-bottom: 5px; font-weight: 500;">Playlist Name:</label>
-      <input type="text" id="import-playlist-name" value="Imported Playlist" style="
+      <input type="text" id="import-playlist-name" value="${defaultName}" style="
         width: 100%;
         padding: 8px 12px;
         border: 1px solid #ddd;
@@ -1029,6 +1039,15 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
   modal.appendChild(content);
   document.body.appendChild(modal);
   
+  // Prevent input from causing modal to close
+  const nameInput = document.querySelector('#import-playlist-name');
+  if (nameInput) {
+    nameInput.onclick = (e) => e.stopPropagation();
+    nameInput.onkeydown = (e) => e.stopPropagation();
+    nameInput.onkeyup = (e) => e.stopPropagation();
+    nameInput.onfocus = (e) => e.stopPropagation();
+  }
+  
   // Event handlers
   document.querySelector('#cancel-import').onclick = () => modal.remove();
   
@@ -1046,10 +1065,34 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
     try {
       const uploadedTracks = [];
       const uploadedIconIds = [];
-      const totalFiles = audioFiles.length + trackIcons.length;
+      let uploadedCoverUrl = null;
+      const totalFiles = audioFiles.length + trackIcons.length + (coverImage ? 1 : 0);
       let currentFile = 0;
       
-      // Upload icons first (if any)
+      // Upload cover image first (if any)
+      if (coverImage) {
+        statusText.textContent = 'Uploading cover image...';
+        currentFile++;
+        progressBar.style.width = `${(currentFile / totalFiles) * 70}%`;
+        
+        try {
+          const coverBase64 = await fileToBase64(coverImage);
+          const coverResponse = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_COVER',
+            file: coverBase64
+          });
+          
+          if (coverResponse.error) {
+            console.warn(`Failed to upload cover image: ${coverResponse.error}`);
+          } else if (coverResponse.url) {
+            uploadedCoverUrl = coverResponse.url;
+          }
+        } catch (error) {
+          console.warn('Error uploading cover:', error);
+        }
+      }
+      
+      // Upload icons (if any)
       if (trackIcons.length > 0) {
         statusText.textContent = 'Uploading track icons...';
         
@@ -1114,7 +1157,8 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
         action: 'CREATE_PLAYLIST',
         title: playlistName,
         audioTracks: uploadedTracks,
-        iconIds: uploadedIconIds // Pass the uploaded icon IDs
+        iconIds: uploadedIconIds, // Pass the uploaded icon IDs
+        coverUrl: uploadedCoverUrl // Pass the cover image URL
       });
       
       if (createResponse.error) {
@@ -1124,58 +1168,105 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
       progressBar.style.width = '100%';
       statusText.textContent = 'Import complete!';
       
-      // Show success message
-      modal.innerHTML = `
-        <div style="
-          background: white;
-          border-radius: 12px;
-          padding: 30px;
-          max-width: 600px;
-          margin: auto;
-          position: relative;
-          top: 50%;
-          transform: translateY(-50%);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        ">
-          <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">✅ Import Complete!</h2>
-          <div style="margin-bottom: 20px; color: #666;">
-            <p><strong>Playlist "${playlistName}" has been created!</strong></p>
-            <p style="margin-top: 15px;">Successfully uploaded:</p>
-            <ul style="margin: 10px 0; padding-left: 20px;">
-              <li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>
-              ${trackIcons.length > 0 ? `<li>${trackIcons.length} track icon${trackIcons.length !== 1 ? 's' : ''}</li>` : ''}
-            </ul>
-            <div style="background: #d1fae5; border: 1px solid #10b981; border-radius: 6px; padding: 12px; margin-top: 20px;">
-              <p style="margin: 0; color: #065f46; font-size: 14px;">
-                Your playlist is now available in your Yoto library. You can link it to a Make Your Own card via the Yoto app or player.
-              </p>
+      // Show success message with auto-refresh
+      // Clear modal but keep it centered
+      modal.innerHTML = '';
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.3s ease;
+      `;
+      
+      const successContent = document.createElement('div');
+      successContent.style.cssText = `
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        max-width: 500px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        text-align: center;
+      `;
+      
+      successContent.innerHTML = `
+          <div style="
+            width: 60px;
+            height: 60px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+          ">
+            <svg width="30" height="30" fill="white" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Import Complete!</h2>
+          <p style="margin: 0 0 20px 0; color: #666; font-size: 16px;">
+            <strong>"${playlistName}"</strong> has been created
+          </p>
+          <div style="
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 25px;
+          ">
+            <p style="margin: 0 0 10px 0; color: #4b5563; font-size: 14px;">Successfully imported:</p>
+            <div style="display: flex; justify-content: center; gap: 30px; color: #2c3e50; font-size: 14px;">
+              <span>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</span>
+              ${trackIcons.length > 0 ? `<span>${trackIcons.length} icon${trackIcons.length !== 1 ? 's' : ''}</span>` : ''}
             </div>
           </div>
-          <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
-            <button onclick="window.location.href='https://my.yotoplay.com/my-cards/playlists'" style="
-              padding: 10px 20px;
-              background: #f3f4f6;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 500;
-            ">View Playlists</button>
-            <button onclick="document.querySelector('#yoto-import-modal').remove()" style="
-              padding: 10px 20px;
-              background: #3b82f6;
-              color: white;
-              border: none;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 14px;
-              font-weight: 500;
-            ">Close</button>
+          <div style="
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #6b7280;
+            font-size: 14px;
+          ">
+            <div style="
+              width: 20px;
+              height: 20px;
+              border: 2px solid #3b82f6;
+              border-top-color: transparent;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+            "></div>
+            <span>Refreshing page...</span>
           </div>
         </div>
       `;
       
+      modal.appendChild(successContent);
+      
+      // Add animation style if not already present
+      if (!document.getElementById('yoto-spin-animation')) {
+        const style = document.createElement('style');
+        style.id = 'yoto-spin-animation';
+        style.textContent = `
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
       showNotification('Playlist created successfully!', 'success');
+      
+      // Auto refresh after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
       
     } catch (error) {
       console.error('Import error:', error);
@@ -1227,11 +1318,16 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
     });
   }
   
-  // Close on background click
+  // Close on background click only
   modal.onclick = (e) => {
     if (e.target === modal) {
       modal.remove();
     }
+  };
+  
+  // Prevent content area clicks from bubbling up
+  content.onclick = (e) => {
+    e.stopPropagation();
   };
 }
 
