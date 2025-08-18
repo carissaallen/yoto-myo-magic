@@ -956,6 +956,47 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
+// Utility function for chunked parallel uploads
+async function uploadInChunks(items, uploadFn, chunkSize = 5, onProgress) {
+  const results = [];
+  const totalItems = items.length;
+  let completedItems = 0;
+  
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize);
+    const chunkPromises = chunk.map((item, index) => 
+      uploadFn(item, i + index).then(result => {
+        completedItems++;
+        if (onProgress) {
+          onProgress(completedItems, totalItems);
+        }
+        return result;
+      })
+    );
+    
+    const chunkResults = await Promise.allSettled(chunkPromises);
+    results.push(...chunkResults);
+  }
+  
+  return results;
+}
+
+// Utility function for parallel uploads with retry
+async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await uploadFn();
+      return { status: 'fulfilled', value: result };
+    } catch (error) {
+      if (attempt === maxRetries - 1) {
+        return { status: 'rejected', reason: error };
+      }
+      // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
+    }
+  }
+}
+
 // Show import modal
 function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist') {
   // Remove existing modal if any
@@ -1065,90 +1106,205 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     startButton.textContent = 'Importing...';
     
     try {
-      const uploadedTracks = [];
-      const uploadedIconIds = [];
-      let uploadedCoverUrl = null;
       const totalFiles = audioFiles.length + trackIcons.length + (coverImage ? 1 : 0);
-      let currentFile = 0;
+      let completedFiles = 0;
       
-      // Upload cover image first (if any)
-      if (coverImage) {
-        statusText.textContent = 'Uploading cover image...';
-        currentFile++;
-        progressBar.style.width = `${(currentFile / totalFiles) * 70}%`;
+      // Helper function to update progress
+      const updateProgress = (message) => {
+        completedFiles++;
+        statusText.textContent = message;
+        progressBar.style.width = `${(completedFiles / totalFiles) * 70}%`;
+      };
+      
+      // Automatically choose upload strategy based on file count
+      // Use chunked strategy for 20+ audio files to prevent browser overload
+      const uploadStrategy = audioFiles.length >= 20 ? 'chunked' : 'parallel';
+      console.log(`[Import] Using ${uploadStrategy} upload strategy for ${audioFiles.length} audio files`);
+      
+      let uploadedCoverUrl = null;
+      const uploadedIconIds = [];
+      const uploadedTracks = [];
+      
+      if (uploadStrategy === 'chunked') {
+        // CHUNKED UPLOAD (For large playlists with 20+ audio files)
+        statusText.textContent = `Uploading ${totalFiles} files in optimized chunks...`;
+        const chunkSize = 5; // Upload 5 files at a time
         
-        try {
+        // Upload cover first if exists
+        if (coverImage) {
           const coverBase64 = await fileToBase64(coverImage);
           const coverResponse = await chrome.runtime.sendMessage({
             action: 'UPLOAD_COVER',
             file: coverBase64
           });
-          
-          if (coverResponse.error) {
-            console.warn(`Failed to upload cover image: ${coverResponse.error}`);
-          } else if (coverResponse.url) {
+          if (!coverResponse.error && coverResponse.url) {
             uploadedCoverUrl = coverResponse.url;
           }
-        } catch (error) {
-          console.warn('Error uploading cover:', error);
+          updateProgress('Cover image uploaded');
         }
-      }
-      
-      // Upload icons (if any)
-      if (trackIcons.length > 0) {
-        statusText.textContent = 'Uploading track icons...';
         
-        for (let i = 0; i < trackIcons.length; i++) {
-          const iconFile = trackIcons[i];
-          currentFile++;
-          statusText.textContent = `Uploading icon ${i + 1} of ${trackIcons.length}: ${iconFile.name}`;
-          progressBar.style.width = `${(currentFile / totalFiles) * 70}%`;
+        // Upload icons in chunks
+        if (trackIcons.length > 0) {
+          const iconResults = await uploadInChunks(
+            trackIcons,
+            async (iconFile, index) => {
+              const iconBase64 = await fileToBase64(iconFile);
+              const response = await chrome.runtime.sendMessage({
+                action: 'UPLOAD_ICON',
+                file: iconBase64
+              });
+              return { response, iconFile, index };
+            },
+            chunkSize,
+            (completed, total) => {
+              statusText.textContent = `Uploading icons: ${completed}/${total}`;
+              progressBar.style.width = `${(completedFiles + completed) / totalFiles * 70}%`;
+            }
+          );
           
-          // Convert icon to base64
-          const iconBase64 = await fileToBase64(iconFile);
-          
-          // Upload icon via background script
-          const iconResponse = await chrome.runtime.sendMessage({
-            action: 'UPLOAD_ICON',
-            file: iconBase64
+          iconResults.forEach((result) => {
+            if (result.status === 'fulfilled' && !result.value.response.error) {
+              const iconNumber = parseInt(result.value.iconFile.name.match(/\d+/)[0]) - 1;
+              uploadedIconIds[iconNumber] = result.value.response.iconId;
+            }
           });
-          
-          if (iconResponse.error) {
-            console.warn(`Failed to upload icon ${iconFile.name}: ${iconResponse.error}`);
-            // Continue without this icon - use default
-            uploadedIconIds[i] = null;
-          } else {
-            // Store the icon ID at the correct index (based on numeric filename)
-            const iconNumber = parseInt(iconFile.name.match(/\d+/)[0]) - 1; // Convert to 0-based index
-            uploadedIconIds[iconNumber] = iconResponse.iconId;
-          }
+          completedFiles += trackIcons.length;
         }
+        
+        // Upload audio in chunks
+        const audioResults = await uploadInChunks(
+          audioFiles,
+          async (audioFile, index) => {
+            const base64Data = await fileToBase64(audioFile);
+            const response = await chrome.runtime.sendMessage({
+              action: 'UPLOAD_AUDIO',
+              file: base64Data
+            });
+            return { response, audioFile, index };
+          },
+          chunkSize,
+          (completed, total) => {
+            statusText.textContent = `Uploading audio: ${completed}/${total}`;
+            progressBar.style.width = `${(completedFiles + completed) / totalFiles * 70}%`;
+          }
+        );
+        
+        audioResults.forEach((result, index) => {
+          if (result.status === 'fulfilled' && !result.value.response.error) {
+            uploadedTracks[index] = {
+              title: result.value.audioFile.name.replace(/\.[^/.]+$/, ''),
+              transcodedAudio: result.value.response.transcodedAudio
+            };
+          } else if (result.status === 'rejected' || result.value.response.error) {
+            throw new Error(`Failed to upload audio: ${result.reason || result.value.response.error}`);
+          }
+        });
+        
+      } else {
+        // PARALLEL UPLOAD (Default strategy - fastest for < 20 audio files)
+        statusText.textContent = `Uploading ${totalFiles} files in parallel...`;
+        
+        // Prepare all upload promises
+        const uploadPromises = [];
+        const uploadTypes = [];
+        
+        // 1. Prepare cover image upload (if any)
+        if (coverImage) {
+          const coverPromise = fileToBase64(coverImage).then(base64 => 
+            chrome.runtime.sendMessage({
+              action: 'UPLOAD_COVER',
+              file: base64
+            }).then(response => {
+              updateProgress('Cover image uploaded');
+              return response;
+            })
+          );
+          uploadPromises.push(coverPromise);
+          uploadTypes.push('cover');
+        }
+        
+        // 2. Prepare all icon uploads in parallel
+        const iconPromises = trackIcons.map((iconFile, index) => 
+          fileToBase64(iconFile).then(base64 => 
+            chrome.runtime.sendMessage({
+              action: 'UPLOAD_ICON',
+              file: base64
+            }).then(response => {
+              updateProgress(`Icon ${index + 1}/${trackIcons.length} uploaded`);
+              return { response, iconFile, index };
+            })
+          )
+        );
+        uploadPromises.push(...iconPromises);
+        uploadTypes.push(...Array(iconPromises.length).fill('icon'));
+        
+        // 3. Prepare all audio uploads in parallel
+        const audioPromises = audioFiles.map((audioFile, index) => 
+          fileToBase64(audioFile).then(base64 => 
+            chrome.runtime.sendMessage({
+              action: 'UPLOAD_AUDIO',
+              file: base64
+            }).then(response => {
+              updateProgress(`Audio ${index + 1}/${audioFiles.length} uploaded`);
+              return { response, audioFile, index };
+            })
+          )
+        );
+        uploadPromises.push(...audioPromises);
+        uploadTypes.push(...Array(audioPromises.length).fill('audio'));
+        
+        // Execute all uploads in parallel
+        statusText.textContent = `Uploading ${totalFiles} files in parallel...`;
+        const uploadResults = await Promise.allSettled(uploadPromises);
+        
+        // Process parallel upload results
+        uploadResults.forEach((result, index) => {
+          const type = uploadTypes[index];
+          
+          if (result.status === 'fulfilled') {
+            const value = result.value;
+            
+            if (type === 'cover') {
+              if (!value.error && value.url) {
+                uploadedCoverUrl = value.url;
+              } else {
+                console.warn('Failed to upload cover:', value.error);
+              }
+            } else if (type === 'icon') {
+              const { response, iconFile } = value;
+              if (!response.error && response.iconId) {
+                // Store icon ID at correct index based on filename
+                const iconNumber = parseInt(iconFile.name.match(/\d+/)[0]) - 1;
+                uploadedIconIds[iconNumber] = response.iconId;
+              } else {
+                console.warn(`Failed to upload icon ${iconFile.name}:`, response.error);
+              }
+            } else if (type === 'audio') {
+              const { response, audioFile, index: audioIndex } = value;
+              if (!response.error && response.transcodedAudio) {
+                uploadedTracks[audioIndex] = {
+                  title: audioFile.name.replace(/\.[^/.]+$/, ''),
+                  transcodedAudio: response.transcodedAudio
+                };
+              } else {
+                throw new Error(`Failed to upload ${audioFile.name}: ${response.error || 'Unknown error'}`);
+              }
+            }
+          } else {
+            // Handle rejected promises
+            if (type === 'audio') {
+              throw new Error(`Audio upload failed: ${result.reason}`);
+            } else {
+              console.warn(`${type} upload failed:`, result.reason);
+            }
+          }
+        });
       }
       
-      // Upload each audio file
-      for (let i = 0; i < audioFiles.length; i++) {
-        const file = audioFiles[i];
-        currentFile++;
-        statusText.textContent = `Uploading audio ${i + 1} of ${audioFiles.length}: ${file.name}`;
-        progressBar.style.width = `${(currentFile / totalFiles) * 70}%`;
-        
-        // Convert file to base64
-        const base64Data = await fileToBase64(file);
-        
-        // Upload via background script
-        const uploadResponse = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_AUDIO',
-          file: base64Data
-        });
-        
-        if (uploadResponse.error) {
-          throw new Error(`Failed to upload ${file.name}: ${uploadResponse.error}`);
-        }
-        
-        uploadedTracks.push({
-          title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
-          transcodedAudio: uploadResponse.transcodedAudio
-        });
+      // Ensure all audio tracks were uploaded successfully
+      const validTracks = uploadedTracks.filter(t => t);
+      if (validTracks.length === 0) {
+        throw new Error('No audio files were uploaded successfully');
       }
       
       // Create the playlist with icons
