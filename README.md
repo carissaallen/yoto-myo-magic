@@ -1,19 +1,19 @@
-# Yoto Card Magic
+# Yoto MYO Magic
 
 > _Automatically match icons to your MYO playlist tracks on Yoto._
 
-Transform the way you create Yoto cards! Yoto Card Magic is a Chrome Extension that intelligently matches icons to your Make Your Own (MYO) playlist tracks, saving you time and making your cards more visually appealing.
+Transform the way you create Yoto cards! Yoto MYO Magic is a Chrome Extension that intelligently matches icons to your Make Your Own (MYO) playlist tracks, saving you time and making your cards more visually appealing.
 
 ## What It Does
 
-Instead of manually selecting an icon for each track in your MYO playlists, Yoto Card Magic automatically analyzes your track titles and suggests the perfect icons from Yoto's collection.
+Instead of manually selecting an icon for each track in your MYO playlists, Yoto MYO Magic automatically analyzes your track titles and suggests the perfect icons from Yoto's collection.
 
-**Before Yoto Card Magic:**
+**Before Yoto MYO Magic:**
 - Manually browse through hundreds of icons for each track
 - Spend minutes per track finding the right visual match
 - Risk inconsistent styling across your playlist
 
-**After Yoto Card Magic:**
+**After Yoto MYO Magic:**
 - One-click automatic icon matching for entire playlists
 - Smart suggestions based on track titles and themes
 - Cohesive, professional-looking cards in seconds
@@ -54,7 +54,7 @@ Instead of manually selecting an icon for each track in your MYO playlists, Yoto
 
 ## How to Use
 
-1. **Install the Extension**: Add Yoto Card Magic to your Chrome browser
+1. **Install the Extension**: Add Yoto MYO Magic to your Chrome browser
 2. **Visit Yoto**: Go to your MYO card editing page on yotoplay.com
 3. **Click Auto-Match**: Look for the "Auto-Match Icons" button on your playlist
 4. **Preview Results**: Review the suggested icons and confidence scores
@@ -77,7 +77,7 @@ Instead of manually selecting an icon for each track in your MYO playlists, Yoto
 ### FAQ
 
 **Q: Does this cost money?**  
-A: Yoto Card Magic is completely free to use.
+A: Yoto MYO Magic is completely free to use.
 
 **Q: Do you store my Yoto login information?**  
 A: No, we use Yoto's secure authentication system and don't store your password.

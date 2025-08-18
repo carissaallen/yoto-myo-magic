@@ -1,4 +1,4 @@
-console.log('[Yoto Card Magic] Content script loaded at:', window.location.href);
+console.log('[Yoto MYO Magic] Content script loaded at:', window.location.href);
 
 // Configuration
 const CONFIG = {
@@ -46,11 +46,11 @@ let state = {
 
 // Initialize
 function init() {
-  console.log('[Yoto Card Magic] Initializing content script');
+  console.log('[Yoto MYO Magic] Initializing content script');
   
   // Check auth status first
   chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(response => {
-    console.log('[Yoto Card Magic] Auth status:', response.authenticated);
+    console.log('[Yoto MYO Magic] Auth status:', response.authenticated);
     state.authenticated = response.authenticated;
   });
   
@@ -65,13 +65,13 @@ function init() {
   
   // Additional check specifically for the playlists page
   if (window.location.pathname.includes('/my-cards/playlists')) {
-    console.log('[Yoto Card Magic] Detected playlists page, setting up additional checks');
+    console.log('[Yoto MYO Magic] Detected playlists page, setting up additional checks');
     // Try multiple times to inject the button
     const injectAttempts = [1500, 2500, 3500, 5000];
     injectAttempts.forEach(delay => {
       setTimeout(() => {
         if (!document.querySelector('#yoto-import-btn')) {
-          console.log(`[Yoto Card Magic] Retry injection at ${delay}ms`);
+          console.log(`[Yoto MYO Magic] Retry injection at ${delay}ms`);
           injectMyPlaylistsUI(null);
         }
       }, delay);
@@ -84,7 +84,7 @@ function init() {
   // Listen for auth status updates
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTH_STATUS') {
-      console.log('[Yoto Card Magic] Auth status updated:', request.authenticated);
+      console.log('[Yoto MYO Magic] Auth status updated:', request.authenticated);
       state.authenticated = request.authenticated;
       
       // Update button icon
@@ -103,38 +103,38 @@ function checkForMyoPage() {
   const url = window.location.href;
   const path = window.location.pathname;
   
-  console.log('[Yoto Card Magic] Checking page:', url);
+  console.log('[Yoto MYO Magic] Checking page:', url);
   
   // Check if we're on my.yotoplay.com
   if (!url.includes('my.yotoplay.com')) {
-    console.log('[Yoto Card Magic] Not on my.yotoplay.com, skipping');
+    console.log('[Yoto MYO Magic] Not on my.yotoplay.com, skipping');
     return;
   }
   
   // Determine page type
   if (path.includes('/my-cards/playlists')) {
-    console.log('[Yoto Card Magic] On playlists page');
+    console.log('[Yoto MYO Magic] On playlists page');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
-    console.log('[Yoto Card Magic] On card edit page');
+    console.log('[Yoto MYO Magic] On card edit page');
     state.isMyoPage = true;
     state.pageType = 'edit-card';
     // For edit pages, we need to inject the Icon Match button using content-simple.js
     // That's handled by the service worker
   } else {
-    console.log('[Yoto Card Magic] Not on a relevant page');
+    console.log('[Yoto MYO Magic] Not on a relevant page');
   }
   
-  console.log('[Yoto Card Magic] Page type:', state.pageType);
+  console.log('[Yoto MYO Magic] Page type:', state.pageType);
 }
 
 // Wait for MYO elements to appear
 function waitForMyoElements() {
   // For playlists page, we only need to inject the Import button
   if (window.location.pathname.includes('/my-cards/playlists')) {
-    console.log('[Yoto Card Magic] On playlists page, injecting Import button');
+    console.log('[Yoto MYO Magic] On playlists page, injecting Import button');
     // Give the page a moment to render, then inject
     setTimeout(() => {
       injectMyPlaylistsUI(null);
@@ -334,8 +334,8 @@ function createImportButton() {
   `;
   
   button.style.cssText = `
-    background-color: #3b82f6;
-    color: #ffffff;
+    background-color: #ffffff;
+    color: #3b82f6;
     border: 1px solid #3b82f6;
     padding: 8px 16px;
     border-radius: 6px;
@@ -359,13 +359,15 @@ function createImportButton() {
   `;
   
   button.onmouseenter = () => {
-    button.style.backgroundColor = '#2563eb';
-    button.style.borderColor = '#2563eb';
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#F85D41';
+    button.style.borderColor = '#F85D41';
     button.style.transform = 'translateY(-1px)';
   };
   
   button.onmouseleave = () => {
-    button.style.backgroundColor = '#3b82f6';
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
     button.style.borderColor = '#3b82f6';
     button.style.transform = 'translateY(0)';
   };
@@ -497,13 +499,13 @@ function createPreviewOverlay() {
 
 // Handle auto-match button click
 async function handleAutoMatchClick() {
-  console.log('[Yoto Card Magic] Auto-match clicked');
+  console.log('[Yoto MYO Magic] Auto-match clicked');
   
   // Check if we're authenticated with Yoto API
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    console.log('[Yoto Card Magic] Not authenticated, starting auth flow');
+    console.log('[Yoto MYO Magic] Not authenticated, starting auth flow');
     // Start authentication
     chrome.runtime.sendMessage({ action: 'START_AUTH' });
     return;
@@ -542,13 +544,13 @@ async function handleAutoMatchClick() {
 
 // Handle bulk match button click
 async function handleBulkMatchClick() {
-  console.log('[Yoto Card Magic] Bulk match clicked');
+  console.log('[Yoto MYO Magic] Bulk match clicked');
   
   // Check if we're authenticated with Yoto API
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    console.log('[Yoto Card Magic] Not authenticated, starting auth flow');
+    console.log('[Yoto MYO Magic] Not authenticated, starting auth flow');
     showNotification('Please authorize the app to continue...', 'info');
     // Start authentication
     await chrome.runtime.sendMessage({ action: 'START_AUTH' });
@@ -563,7 +565,7 @@ async function handleBulkMatchClick() {
   
   // Test API by fetching cards
   const cardsResponse = await chrome.runtime.sendMessage({ action: 'GET_CARDS' });
-  console.log('[Yoto Card Magic] Cards response:', cardsResponse);
+  console.log('[Yoto MYO Magic] Cards response:', cardsResponse);
   
   if (cardsResponse.error) {
     if (cardsResponse.needsAuth) {
@@ -588,7 +590,7 @@ async function handleBulkMatchClick() {
 
 // Handle import button click
 async function handleImportClick() {
-  console.log('[Yoto Card Magic] Import clicked');
+  console.log('[Yoto MYO Magic] Import clicked');
   
   // Check authentication first
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
