@@ -1205,9 +1205,20 @@ function showImportModal(audioFiles, trackIcons, coverImage) {
         let binary = '';
         bytes.forEach(byte => binary += String.fromCharCode(byte));
         const base64 = btoa(binary);
+        
+        // Ensure proper MIME type for images
+        let mimeType = file.type;
+        if (!mimeType && file.name) {
+          // Guess MIME type from extension if not provided
+          const ext = file.name.split('.').pop().toLowerCase();
+          if (ext === 'png') mimeType = 'image/png';
+          else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+          else if (ext === 'gif') mimeType = 'image/gif';
+        }
+        
         resolve({
           data: base64,
-          type: file.type,
+          type: mimeType || 'image/png',
           name: file.name
         });
       };
