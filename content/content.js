@@ -1021,10 +1021,14 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       const totalFiles = audioFiles.length + trackIcons.length + (coverImage ? 1 : 0);
       let completedFiles = 0;
       
+      // Show initial status
+      statusText.textContent = 'Starting upload...';
+      
       // Helper function to update progress
-      const updateProgress = (message) => {
+      const updateProgress = () => {
         completedFiles++;
-        statusText.textContent = message;
+        const percentage = Math.round((completedFiles / totalFiles) * 100);
+        statusText.textContent = `${percentage}% complete`;
         progressBar.style.width = `${(completedFiles / totalFiles) * 70}%`;
       };
       
@@ -1039,7 +1043,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       
       if (uploadStrategy === 'chunked') {
         // CHUNKED UPLOAD (For large playlists with 20+ audio files)
-        statusText.textContent = `Uploading ${totalFiles} files in optimized chunks...`;
+        statusText.textContent = 'Uploading files...';
         const chunkSize = 5; // Upload 5 files at a time
         
         // Upload cover first if exists
@@ -1052,7 +1056,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           if (!coverResponse.error && coverResponse.url) {
             uploadedCoverUrl = coverResponse.url;
           }
-          updateProgress('Cover image uploaded');
+          updateProgress();
         }
         
         // Upload icons in chunks
@@ -1069,8 +1073,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             },
             chunkSize,
             (completed, total) => {
-              statusText.textContent = `Uploading icons: ${completed}/${total}`;
-              progressBar.style.width = `${(completedFiles + completed) / totalFiles * 70}%`;
+              const totalProgress = completedFiles + completed;
+              const percentage = Math.round((totalProgress / totalFiles) * 100);
+              statusText.textContent = `${percentage}% complete`;
+              progressBar.style.width = `${totalProgress / totalFiles * 70}%`;
             }
           );
           
@@ -1096,8 +1102,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           },
           chunkSize,
           (completed, total) => {
-            statusText.textContent = `Uploading audio: ${completed}/${total}`;
-            progressBar.style.width = `${(completedFiles + completed) / totalFiles * 70}%`;
+            const totalProgress = completedFiles + completed;
+            const percentage = Math.round((totalProgress / totalFiles) * 100);
+            statusText.textContent = `${percentage}% complete`;
+            progressBar.style.width = `${totalProgress / totalFiles * 70}%`;
           }
         );
         
@@ -1114,7 +1122,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         
       } else {
         // PARALLEL UPLOAD (Default strategy - fastest for < 20 audio files)
-        statusText.textContent = `Uploading ${totalFiles} files in parallel...`;
+        statusText.textContent = 'Uploading files...';
         
         // Prepare all upload promises
         const uploadPromises = [];
@@ -1127,7 +1135,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               action: 'UPLOAD_COVER',
               file: base64
             }).then(response => {
-              updateProgress('Cover image uploaded');
+              updateProgress();
               return response;
             })
           );
@@ -1142,7 +1150,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               action: 'UPLOAD_ICON',
               file: base64
             }).then(response => {
-              updateProgress(`Icon ${index + 1}/${trackIcons.length} uploaded`);
+              updateProgress();
               return { response, iconFile, index };
             })
           )
@@ -1157,7 +1165,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               action: 'UPLOAD_AUDIO',
               file: base64
             }).then(response => {
-              updateProgress(`Audio ${index + 1}/${audioFiles.length} uploaded`);
+              updateProgress();
               return { response, audioFile, index };
             })
           )
@@ -1166,7 +1174,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         uploadTypes.push(...Array(audioPromises.length).fill('audio'));
         
         // Execute all uploads in parallel
-        statusText.textContent = `Uploading ${totalFiles} files in parallel...`;
         const uploadResults = await Promise.allSettled(uploadPromises);
         
         // Process parallel upload results
@@ -1220,7 +1227,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       }
       
       // Create the playlist with icons
-      statusText.textContent = 'Creating playlist...';
+      statusText.textContent = 'Finalizing playlist...';
       progressBar.style.width = '90%';
       
       const createResponse = await chrome.runtime.sendMessage({
