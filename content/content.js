@@ -606,7 +606,8 @@ async function handleImportClick() {
 
 // Open folder selector directly
 function openFolderSelector() {
-  // Create file input for folder selection
+  // Try to use a single input that can handle both folders and files
+  // Default to folder selection for backward compatibility
   const input = document.createElement('input');
   input.type = 'file';
   input.webkitdirectory = true;
@@ -629,26 +630,175 @@ function openFolderSelector() {
       return;
     }
     
-    // Extract folder name from the first file's path
-    let folderName = 'Imported Playlist';
-    if (files[0] && files[0].webkitRelativePath) {
-      const pathParts = files[0].webkitRelativePath.split('/');
-      if (pathParts.length > 0) {
-        folderName = pathParts[0]; // Get the root folder name
+    // Process the files normally - folders will have multiple files
+    await processFolderFiles(files);
+  });
+  
+  // Override the click to show our custom implementation
+  // This allows us to provide zip file option as well
+  input.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    input.remove();
+    
+    // Show custom file picker that supports both
+    showCustomFilePicker();
+  }, true);
+  
+  // Trigger the file picker
+  input.click();
+}
+
+// Custom file picker that supports both folders and zip files
+function showCustomFilePicker() {
+  // Create file input for ALL files (including zip)
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.style.display = 'none';
+  
+  // Add accept attribute to show both folders and zip as options
+  // Note: Some browsers may not respect this fully
+  fileInput.setAttribute('accept', '.zip,application/zip,application/x-zip-compressed');
+  
+  document.body.appendChild(fileInput);
+  
+  fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    fileInput.remove();
+    
+    if (files.length === 0) {
+      return;
+    }
+    
+    // Check if it's a single ZIP file
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
+      showNotification('Processing ZIP file...', 'info');
+      await processZipFile(files[0]);
+    } else {
+      // For non-zip single file, show error
+      if (files.length === 1) {
+        showNotification('Please select a ZIP file or use folder selection for multiple files', 'error');
+        
+        // Fallback to folder selection
+        setTimeout(() => {
+          const folderInput = document.createElement('input');
+          folderInput.type = 'file';
+          folderInput.webkitdirectory = true;
+          folderInput.directory = true;
+          folderInput.multiple = true;
+          folderInput.style.display = 'none';
+          
+          document.body.appendChild(folderInput);
+          
+          folderInput.addEventListener('change', async (e) => {
+            const folderFiles = Array.from(e.target.files);
+            folderInput.remove();
+            
+            if (folderFiles.length > 0) {
+              await processFolderFiles(folderFiles);
+            }
+          });
+          
+          folderInput.click();
+        }, 100);
+      } else {
+        // Multiple files selected - process as folder
+        await processFolderFiles(files);
+      }
+    }
+  });
+  
+  // Show instruction and trigger file picker
+  showNotification('Select a ZIP file or folder to import', 'info');
+  fileInput.click();
+}
+
+// Process files from folder selection
+async function processFolderFiles(files) {
+  // Extract folder name from the first file's path
+  let folderName = 'Imported Playlist';
+  if (files[0] && files[0].webkitRelativePath) {
+    const pathParts = files[0].webkitRelativePath.split('/');
+    if (pathParts.length > 0) {
+      folderName = pathParts[0]; // Get the root folder name
+    }
+  }
+  
+  // Sort files into audio and images
+  const audioFiles = files.filter(f => 
+    /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
+  ).sort((a, b) => a.name.localeCompare(b.name));
+  
+  const imageFiles = files.filter(f => 
+    /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
+  );
+  
+  // Separate track icons (numeric names) from cover images
+  const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()))
+    .sort((a, b) => {
+      const numA = parseInt(a.name.match(/\d+/)[0]);
+      const numB = parseInt(b.name.match(/\d+/)[0]);
+      return numA - numB;
+    });
+  
+  // Find cover image (non-numeric filename)
+  const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
+  
+  if (audioFiles.length === 0) {
+    showNotification('No audio files found in audio_files folder. Please ensure your folder structure has an "audio_files" subfolder.', 'error');
+    return;
+  }
+  
+  // Show import modal with the files
+  showImportModal(audioFiles, trackIcons, coverImage, folderName);
+}
+
+// Process ZIP file
+async function processZipFile(file) {
+  try {
+    // JSZip is now loaded via manifest.json
+    const zip = new JSZip();
+    const contents = await zip.loadAsync(file);
+    
+    // Extract folder name from zip filename
+    let folderName = file.name.replace(/\.zip$/i, '');
+    
+    // Convert zip entries to file-like objects
+    const files = [];
+    const audioFiles = [];
+    const imageFiles = [];
+    
+    for (const [path, zipEntry] of Object.entries(contents.files)) {
+      if (zipEntry.dir) continue;
+      
+      // Get the file extension
+      const ext = path.split('.').pop().toLowerCase();
+      
+      // Check if it's an audio file in audio_files folder
+      if (path.includes('audio_files/') && ['m4a', 'mp3', 'wav', 'ogg', 'aac'].includes(ext)) {
+        const blob = await zipEntry.async('blob');
+        const fileName = path.split('/').pop();
+        const file = new File([blob], fileName, { type: `audio/${ext}` });
+        file.webkitRelativePath = path;
+        audioFiles.push(file);
+      }
+      
+      // Check if it's an image file in images folder
+      if (path.includes('images/') && ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+        const blob = await zipEntry.async('blob');
+        const fileName = path.split('/').pop();
+        const file = new File([blob], fileName, { type: `image/${ext}` });
+        file.webkitRelativePath = path;
+        imageFiles.push(file);
       }
     }
     
-    // Sort files into audio and images
-    const audioFiles = files.filter(f => 
-      /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
-    ).sort((a, b) => a.name.localeCompare(b.name));
+    // Sort audio files
+    audioFiles.sort((a, b) => a.name.localeCompare(b.name));
     
-    const imageFiles = files.filter(f => 
-      /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
-    );
-    
-    // Separate track icons (numeric names) from cover images
-    const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()))
+    // Separate track icons from cover images
+    const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name))
       .sort((a, b) => {
         const numA = parseInt(a.name.match(/\d+/)[0]);
         const numB = parseInt(b.name.match(/\d+/)[0]);
@@ -656,20 +806,24 @@ function openFolderSelector() {
       });
     
     // Find cover image (non-numeric filename)
-    const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
+    const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name));
     
     if (audioFiles.length === 0) {
-      showNotification('No audio files found in audio_files folder. Please ensure your folder structure has an "audio_files" subfolder.', 'error');
+      showNotification('No audio files found in audio_files folder within the ZIP. Please ensure your ZIP contains an "audio_files" folder.', 'error');
       return;
     }
     
-    // Show import modal with the files
+    showNotification('ZIP file processed successfully!', 'success');
+    
+    // Show import modal with the extracted files
     showImportModal(audioFiles, trackIcons, coverImage, folderName);
-  });
-  
-  // Trigger the file picker
-  input.click();
+    
+  } catch (error) {
+    console.error('[Yoto MYO Magic] Error processing ZIP file:', error);
+    showNotification('Failed to process ZIP file. Please ensure it contains the correct folder structure.', 'error');
+  }
 }
+
 
 
 // Show notification
