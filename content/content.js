@@ -600,165 +600,77 @@ async function handleImportClick() {
     return;
   }
   
-  // Show a simple import modal first, before file selection
-  showImportStartModal();
+  // Skip the modal and go straight to folder selection
+  openFolderSelector();
 }
 
-// Show initial import modal
-function showImportStartModal() {
-  // Remove existing modal if any
-  const existing = document.querySelector('#yoto-import-start-modal');
-  if (existing) existing.remove();
+// Open folder selector directly
+function openFolderSelector() {
+  // Create file input for folder selection
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.webkitdirectory = true;
+  input.directory = true;
+  input.multiple = true;
+  input.style.display = 'none';
   
-  const modal = document.createElement('div');
-  modal.id = 'yoto-import-start-modal';
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.3s ease;
-  `;
+  // Add to document temporarily
+  document.body.appendChild(input);
   
-  const content = document.createElement('div');
-  content.style.cssText = `
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    max-width: 500px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  `;
-  
-  content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Playlist</h2>
-    <div style="margin-bottom: 20px; color: #666;">
-      <p>Select a folder with the following structure:</p>
-      <ul style="margin: 10px 0; padding-left: 20px; font-size: 14px;">
-        <li><strong>audio_files/</strong> - Your audio files (MP3, M4A, etc.)</li>
-        <li><strong>images/</strong> - Track icons (1.png, 2.png, etc.)</li>
-      </ul>
-    </div>
-    <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
-      <button id="cancel-import-start" style="
-        padding: 10px 20px;
-        background: #f3f4f6;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-      ">Cancel</button>
-      <button id="select-folder" style="
-        padding: 10px 20px;
-        background: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-      ">Select Folder</button>
-    </div>
-  `;
-  
-  modal.appendChild(content);
-  document.body.appendChild(modal);
-  
-  // Event handlers
-  document.querySelector('#cancel-import-start').onclick = () => modal.remove();
-  
-  document.querySelector('#select-folder').onclick = () => {
-    // Create file input for folder selection
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.webkitdirectory = true;
-    input.directory = true;
-    input.multiple = true;
-    input.style.display = 'none'; // Hide the input
+  // Set up the change handler
+  input.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
     
-    // Add to document temporarily
-    document.body.appendChild(input);
+    // Clean up the input element
+    input.remove();
     
-    // Set up the change handler BEFORE triggering click
-    input.addEventListener('change', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Get files immediately
-      const files = e.target.files ? Array.from(e.target.files) : [];
-      
-      // Remove the input element
-      input.remove();
-      
-      if (files.length === 0) {
-        // User cancelled - don't close the modal
-        return;
-      }
-      
-      // Extract folder name from the first file's path
-      let folderName = 'Imported Playlist';
-      if (files[0] && files[0].webkitRelativePath) {
-        const pathParts = files[0].webkitRelativePath.split('/');
-        if (pathParts.length > 0) {
-          folderName = pathParts[0]; // Get the root folder name
-        }
-      }
-      
-      // Close the start modal only after we have files
-      if (modal && modal.parentNode) {
-        modal.remove();
-      }
-      
-      // Sort files into audio and images
-      const audioFiles = files.filter(f => 
-        /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
-      ).sort((a, b) => a.name.localeCompare(b.name));
-      
-      const imageFiles = files.filter(f => 
-        /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
-      );
-      
-      // Separate track icons (numeric names) from cover images
-      const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()))
-        .sort((a, b) => {
-          const numA = parseInt(a.name.match(/\d+/)[0]);
-          const numB = parseInt(b.name.match(/\d+/)[0]);
-          return numA - numB;
-        });
-      
-      // Find cover image (non-numeric filename)
-      const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
-      
-      if (audioFiles.length === 0) {
-        showNotification('No audio files found in audio_files folder', 'error');
-        return;
-      }
-      
-      // Show import modal with the files - add small delay to ensure clean transition
-      setTimeout(() => {
-        showImportModal(audioFiles, trackIcons, coverImage, folderName);
-      }, 100);
-    });
-    
-    // Trigger the file picker after a small delay to ensure event handlers are set
-    setTimeout(() => {
-      input.click();
-    }, 50);
-  };
-  
-  // Close on background click
-  modal.onclick = (e) => {
-    if (e.target === modal) {
-      modal.remove();
+    if (files.length === 0) {
+      // User cancelled
+      return;
     }
-  };
+    
+    // Extract folder name from the first file's path
+    let folderName = 'Imported Playlist';
+    if (files[0] && files[0].webkitRelativePath) {
+      const pathParts = files[0].webkitRelativePath.split('/');
+      if (pathParts.length > 0) {
+        folderName = pathParts[0]; // Get the root folder name
+      }
+    }
+    
+    // Sort files into audio and images
+    const audioFiles = files.filter(f => 
+      /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    
+    const imageFiles = files.filter(f => 
+      /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
+    );
+    
+    // Separate track icons (numeric names) from cover images
+    const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()))
+      .sort((a, b) => {
+        const numA = parseInt(a.name.match(/\d+/)[0]);
+        const numB = parseInt(b.name.match(/\d+/)[0]);
+        return numA - numB;
+      });
+    
+    // Find cover image (non-numeric filename)
+    const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
+    
+    if (audioFiles.length === 0) {
+      showNotification('No audio files found in audio_files folder. Please ensure your folder structure has an "audio_files" subfolder.', 'error');
+      return;
+    }
+    
+    // Show import modal with the files
+    showImportModal(audioFiles, trackIcons, coverImage, folderName);
+  });
+  
+  // Trigger the file picker
+  input.click();
 }
+
 
 // Show notification
 function showNotification(message, type = 'info') {
