@@ -569,7 +569,7 @@ async function uploadAudio(fileData) {
         // Step 3: Wait for transcoding
         let transcodedAudio = null;
         let attempts = 0;
-        const maxAttempts = 60; // 30 seconds with 500ms intervals
+        const maxAttempts = 120; // 60 seconds with 500ms intervals - increased for larger files
 
         while (attempts < maxAttempts) {
             const transcodeResponse = await makeAuthenticatedRequest(
@@ -774,7 +774,7 @@ async function uploadAudioFile(audioFileData) {
         // Step 3: Wait for transcoding
         let transcodedAudio = null;
         let attempts = 0;
-        const maxAttempts = 30;
+        const maxAttempts = 60; // 60 seconds - increased for larger files
         
         while (attempts < maxAttempts) {
             const transcodeResponse = await makeAuthenticatedRequest(

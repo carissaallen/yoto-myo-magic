@@ -725,30 +725,181 @@ async function processFolderFiles(files) {
     }
   }
   
-  // Sort files into audio and images
-  const audioFiles = files.filter(f => 
-    /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
-  ).sort((a, b) => a.name.localeCompare(b.name));
+  // Supported audio and image extensions (same as ZIP processing)
+  const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
+  const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
   
-  const imageFiles = files.filter(f => 
-    /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
+  // Filter out Mac metadata and non-media files
+  const cleanFiles = Array.from(files).filter(f => {
+    // Skip Mac metadata files
+    if (f.name.startsWith('._') || f.webkitRelativePath.includes('__MACOSX/')) {
+      return false;
+    }
+    
+    // Skip .DS_Store and other system files
+    if (f.name === '.DS_Store' || f.name === 'Thumbs.db') {
+      return false;
+    }
+    
+    // Check if it's a media file
+    const ext = f.name.split('.').pop().toLowerCase();
+    return audioExtensions.includes(ext) || imageExtensions.includes(ext);
+  });
+  
+  // Collect all audio and image files with file sizes
+  const allAudioFiles = [];
+  const allImageFiles = [];
+  
+  cleanFiles.forEach(f => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    f.fileSize = f.size; // Add fileSize property for consistency
+    
+    if (audioExtensions.includes(ext)) {
+      allAudioFiles.push(f);
+    } else if (imageExtensions.includes(ext)) {
+      allImageFiles.push(f);
+    }
+  });
+  
+  // Smart audio folder detection (same logic as ZIP)
+  let audioFiles = [];
+  
+  // 1. First, look for folders containing 'audio' in the name
+  const audioFolderFiles = allAudioFiles.filter(f => 
+    f.webkitRelativePath.toLowerCase().includes('/audio')
   );
   
-  // Separate track icons (numeric names) from cover images
-  const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name.split('/').pop()))
-    .sort((a, b) => {
-      const numA = parseInt(a.name.match(/\d+/)[0]);
-      const numB = parseInt(b.name.match(/\d+/)[0]);
-      return numA - numB;
+  if (audioFolderFiles.length > 0) {
+    audioFiles = audioFolderFiles;
+  } 
+  // 2. If not found, use all audio files found
+  else if (allAudioFiles.length > 0) {
+    // Find the most common directory containing audio files
+    const audioDirs = {};
+    allAudioFiles.forEach(f => {
+      const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
+      audioDirs[dir] = (audioDirs[dir] || 0) + 1;
     });
+    
+    // Use files from the directory with most audio files, or all if in root
+    if (Object.keys(audioDirs).length > 0) {
+      const mainAudioDir = Object.keys(audioDirs).reduce((a, b) => 
+        audioDirs[a] > audioDirs[b] ? a : b, ''
+      );
+      audioFiles = allAudioFiles.filter(f => 
+        f.webkitRelativePath.startsWith(mainAudioDir)
+      );
+    } else {
+      audioFiles = allAudioFiles;
+    }
+  }
   
-  // Find cover image (non-numeric filename)
-  const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
+  // Smart image folder detection (same logic as ZIP)
+  let imageFiles = [];
+  
+  // 1. First, look for folders containing 'images' or 'icons' in the name
+  const imageFolderFiles = allImageFiles.filter(f => {
+    const path = f.webkitRelativePath.toLowerCase();
+    return path.includes('/image') || path.includes('/icon');
+  });
+  
+  if (imageFolderFiles.length > 0) {
+    imageFiles = imageFolderFiles;
+  }
+  // 2. If not found, use all image files found
+  else if (allImageFiles.length > 0) {
+    // Find the most common directory containing image files
+    const imageDirs = {};
+    allImageFiles.forEach(f => {
+      const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
+      imageDirs[dir] = (imageDirs[dir] || 0) + 1;
+    });
+    
+    // Use files from the directory with most image files, or all if in root
+    if (Object.keys(imageDirs).length > 0) {
+      const mainImageDir = Object.keys(imageDirs).reduce((a, b) => 
+        imageDirs[a] > imageDirs[b] ? a : b, ''
+      );
+      imageFiles = allImageFiles.filter(f => 
+        f.webkitRelativePath.startsWith(mainImageDir)
+      );
+    } else {
+      imageFiles = allImageFiles;
+    }
+  }
+  
+  // Sort audio files naturally (handle numbers properly)
+  audioFiles.sort((a, b) => {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  });
+  
+  // Intelligently separate track icons from cover images (same logic as ZIP)
+  const trackIcons = [];
+  let coverImage = null;
+  
+  // First, separate by naming pattern
+  const numericImages = [];
+  const nonNumericImages = [];
+  
+  imageFiles.forEach(f => {
+    const fileName = f.name.split('/').pop();
+    // Check if filename starts with a number
+    if (/^[\d\s_-]*\d+[\s_-]*\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(fileName)) {
+      numericImages.push(f);
+    } else {
+      nonNumericImages.push(f);
+    }
+  });
+  
+  // Sort numeric images by their number
+  numericImages.sort((a, b) => {
+    const fileNameA = a.name.split('/').pop();
+    const fileNameB = b.name.split('/').pop();
+    const numA = parseInt(fileNameA.match(/\d+/)[0]);
+    const numB = parseInt(fileNameB.match(/\d+/)[0]);
+    return numA - numB;
+  });
+  
+  // Use numeric images as track icons
+  if (numericImages.length > 0) {
+    trackIcons.push(...numericImages);
+  }
+  
+  // Find cover image from non-numeric images (typically the largest one)
+  if (nonNumericImages.length > 0) {
+    coverImage = nonNumericImages.reduce((largest, current) => {
+      return (current.fileSize > largest.fileSize) ? current : largest;
+    });
+  }
+  
+  // If no non-numeric cover found, check for significantly larger image
+  if (!coverImage && imageFiles.length > 0) {
+    const avgSize = imageFiles.reduce((sum, f) => sum + f.fileSize, 0) / imageFiles.length;
+    const largeImages = imageFiles.filter(f => f.fileSize > avgSize * 3);
+    if (largeImages.length > 0) {
+      coverImage = largeImages[0];
+      // Remove cover from track icons if it was included
+      const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
+      if (coverIndex !== -1) {
+        trackIcons.splice(coverIndex, 1);
+      }
+    }
+  }
   
   if (audioFiles.length === 0) {
-    showNotification('No audio files found in audio_files folder. Please ensure your folder structure has an "audio_files" subfolder.', 'error');
+    showNotification('No audio files found. Please ensure your folder contains audio files (.mp3, .m4a, .m4b, etc.).', 'error');
     return;
   }
+  
+  // Log what we found for debugging
+  console.log('[Yoto MYO Magic] Folder import found:', {
+    audioFiles: audioFiles.length,
+    trackIcons: trackIcons.length,
+    coverImage: coverImage ? coverImage.name : 'none',
+    audioFormats: [...new Set(audioFiles.map(f => f.name.split('.').pop()))]
+  });
+  
+  showNotification(`Folder processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
   
   // Show import modal with the files
   showImportModal(audioFiles, trackIcons, coverImage, folderName);
@@ -764,63 +915,197 @@ async function processZipFile(file) {
     // Extract folder name from zip filename
     let folderName = file.name.replace(/\.zip$/i, '');
     
-    // Convert zip entries to file-like objects
-    const files = [];
-    const audioFiles = [];
-    const imageFiles = [];
+    // Supported audio and image extensions
+    const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
+    const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+    
+    // Collect all files first
+    const allAudioFiles = [];
+    const allImageFiles = [];
+    const filesByPath = {};
     
     for (const [path, zipEntry] of Object.entries(contents.files)) {
       if (zipEntry.dir) continue;
       
-      // Get the file extension
-      const ext = path.split('.').pop().toLowerCase();
-      
-      // Check if it's an audio file in audio_files folder
-      if (path.includes('audio_files/') && ['m4a', 'mp3', 'wav', 'ogg', 'aac'].includes(ext)) {
-        const blob = await zipEntry.async('blob');
-        const fileName = path.split('/').pop();
-        const file = new File([blob], fileName, { type: `audio/${ext}` });
-        file.webkitRelativePath = path;
-        audioFiles.push(file);
+      // Skip Mac metadata files
+      if (path.includes('__MACOSX/') || path.includes('._')) {
+        continue;
       }
       
-      // Check if it's an image file in images folder
-      if (path.includes('images/') && ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+      // Get the file extension and name
+      const fileName = path.split('/').pop();
+      const ext = fileName.split('.').pop().toLowerCase();
+      
+      // Skip non-media files (.txt, .DS_Store, etc.)
+      if (!audioExtensions.includes(ext) && !imageExtensions.includes(ext)) {
+        continue;
+      }
+      
+      filesByPath[path] = zipEntry;
+      
+      // Collect audio files
+      if (audioExtensions.includes(ext)) {
         const blob = await zipEntry.async('blob');
-        const fileName = path.split('/').pop();
+        const fileSize = blob.size;
+        const file = new File([blob], fileName, { type: `audio/${ext}` });
+        file.webkitRelativePath = path;
+        file.fileSize = fileSize;
+        allAudioFiles.push(file);
+      }
+      
+      // Collect image files
+      if (imageExtensions.includes(ext)) {
+        const blob = await zipEntry.async('blob');
+        const fileSize = blob.size;
         const file = new File([blob], fileName, { type: `image/${ext}` });
         file.webkitRelativePath = path;
-        imageFiles.push(file);
+        file.fileSize = fileSize;
+        allImageFiles.push(file);
       }
     }
     
-    // Sort audio files
-    audioFiles.sort((a, b) => a.name.localeCompare(b.name));
+    // Smart audio folder detection
+    let audioFiles = [];
     
-    // Separate track icons from cover images
-    const trackIcons = imageFiles.filter(f => /^\d+\.(png|jpg|jpeg)$/i.test(f.name))
-      .sort((a, b) => {
-        const numA = parseInt(a.name.match(/\d+/)[0]);
-        const numB = parseInt(b.name.match(/\d+/)[0]);
-        return numA - numB;
+    // 1. First, look for folders containing 'audio' in the name
+    const audioFolderFiles = allAudioFiles.filter(f => 
+      f.webkitRelativePath.toLowerCase().includes('/audio')
+    );
+    
+    if (audioFolderFiles.length > 0) {
+      audioFiles = audioFolderFiles;
+    } 
+    // 2. If not found, look for any folder with audio files
+    else if (allAudioFiles.length > 0) {
+      // Find the most common directory containing audio files
+      const audioDirs = {};
+      allAudioFiles.forEach(f => {
+        const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
+        audioDirs[dir] = (audioDirs[dir] || 0) + 1;
       });
+      
+      // Use files from the directory with most audio files
+      const mainAudioDir = Object.keys(audioDirs).reduce((a, b) => 
+        audioDirs[a] > audioDirs[b] ? a : b, ''
+      );
+      
+      audioFiles = allAudioFiles.filter(f => 
+        f.webkitRelativePath.startsWith(mainAudioDir)
+      );
+    }
     
-    // Find cover image (non-numeric filename)
-    const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name));
+    // Smart image folder detection
+    let imageFiles = [];
+    
+    // 1. First, look for folders containing 'images' or 'icons' in the name
+    const imageFolderFiles = allImageFiles.filter(f => {
+      const path = f.webkitRelativePath.toLowerCase();
+      return path.includes('/image') || path.includes('/icon');
+    });
+    
+    if (imageFolderFiles.length > 0) {
+      imageFiles = imageFolderFiles;
+    }
+    // 2. If not found, look for any folder with image files
+    else if (allImageFiles.length > 0) {
+      // Find the most common directory containing image files
+      const imageDirs = {};
+      allImageFiles.forEach(f => {
+        const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
+        imageDirs[dir] = (imageDirs[dir] || 0) + 1;
+      });
+      
+      // Use files from the directory with most image files
+      const mainImageDir = Object.keys(imageDirs).reduce((a, b) => 
+        imageDirs[a] > imageDirs[b] ? a : b, ''
+      );
+      
+      imageFiles = allImageFiles.filter(f => 
+        f.webkitRelativePath.startsWith(mainImageDir)
+      );
+    }
+    
+    // Sort audio files naturally (handle numbers properly)
+    audioFiles.sort((a, b) => {
+      // Natural sort that handles numbers properly
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    
+    // Intelligently separate track icons from cover images
+    // Icons: small files with numeric names
+    // Cover: larger file with non-numeric name
+    const trackIcons = [];
+    let coverImage = null;
+    
+    // First, separate by naming pattern and size
+    const numericImages = [];
+    const nonNumericImages = [];
+    
+    imageFiles.forEach(f => {
+      // Check if filename starts with a number (allowing for 01, 1, 001, etc.)
+      if (/^[\d\s_-]*\d+[\s_-]*\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(f.name)) {
+        numericImages.push(f);
+      } else {
+        nonNumericImages.push(f);
+      }
+    });
+    
+    // Sort numeric images by their number
+    numericImages.sort((a, b) => {
+      const numA = parseInt(a.name.match(/\d+/)[0]);
+      const numB = parseInt(b.name.match(/\d+/)[0]);
+      return numA - numB;
+    });
+    
+    // If we have numeric images, use them as track icons
+    if (numericImages.length > 0) {
+      trackIcons.push(...numericImages);
+    }
+    
+    // Find cover image from non-numeric images (typically the largest one)
+    if (nonNumericImages.length > 0) {
+      // Pick the largest non-numeric image as the cover
+      coverImage = nonNumericImages.reduce((largest, current) => {
+        return (current.fileSize > largest.fileSize) ? current : largest;
+      });
+    }
+    
+    // If no non-numeric cover found but we have images, 
+    // check if there's a significantly larger image that could be the cover
+    if (!coverImage && imageFiles.length > 0) {
+      const avgSize = imageFiles.reduce((sum, f) => sum + f.fileSize, 0) / imageFiles.length;
+      const largeImages = imageFiles.filter(f => f.fileSize > avgSize * 3); // 3x larger than average
+      if (largeImages.length > 0) {
+        coverImage = largeImages[0];
+        // Remove cover from track icons if it was included
+        const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
+        if (coverIndex !== -1) {
+          trackIcons.splice(coverIndex, 1);
+        }
+      }
+    }
     
     if (audioFiles.length === 0) {
-      showNotification('No audio files found in audio_files folder within the ZIP. Please ensure your ZIP contains an "audio_files" folder.', 'error');
+      showNotification('No audio files found in the ZIP. Please ensure your ZIP contains audio files (.mp3, .m4a, .m4b, etc.).', 'error');
       return;
     }
     
-    showNotification('ZIP file processed successfully!', 'success');
+    // Log what we found for debugging
+    console.log('[Yoto MYO Magic] Found:', {
+      audioFiles: audioFiles.length,
+      trackIcons: trackIcons.length,
+      coverImage: coverImage ? coverImage.name : 'none',
+      audioFormats: [...new Set(audioFiles.map(f => f.name.split('.').pop()))]
+    });
+    
+    showNotification(`ZIP processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
     
     // Show import modal with the extracted files
     showImportModal(audioFiles, trackIcons, coverImage, folderName);
     
   } catch (error) {
     console.error('[Yoto MYO Magic] Error processing ZIP file:', error);
-    showNotification('Failed to process ZIP file. Please ensure it contains the correct folder structure.', 'error');
+    showNotification('Failed to process ZIP file. Error: ' + error.message, 'error');
   }
 }
 
