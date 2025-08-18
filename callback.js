@@ -1,5 +1,4 @@
 // Handle OAuth callback
-console.log('OAuth callback handler loaded');
 
 // Get the authorization code from URL
 const urlParams = new URLSearchParams(window.location.search);

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Yoto MYO Magic",
   "version": "1.0.0",
-  "description": "Automatically match icons to MYO playlist tracks on Yoto",
+  "description": "Import playlists from ZIP files or folders to Yoto MYO cards with automatic icon matching",
   
   "permissions": [
     "storage",
@@ -17,7 +17,8 @@
     "https://api.yotoplay.com/*",
     "https://login.yotoplay.com/*",
     "https://yotoicons.com/*",
-    "*://*.yotoplay.com/*"
+    "*://*.yotoplay.com/*",
+    "https://www.google-analytics.com/*"
   ],
   
   "background": {
