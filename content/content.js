@@ -592,74 +592,166 @@ async function handleBulkMatchClick() {
 async function handleImportClick() {
   console.log('[Yoto MYO Magic] Import clicked');
   
-  // Check authentication first
-  const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-  if (!authResponse.authenticated) {
-    showNotification('Authorizing...', 'info');
-    chrome.runtime.sendMessage({ action: 'START_AUTH' });
-    return;
+  try {
+    // Check authentication first
+    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+    console.log('[Yoto MYO Magic] Auth response:', authResponse);
+    
+    if (!authResponse || !authResponse.authenticated) {
+      showNotification('Please authenticate first. Click the extension icon.', 'info');
+      // Try to start auth
+      chrome.runtime.sendMessage({ action: 'START_AUTH' }).catch(err => {
+        console.error('[Yoto MYO Magic] Failed to start auth:', err);
+      });
+      return;
+    }
+    
+    // Show import options
+    openFolderSelector();
+  } catch (error) {
+    console.error('[Yoto MYO Magic] Error in handleImportClick:', error);
+    // If auth check fails, still show the import options
+    showNotification('Proceeding without auth check...', 'warning');
+    openFolderSelector();
   }
-  
-  // Skip the modal and go straight to folder selection
-  openFolderSelector();
 }
 
 // Open folder selector directly
 function openFolderSelector() {
-  // Try to use a single input that can handle both folders and files
-  // Default to folder selection for backward compatibility
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.webkitdirectory = true;
-  input.directory = true;
-  input.multiple = true;
-  input.style.display = 'none';
-  
-  // Add to document temporarily
-  document.body.appendChild(input);
-  
-  // Set up the change handler
-  input.addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files);
-    
-    // Clean up the input element
-    input.remove();
-    
-    if (files.length === 0) {
-      // User cancelled
-      return;
-    }
-    
-    // Process the files normally - folders will have multiple files
-    await processFolderFiles(files);
-  });
-  
-  // Override the click to show our custom implementation
-  // This allows us to provide zip file option as well
-  input.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    input.remove();
-    
-    // Show custom file picker that supports both
-    showCustomFilePicker();
-  }, true);
-  
-  // Trigger the file picker
-  input.click();
+  // Show import options modal
+  showImportOptionsModal();
 }
 
-// Custom file picker that supports both folders and zip files
-function showCustomFilePicker() {
-  // Create file input for ALL files (including zip)
+// Show modal with import options
+function showImportOptionsModal() {
+  console.log('[Yoto MYO Magic] Showing import options modal');
+  
+  // Remove any existing modal
+  const existingModal = document.getElementById('yoto-import-options-modal');
+  if (existingModal) existingModal.remove();
+  
+  // Create modal with inline styles
+  const modal = document.createElement('div');
+  modal.id = 'yoto-import-options-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background-color: white;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      margin: 0 16px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    ">
+      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">Choose Import Method</h2>
+      <p style="color: #6b7280; margin-bottom: 24px;">Select how you want to import your playlist:</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="import-zip-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span>Import ZIP File</span>
+        </button>
+        
+        <button id="import-folder-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #10b981;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+          </svg>
+          <span>Import Folder</span>
+        </button>
+      </div>
+      
+      <button id="import-cancel-btn" style="
+        width: 100%;
+        margin-top: 16px;
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 14px;
+        transition: color 0.2s;
+      " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
+        Cancel
+      </button>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Add event listeners
+  document.getElementById('import-zip-btn').addEventListener('click', () => {
+    modal.remove();
+    selectZipFile();
+  });
+  
+  document.getElementById('import-folder-btn').addEventListener('click', () => {
+    modal.remove();
+    selectFolder();
+  });
+  
+  document.getElementById('import-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+  
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+// Select ZIP file
+function selectZipFile() {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
-  fileInput.multiple = true;
+  fileInput.accept = '.zip,application/zip,application/x-zip-compressed';
   fileInput.style.display = 'none';
-  
-  // Add accept attribute to show both folders and zip as options
-  // Note: Some browsers may not respect this fully
-  fileInput.setAttribute('accept', '.zip,application/zip,application/x-zip-compressed');
   
   document.body.appendChild(fileInput);
   
@@ -667,51 +759,45 @@ function showCustomFilePicker() {
     const files = Array.from(e.target.files);
     fileInput.remove();
     
-    if (files.length === 0) {
-      return;
-    }
-    
-    // Check if it's a single ZIP file
     if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
       showNotification('Processing ZIP file...', 'info');
       await processZipFile(files[0]);
-    } else {
-      // For non-zip single file, show error
-      if (files.length === 1) {
-        showNotification('Please select a ZIP file or use folder selection for multiple files', 'error');
-        
-        // Fallback to folder selection
-        setTimeout(() => {
-          const folderInput = document.createElement('input');
-          folderInput.type = 'file';
-          folderInput.webkitdirectory = true;
-          folderInput.directory = true;
-          folderInput.multiple = true;
-          folderInput.style.display = 'none';
-          
-          document.body.appendChild(folderInput);
-          
-          folderInput.addEventListener('change', async (e) => {
-            const folderFiles = Array.from(e.target.files);
-            folderInput.remove();
-            
-            if (folderFiles.length > 0) {
-              await processFolderFiles(folderFiles);
-            }
-          });
-          
-          folderInput.click();
-        }, 100);
-      } else {
-        // Multiple files selected - process as folder
-        await processFolderFiles(files);
-      }
+    } else if (files.length > 0) {
+      showNotification('Please select a valid ZIP file', 'error');
     }
   });
   
-  // Show instruction and trigger file picker
-  showNotification('Select a ZIP file or folder to import', 'info');
   fileInput.click();
+}
+
+// Select folder
+function selectFolder() {
+  const folderInput = document.createElement('input');
+  folderInput.type = 'file';
+  folderInput.webkitdirectory = true;
+  folderInput.directory = true;
+  folderInput.multiple = true;
+  folderInput.style.display = 'none';
+  
+  document.body.appendChild(folderInput);
+  
+  folderInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    folderInput.remove();
+    
+    if (files.length > 0) {
+      showNotification('Processing folder...', 'info');
+      await processFolderFiles(files);
+    }
+  });
+  
+  folderInput.click();
+}
+
+// Deprecated - kept for backward compatibility if needed
+// Use showImportOptionsModal() instead
+function showCustomFilePicker() {
+  showImportOptionsModal();
 }
 
 // Process files from folder selection
