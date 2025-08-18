@@ -151,10 +151,19 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
         const url = endpoint.startsWith('http') ? endpoint : `${CONFIG.YOTO_API_BASE}${endpoint}`;
 
         // Don't set Content-Type for FormData - let browser set it with boundary
+        // Also don't set default Content-Type if it's already specified in options.headers
         const isFormData = options.body instanceof FormData;
+        const isBinary = options.body instanceof ArrayBuffer || options.body instanceof Uint8Array;
+        const hasContentType = options.headers && 'Content-Type' in options.headers;
+        
+        const defaultHeaders = {};
+        if (!isFormData && !isBinary && !hasContentType) {
+            defaultHeaders['Content-Type'] = 'application/json';
+        }
+        
         const authHeaders = {
             'Authorization': `Bearer ${tokens.access_token}`,
-            ...(isFormData ? {} : {'Content-Type': 'application/json'}),
+            ...defaultHeaders,
             ...options.headers
         };
 
@@ -503,51 +512,7 @@ async function updateCardIcons(cardId, iconMatches) {
     }
 }
 
-// Upload icon to Yoto
-async function uploadIcon(fileData) {
-    try {
-        // Handle base64 encoded file data from content script
-        let fileBuffer;
-        let filename = 'icon';
-        let contentType = 'image/png';
-        
-        if (fileData.data) {
-            // Convert base64 to ArrayBuffer
-            const binaryString = atob(fileData.data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            fileBuffer = bytes.buffer;
-            filename = fileData.name ? fileData.name.split('.')[0] : 'icon';
-            contentType = fileData.type || 'image/png';
-        } else {
-            fileBuffer = fileData;
-        }
-        
-        const response = await makeAuthenticatedRequest(
-            `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(filename)}`,
-            {
-                method: 'POST',
-                body: fileBuffer,
-                headers: {
-                    'Content-Type': contentType
-                }
-            }
-        );
-
-        if (response.error) {
-            throw new Error(response.error);
-        }
-
-        // Return the icon ID in the format needed for tracks
-        const iconId = response.displayIcon?.mediaId;
-        return iconId ? `yoto:#${iconId}` : null;
-    } catch (error) {
-        console.error('Error uploading icon:', error);
-        throw error;
-    }
-}
+// This function has been moved to line 811 to avoid duplication
 
 // Upload audio file and handle transcoding
 async function uploadAudio(fileData) {
@@ -642,155 +607,7 @@ async function uploadAudio(fileData) {
     }
 }
 
-// Create or update playlist content with uploaded audio and icons
-async function createPlaylistContent(title, audioTracks, iconIds, cardId) {
-    try {
-        // If we have a valid cardId, fetch existing content first
-        let existingContent = null;
-        if (cardId && cardId.length === 5) {
-            try {
-                existingContent = await getCardContent(cardId);
-                if (existingContent.error) {
-                    console.log('Could not fetch existing card, creating new content');
-                    existingContent = null;
-                }
-            } catch (e) {
-                console.log('Error fetching existing card:', e);
-                existingContent = null;
-            }
-        }
-
-        const chapters = [];
-        
-        // Create a chapter for each audio track
-        audioTracks.forEach((track, index) => {
-            const chapterKey = String(index).padStart(2, '0');
-            const iconId = iconIds[index] || 'yoto:#fqAuu4nSrOwNU-xbNVsGG-Om_PEe3S161UJ-nTXeBIQ'; // Default icon
-            
-            chapters.push({
-                key: chapterKey,
-                title: track.title || `Track ${index + 1}`,
-                overlayLabel: String(index + 1),
-                tracks: [{
-                    key: chapterKey,
-                    title: track.title || `Track ${index + 1}`,
-                    trackUrl: track.trackUrl,
-                    duration: track.duration,
-                    fileSize: track.fileSize,
-                    channels: track.channels || 'stereo',
-                    format: track.format || 'aac',
-                    type: 'audio',
-                    overlayLabel: String(index + 1),
-                    display: {
-                        icon16x16: iconId
-                    }
-                }],
-                display: {
-                    icon16x16: iconId
-                },
-                fileSize: track.fileSize,
-                duration: track.duration,
-                availableFrom: null,
-                ambient: null,
-                defaultTrackDisplay: null,
-                defaultTrackAmbient: null
-            });
-        });
-
-        // Calculate total duration and file size
-        const totalDuration = audioTracks.reduce((sum, track) => sum + (track.duration || 0), 0);
-        const totalFileSize = audioTracks.reduce((sum, track) => sum + (track.fileSize || 0), 0);
-
-        // Get user info from token
-        const tokens = await TokenManager.getTokens();
-        let userId = 'unknown';
-        if (tokens?.access_token) {
-            try {
-                const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
-                userId = payload.sub || 'unknown';
-            } catch (e) {
-                console.error('Error parsing token:', e);
-            }
-        }
-
-        // Build request body based on whether we're updating or creating
-        let requestBody;
-        
-        if (existingContent && existingContent.card) {
-            // Update existing card - use the exact structure from the existing card
-            requestBody = {
-                createdByClientId: existingContent.card.createdByClientId || CONFIG.CLIENT_ID,
-                cardId: cardId,
-                userId: existingContent.card.userId || userId,
-                createdAt: existingContent.card.createdAt || new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                content: {
-                    chapters,
-                    playbackType: 'linear',
-                    config: {
-                        resumeTimeout: 2592000
-                    }
-                },
-                metadata: {
-                    description: `Imported playlist: ${title}`,
-                    media: {
-                        duration: totalDuration,
-                        readableDuration: formatDuration(totalDuration),
-                        fileSize: totalFileSize,
-                        readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
-                        hasStreams: false
-                    },
-                    cover: existingContent.card.metadata?.cover || {}
-                },
-                title: title
-            };
-        } else {
-            // Create new playlist
-            requestBody = {
-                content: {
-                    chapters,
-                    playbackType: 'linear',
-                    config: {
-                        resumeTimeout: 2592000
-                    }
-                },
-                metadata: {
-                    description: `Imported playlist: ${title}`,
-                    media: {
-                        duration: totalDuration,
-                        readableDuration: formatDuration(totalDuration),
-                        fileSize: totalFileSize,
-                        readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
-                        hasStreams: false
-                    }
-                },
-                title: title,
-                createdByClientId: CONFIG.CLIENT_ID,
-                userId: userId,
-                createdAt: new Date().toISOString()
-            };
-            
-            // Only add cardId if it's provided and valid (5 characters)
-            if (cardId && cardId.length === 5) {
-                requestBody.cardId = cardId;
-            }
-        }
-
-        const response = await makeAuthenticatedRequest('/content', {
-            method: 'POST',
-            body: JSON.stringify(requestBody)
-        });
-
-        if (response.error) {
-            throw new Error(`Failed to create/update playlist: ${response.error}`);
-        }
-
-        return response;
-    } catch (error) {
-        console.error('Error creating playlist content:', error);
-        throw error;
-    }
-}
+// Removed duplicate createPlaylistContent function - using the simpler one below
 
 // Helper function to format duration
 function formatDuration(seconds) {
@@ -810,22 +627,25 @@ function formatDuration(seconds) {
 // Upload icon to Yoto
 async function uploadIcon(iconFileData) {
     try {
-        // Convert base64 to blob if needed
-        const iconBlob = iconFileData.blob || new Blob(
-            [Uint8Array.from(atob(iconFileData.data), c => c.charCodeAt(0))],
-            { type: iconFileData.type || 'image/png' }
-        );
+        // Convert base64 string to binary array
+        const binaryString = atob(iconFileData.data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
         
-        // Build FormData for the icon upload
-        const formData = new FormData();
-        formData.append('file', iconBlob, iconFileData.name || 'icon.png');
+        // Extract filename without extension for the query parameter
+        const filename = iconFileData.name ? iconFileData.name.split('.')[0] : 'icon';
         
-        // Upload the icon
+        // Upload the icon - send binary data directly in body
         const response = await makeAuthenticatedRequest(
-            `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(iconFileData.name || 'icon')}`,
+            `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(filename)}`,
             {
                 method: 'POST',
-                body: formData
+                body: bytes.buffer,  // Send the ArrayBuffer directly
+                headers: {
+                    'Content-Type': iconFileData.type || 'image/png'
+                }
             }
         );
         
@@ -834,11 +654,12 @@ async function uploadIcon(iconFileData) {
         }
         
         if (response.displayIcon) {
-            // Return the icon ID in the correct format for use in tracks
-            const iconId = response.displayIcon.mediaId;
+            // Return the mediaId in yoto:# format for use in tracks
+            const mediaId = response.displayIcon.mediaId;
             return {
                 success: true,
-                iconId: iconId.startsWith('yoto:#') ? iconId : `yoto:#${iconId}`,
+                iconId: mediaId.startsWith('yoto:#') ? mediaId : `yoto:#${mediaId}`,
+                mediaId: response.displayIcon.mediaId,
                 displayIconId: response.displayIcon.displayIconId,
                 isNew: response.displayIcon.new || false
             };
@@ -918,9 +739,10 @@ async function createPlaylistContent(title, audioTracks, iconIds = []) {
     try {
         const chapters = audioTracks.map((audio, index) => {
             const chapterKey = String(index + 1).padStart(2, '0');
-            const iconId = iconIds[index] || 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q'; // Default icon
+            // Use yoto:# format for icons - this is what the API expects
+            const iconId = iconIds[index] || 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q'; // Default Yoto icon
             
-            return {
+            const chapter = {
                 key: chapterKey,
                 title: audio.title || `Track ${index + 1}`,
                 overlayLabel: String(index + 1),
@@ -940,8 +762,16 @@ async function createPlaylistContent(title, audioTracks, iconIds = []) {
                 }],
                 display: {
                     icon16x16: iconId
-                }
+                },
+                fileSize: audio.transcodedAudio.transcodedInfo?.fileSize,
+                duration: audio.transcodedAudio.transcodedInfo?.duration,
+                availableFrom: null,
+                ambient: null,
+                defaultTrackDisplay: null,
+                defaultTrackAmbient: null
             };
+            
+            return chapter;
         });
         
         const totalDuration = audioTracks.reduce((sum, audio) => 
@@ -949,18 +779,41 @@ async function createPlaylistContent(title, audioTracks, iconIds = []) {
         const totalFileSize = audioTracks.reduce((sum, audio) => 
             sum + (audio.transcodedAudio.transcodedInfo?.fileSize || 0), 0);
         
+        // Get user info from token
+        const tokens = await TokenManager.getTokens();
+        let userId = 'unknown';
+        if (tokens?.access_token) {
+            try {
+                const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
+                userId = payload.sub || 'unknown';
+            } catch (e) {
+                console.error('Error parsing token:', e);
+            }
+        }
+        
         const content = {
-            title: title,
             content: {
-                chapters
+                chapters,
+                playbackType: 'linear',
+                config: {
+                    resumeTimeout: 2592000
+                }
             },
             metadata: {
+                description: `Imported playlist: ${title}`,
                 media: {
                     duration: totalDuration,
+                    readableDuration: formatDuration(totalDuration),
                     fileSize: totalFileSize,
-                    readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10
-                }
-            }
+                    readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
+                    hasStreams: false
+                },
+                cover: {}
+            },
+            title: title,
+            createdByClientId: CONFIG.CLIENT_ID,
+            userId: userId,
+            createdAt: new Date().toISOString()
         };
         
         const createResponse = await makeAuthenticatedRequest('/content', {
@@ -1039,11 +892,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                     
                 case 'UPLOAD_ICON':
-                    sendResponse(await uploadIcon({
+                    const iconResponse = await uploadIcon({
                         data: request.file.data,
                         type: request.file.type,
                         name: request.file.name
-                    }));
+                    });
+                    sendResponse(iconResponse);
                     break;
                     
                 case 'CREATE_PLAYLIST':
@@ -1054,6 +908,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     ));
                     break;
 
+                case 'CREATE_PLAYLIST_CONTENT':
+                    const result = await createPlaylistContent(
+                        request.title,
+                        request.audioTracks,
+                        request.iconIds,
+                        request.cardId
+                    );
+                    sendResponse({success: true, result});
+                    break;
 
                 case 'GET_ACCESS_TOKEN':
                     const tokens = await TokenManager.getTokens();
@@ -1071,26 +934,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 case 'LOGOUT':
                     await TokenManager.clearTokens();
                     sendResponse({success: true});
-                    break;
-
-                case 'UPLOAD_ICON':
-                    const iconId = await uploadIcon(request.file);
-                    sendResponse({success: true, iconId});
-                    break;
-
-                case 'UPLOAD_AUDIO':
-                    const audioData = await uploadAudio(request.file);
-                    sendResponse({success: true, ...audioData});
-                    break;
-
-                case 'CREATE_PLAYLIST_CONTENT':
-                    const result = await createPlaylistContent(
-                        request.title,
-                        request.audioTracks,
-                        request.iconIds,
-                        request.cardId
-                    );
-                    sendResponse({success: true, result});
                     break;
 
                 default:
