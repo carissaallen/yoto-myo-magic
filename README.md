@@ -4,45 +4,31 @@
 
 Transform how you create Yoto cards! Yoto MYO Magic is a Chrome Extension that lets you import entire playlists from ZIP files or folders directly to your Make Your Own (MYO) cards, complete with automatic icon matching for each track.
 
-## 🎯 What It Does
+## ✨ Features
 
 Skip the tedious manual upload process! Import complete playlists with audio files, artwork, and icons in one click, then let the extension automatically match perfect icons to each track.
 
-**Before Yoto MYO Magic:**
-- Upload audio files one by one through Yoto's interface
-- Manually browse through hundreds of icons for each track
-- Spend hours creating a single playlist
-- Risk inconsistent styling across your playlist
-
-**After Yoto MYO Magic:**
-- Import entire playlists from ZIP files or folders in seconds
-- Automatic icon matching for all tracks
-- Batch upload audio, cover art, and track icons
-- Professional-looking cards in minutes, not hours
-
-## ✨ Features
-
-### 📁 Bulk Import from ZIP or Folder
+### Bulk Import from ZIP or Folder
 - **ZIP File Import**: Upload a complete playlist from a single ZIP file
 - **Folder Import**: Select a folder containing your audio files
 - **Smart File Detection**: Automatically identifies audio files, cover art, and track icons
 - **Supported Formats**: MP3, M4A, WAV, OGG, FLAC, AAC, OPUS, WMA
 - **Automatic Transcoding**: Files are automatically converted to Yoto-compatible format
 
-### 🎨 Automatic Icon Management
+### Automatic Icon Management
 - **Smart Icon Matching**: AI-powered matching based on track titles
 - **Bulk Icon Import**: Include custom icons in your ZIP/folder (1.png, 2.png, etc.)
 - **Yoto Icon Library**: Access and search Yoto's entire icon collection
 - **Confidence Scoring**: See how certain the matches are
 - **Manual Override**: Easily change any suggestion
 
-### 📊 Smart Upload Strategies
+### Smart Upload Strategies
 - **Parallel Upload**: Fast upload for small playlists (< 20 tracks)
 - **Chunked Upload**: Reliable upload for large playlists (20+ tracks)
 - **Progress Tracking**: Real-time upload progress with percentage complete
 - **Error Recovery**: Automatic retry on failed uploads
 
-### 🔐 Secure Authentication
+### Secure Authentication
 - **OAuth 2.0**: Secure login through Yoto's official authentication
 - **No Password Storage**: We never store your Yoto credentials
 - **Token Management**: Automatic token refresh for seamless experience
@@ -99,15 +85,6 @@ my-playlist/
 └── 3.png             # Icon for track 3 (optional)
 ```
 
-## 🔧 Configuration
-
-Access settings through the extension popup or options page:
-
-- **Confidence Threshold**: Minimum score for automatic icon matching (default: 70%)
-- **Auto-Match**: Enable/disable automatic icon matching
-- **Synonyms**: Enable smart synonym recognition
-- **Debug Mode**: Show detailed logging (for troubleshooting)
-
 ## 📊 Privacy & Analytics
 
 - **Google Analytics 4**: Used to track feature usage (no personal data)
@@ -119,7 +96,6 @@ Access settings through the extension popup or options page:
 
 ### Getting Help
 - **Issues**: [Report bugs or request features](https://github.com/yourusername/yoto-myo-magic/issues)
-- **Documentation**: Check the [Wiki](https://github.com/yourusername/yoto-myo-magic/wiki)
 
 ### Common Issues
 
@@ -131,34 +107,10 @@ Access settings through the extension popup or options page:
 **Upload failing?**
 - Check file formats (MP3, M4A, WAV, etc.)
 - Ensure files are under 100MB each
-- Try the chunked upload option for large playlists
 
 **Icons not matching?**
 - Make sure track titles are descriptive
 - Use the manual search feature
-- Include custom icons in your import
-
-## 🛠️ Development
-
-### Building from Source
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/yoto-myo-magic.git
-cd yoto-myo-magic
-
-# Copy config template
-cp config.template.js config.js
-# Edit config.js with your values
-
-# Build for Chrome Web Store
-chmod +x build.sh
-./build.sh
-```
-
-### Configuration
-Edit `config.js` with:
-- Your GA4 Measurement ID
-- Your Chrome Extension ID
 
 ## 📝 License
 
