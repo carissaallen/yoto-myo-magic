@@ -1,7 +1,7 @@
-# Yoto Card Magic Chrome Extension - Implementation Plan
+# Yoto MYO Magic Chrome Extension - Implementation Plan
 
 ## Project Overview
-**Yoto Card Magic** is a Chrome Extension that automatically matches icons to MYO (Make Your Own) playlist tracks on the Yoto website. It solves the tedious task of manually selecting icons for each track by intelligently analyzing track titles and matching them with relevant icons from Yoto's public collection and yotoicons.com.
+**Yoto MYO Magic** is a Chrome Extension that automatically matches icons to MYO (Make Your Own) playlist tracks on the Yoto website. It solves the tedious task of manually selecting icons for each track by intelligently analyzing track titles and matching them with relevant icons from Yoto's public collection and yotoicons.com.
 
 ## Competition Context
 - **Competition**: Yoto Developer Challenge 2025
@@ -376,7 +376,7 @@ yoto-card-magic-extension/
 
 ## Conclusion
 
-The Yoto Card Magic Chrome Extension represents a comprehensive solution for automating MYO playlist icon management. By focusing on intelligent matching algorithms, seamless user experience, and robust error handling, this extension will provide genuine value to Yoto families while competing effectively in the Developer Challenge 2025.
+The Yoto MYO Magic Chrome Extension represents a comprehensive solution for automating MYO playlist icon management. By focusing on intelligent matching algorithms, seamless user experience, and robust error handling, this extension will provide genuine value to Yoto families while competing effectively in the Developer Challenge 2025.
 
 The modular architecture ensures scalability for future enhancements, while the Chrome Extension platform provides wide accessibility and easy distribution. Success will be measured by weekly engagement metrics, demonstrating the extension's value in regular family routines.
 

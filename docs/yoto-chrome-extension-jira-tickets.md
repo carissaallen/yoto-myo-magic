@@ -1,6 +1,6 @@
-# Yoto Card Magic Chrome Extension - Jira Tickets
+# Yoto MYO Magic Chrome Extension - Jira Tickets
 
-## Epic: Yoto Card Magic Chrome Extension
+## Epic: Yoto MYO Magic Chrome Extension
 **Description**: Build a Chrome Extension that automatically matches icons to MYO playlist tracks for the Yoto Developer Challenge 2025.
 
 ---
