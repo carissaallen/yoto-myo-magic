@@ -52,7 +52,7 @@
       "matches": [
         "https://my.yotoplay.com/*"
       ],
-      "js": ["content/content.js"],
+      "js": ["jszip.min.js", "content/content.js"],
       "run_at": "document_idle"
     }
   ],
