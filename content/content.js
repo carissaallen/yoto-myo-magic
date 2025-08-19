@@ -47,10 +47,12 @@ let state = {
 
 // Initialize - simplified approach
 function init() {
+  console.log('[DEBUG] Yoto MYO Magic initializing on:', window.location.href);
   
   // Check auth status
   chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(response => {
     state.authenticated = response.authenticated;
+    console.log('[DEBUG] Auth status:', response.authenticated);
   });
   
   // Simple delay then check for MYO page
@@ -87,6 +89,7 @@ function checkForMyoPage() {
   
   // Determine page type
   if (path.includes('/my-cards/playlists')) {
+    console.log('[DEBUG] Playlists page detected - setting up Import Playlist button...');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
@@ -102,12 +105,17 @@ function checkForMyoPage() {
 function waitForMyoElements() {
   // For playlists page, use simple retry logic like Icon Match button
   if (window.location.pathname.includes('/my-cards/playlists')) {
+    console.log('[DEBUG] Setting up Import button injection attempts...');
     // Simple retry pattern - matches the working Icon Match approach
     const attempts = [500, 2000, 4000];
-    attempts.forEach((delay) => {
+    attempts.forEach((delay, index) => {
       setTimeout(() => {
+        console.log(`[DEBUG] Import button injection attempt ${index + 1} after ${delay}ms`);
         if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
-          checkAndInjectImportButton();
+          const result = checkAndInjectImportButton();
+          console.log(`[DEBUG] Injection attempt ${index + 1} result:`, result);
+        } else {
+          console.log(`[DEBUG] Import button already exists, skipping attempt ${index + 1}`);
         }
       }, delay);
     });
@@ -117,9 +125,12 @@ function waitForMyoElements() {
 
 // Simple injection function using "My playlists" heading as reliable anchor point
 function checkAndInjectImportButton() {
+  console.log('[DEBUG] checkAndInjectImportButton called');
+  
   // Don't inject if already exists
   if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
-    return;
+    console.log('[DEBUG] Button already exists, skipping injection');
+    return true;
   }
   
   // Primary approach: Find "My playlists" heading and position button in optimal spot below it
@@ -127,6 +138,8 @@ function checkAndInjectImportButton() {
     const text = el.textContent?.trim()?.toLowerCase() || '';
     return text.includes('playlist');
   });
+  
+  console.log('[DEBUG] Found playlists heading:', playlistsHeading?.textContent);
   
   
   if (playlistsHeading) {
@@ -168,7 +181,7 @@ function checkAndInjectImportButton() {
         targetElement.parentNode.appendChild(buttonContainer);
       }
       
-      
+      console.log('[DEBUG] Import Playlist button injected successfully');
       return true;
     }
   }
