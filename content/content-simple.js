@@ -28,7 +28,7 @@ function cycleIcon(trackId, direction) {
     iconContainer.classList.add('icon-transition');
     setTimeout(() => iconContainer.classList.remove('icon-transition'), 300);
     
-    if (selectedIcon.url && selectedIcon.url.startsWith('http')) {
+    if (selectedIcon.url && (selectedIcon.url.startsWith('http') || selectedIcon.url.startsWith('data:'))) {
       iconContainer.innerHTML = `<img src="${selectedIcon.url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" onerror="this.style.display='none'; this.parentElement.innerHTML='❌';">`;
     } else {
       iconContainer.innerHTML = '🎵';
