@@ -262,7 +262,6 @@ async function loadIconsCache() {
             Object.entries(cached).forEach(([key, value]) => {
                 yotoIconsCache.set(key, value);
             });
-            console.log(`Loaded ${yotoIconsCache.size} cached yotoicons`);
         }
     } catch (error) {
         console.warn('Failed to load icons cache:', error);
@@ -288,9 +287,6 @@ async function fetchFromYotoicons(query) {
         await rateLimiter.wait();
         
         const searchUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}`;
-        console.log(`Fetching icons from: ${searchUrl}`);
-        
-        // First, check if we can access the search page directly
         
         const response = await fetch(searchUrl, {
             headers: {
@@ -357,7 +353,6 @@ async function fetchFromYotoicons(query) {
         
         return icons;
     } catch (error) {
-        console.warn('Failed to fetch from yotoicons.com:', error);
         return [];
     }
 }
@@ -369,7 +364,6 @@ async function downloadAndUploadIcon(yotoIcon) {
         const cacheKey = yotoIcon.id;
         if (yotoIconsCache.has(cacheKey)) {
             const cached = yotoIconsCache.get(cacheKey);
-            console.log(`Found cached entry for ${yotoIcon.id}, has dataUrl: ${!!cached.dataUrl}`);
             
             // Return cached entry regardless of dataUrl - we'll fix missing dataUrls by re-downloading the image
             if (cached.dataUrl) {
@@ -412,7 +406,7 @@ async function downloadAndUploadIcon(yotoIcon) {
                         };
                     }
                 } catch (error) {
-                    console.warn(`Failed to create dataUrl for cached icon ${yotoIcon.id}:`, error);
+                    // Silently fail and use fallback
                 }
                 
                 // Fall back to original cached entry with API URL
@@ -450,8 +444,6 @@ async function downloadAndUploadIcon(yotoIcon) {
             name: `yotoicon_${yotoIcon.id}.png`
         });
         
-        console.log(`Upload result for yotoicon ${yotoIcon.id}:`, uploadResult);
-        
         if (uploadResult.error) {
             throw new Error(uploadResult.error);
         }
@@ -484,7 +476,6 @@ async function downloadAndUploadIcon(yotoIcon) {
         };
         
     } catch (error) {
-        console.warn('Failed to download and upload icon:', error);
         return null;
     }
 }
@@ -494,7 +485,6 @@ async function searchIcons(query) {
         const lowerQuery = query.toLowerCase();
         let allIcons = [];
         
-        // Note: We'll handle missing dataUrl in the downloadAndUploadIcon function instead
 
         try {
             const yotoResponse = await makeAuthenticatedRequest('/media/displayIcons/user/yoto');
@@ -520,12 +510,9 @@ async function searchIcons(query) {
         // If no public Yoto icons found, search yotoicons.com and upload results
         if (yotoMatches.length === 0) {
             try {
-                console.log(`No public Yoto icons found for "${query}", searching yotoicons.com...`);
                 const yotoIconsResults = await fetchFromYotoicons(query);
                 
                 if (yotoIconsResults.length > 0) {
-                    console.log(`Found ${yotoIconsResults.length} icons on yotoicons.com, downloading and uploading...`);
-                    
                     // Download and upload icons in parallel, but limit concurrency
                     const uploadPromises = yotoIconsResults.slice(0, 5).map(icon => 
                         downloadAndUploadIcon(icon)
@@ -536,20 +523,12 @@ async function searchIcons(query) {
                     // Process successful uploads
                     uploadResults.forEach(result => {
                         if (result.status === 'fulfilled' && result.value) {
-                            console.log('Adding uploaded icon to search results:', result.value);
                             allIcons.push(result.value);
-                        } else {
-                            console.log('Upload failed:', result.reason);
                         }
                     });
-                    
-                    console.log(`Successfully uploaded ${allIcons.filter(i => i.source?.startsWith('yotoicons')).length} icons from yotoicons.com`);
-                    console.log('Uploaded icons:', allIcons.filter(i => i.source?.startsWith('yotoicons')).map(i => ({ title: i.title, source: i.source, mediaId: i.mediaId })));
-                } else {
-                    console.log('No icons found on yotoicons.com');
                 }
             } catch (error) {
-                console.warn('Error fetching from yotoicons.com:', error);
+                // Silently continue if yotoicons.com fails
             }
             
             // Add fallback link if still no results
@@ -607,12 +586,6 @@ async function searchIcons(query) {
             return 0;
         });
 
-        console.log(`Returning ${filteredIcons.length} icons for query "${query}":`, filteredIcons.map(i => ({ 
-            title: i.title, 
-            source: i.source, 
-            urlType: i.url?.startsWith('data:') ? 'dataUrl' : i.url?.startsWith('http') ? 'httpUrl' : 'other',
-            urlLength: i.url?.length 
-        })));
         return {icons: filteredIcons};
     } catch (error) {
         return {icons: []};
@@ -629,14 +602,8 @@ async function matchIcons(tracks) {
             const fullResults = await searchIcons(track.title);
             if (fullResults.icons && fullResults.icons.length > 0) {
                 const validIcons = fullResults.icons.filter(icon => {
-                    const isValid = !icon.isPlaceholder && icon.url && (icon.url.startsWith('http') || icon.url.startsWith('data:'));
-                    if (!isValid) {
-                        console.log(`Filtering out icon:`, { title: icon.title, source: icon.source, url: icon.url?.substring(0, 50) + '...' });
-                    }
-                    return isValid;
+                    return !icon.isPlaceholder && icon.url && (icon.url.startsWith('http') || icon.url.startsWith('data:'));
                 }).slice(0, 10);
-                
-                console.log(`Found ${validIcons.length} valid icons for track "${track.title}"`);
                 
                 iconOptions = validIcons.map(icon => {
                     let iconUrl = icon.url || icon.mediaUrl || null;
@@ -651,26 +618,14 @@ async function matchIcons(tracks) {
                         iconUrl.startsWith('data:')
                     );
                     
-                    const option = {
+                    return {
                         url: isValidUrl ? iconUrl : null,
                         iconId: icon.mediaId || icon.id || icon.displayIconId || icon.iconId,
                         title: icon.title || null
                     };
-                    
-                    if (!isValidUrl) {
-                        console.log(`Invalid URL for icon "${icon.title}":`, { url: iconUrl?.substring(0, 100), iconId: option.iconId });
-                    }
-                    
-                    return option;
                 });
                 
-                const beforeFilter = iconOptions.length;
                 iconOptions = iconOptions.filter(option => option.url !== null);
-                const afterFilter = iconOptions.length;
-                
-                if (beforeFilter !== afterFilter) {
-                    console.log(`Filtered out ${beforeFilter - afterFilter} icons with null URLs for track "${track.title}"`);
-                }
             }
         } catch (error) {}
 
@@ -722,11 +677,6 @@ async function matchIcons(tracks) {
             selectedIndex: 0
         };
 
-        console.log(`Match result for "${track.title}":`, { 
-            trackId: track.id, 
-            iconOptionsCount: iconOptions.length,
-            iconOptions: iconOptions.map(io => ({ title: io.title, iconId: io.iconId }))
-        });
 
         matches.push(matchResult);
     }
@@ -749,15 +699,12 @@ async function updateStats(stats) {
 
 async function updateCardIcons(cardId, iconMatches) {
     try {
-        console.log(`updateCardIcons called with cardId: ${cardId}, iconMatches:`, iconMatches);
         const defaultIcon = 'yoto:#fqAuu4nSrOwNU-xbNVsGG-Om_PEe3S161UJ-nTXeBIQ';
 
         const cardContent = await getCardContent(cardId);
         if (cardContent.error) {
             return {success: false, error: 'Failed to get card content'};
         }
-        
-        console.log('Card content retrieved, chapters:', cardContent.card?.content?.chapters?.length || 0);
 
         let iconsUpdated = 0;
         
@@ -766,15 +713,12 @@ async function updateCardIcons(cardId, iconMatches) {
                 let chapterIconId = null;
 
                 if (chapter.tracks && chapter.tracks.length > 0) {
-                    console.log(`Chapter ${chapter.key} tracks:`, chapter.tracks.map(t => t.title));
                     for (const track of chapter.tracks) {
-                        const iconMatch = iconMatches.find(match => {
-                            console.log(`Comparing match.trackTitle "${match.trackTitle}" with track.title "${track.title}"`);
-                            return match.trackTitle === track.title;
-                        });
+                        const iconMatch = iconMatches.find(match =>
+                            match.trackTitle === track.title
+                        );
 
                         if (iconMatch && iconMatch.iconId) {
-                            console.log(`Found icon match for track "${track.title}": ${iconMatch.iconId}`);
                             chapterIconId = iconMatch.iconId.startsWith('yoto:#')
                                 ? iconMatch.iconId
                                 : `yoto:#${iconMatch.iconId}`;
@@ -785,9 +729,6 @@ async function updateCardIcons(cardId, iconMatches) {
 
                 if (!chapterIconId) {
                     chapterIconId = defaultIcon;
-                    console.log(`No icon found for chapter ${chapter.key}, using default icon`);
-                } else {
-                    console.log(`Setting chapter ${chapter.key} icon to: ${chapterIconId}`);
                 }
 
                 if (!chapter.display) {
@@ -808,7 +749,6 @@ async function updateCardIcons(cardId, iconMatches) {
             });
         }
 
-        console.log(`Total icons updated: ${iconsUpdated}`);
 
         if (iconsUpdated === 0) {
             return {success: false, error: 'No chapters found to update'};
@@ -826,20 +766,16 @@ async function updateCardIcons(cardId, iconMatches) {
         };
 
         try {
-            console.log('Sending update request to Yoto API...');
             const updateResponse = await makeAuthenticatedRequest('/content', {
                 method: 'POST',
                 body: JSON.stringify(requestBody)
             });
-
-            console.log('Yoto API response:', updateResponse);
 
             if (!updateResponse.error) {
                 await updateStats({
                     iconsMatched: iconsUpdated,
                     cardsUpdated: 1
                 });
-                console.log(`Successfully updated ${iconsUpdated} chapter icons`);
                 return {success: true, message: `Updated ${iconsUpdated} chapter icons`};
             } else {
                 if (updateResponse.error && updateResponse.error.includes('500')) {
@@ -1077,7 +1013,6 @@ async function uploadIcon(iconFileData) {
             }
         );
         
-        console.log(`Raw Yoto upload response for ${filename}:`, response);
         
         if (response.error) {
             return { error: response.error };
@@ -1358,74 +1293,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                     break;
 
-                case 'TEST_YOTOICONS_INTEGRATION':
-                    // Test endpoint for yotoicons integration
-                    try {
-                        // Clear cache if requested
-                        if (request.clearCache) {
-                            const cacheSize = yotoIconsCache.size;
-                            yotoIconsCache.clear();
-                            await chrome.storage.local.remove(YOTO_ICONS_CACHE_KEY);
-                            console.log(`Cleared ${cacheSize} cached yotoicons before test`);
-                        }
-                        
-                        const testQuery = request.query || 'wolf';
-                        console.log(`Testing yotoicons integration with query: "${testQuery}"`);
-                        
-                        // Test direct page fetch
-                        const testUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(testQuery)}`;
-                        console.log(`Testing direct fetch to: ${testUrl}`);
-                        
-                        const testResponse = await fetch(testUrl, {
-                            headers: {
-                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-                            }
-                        });
-                        
-                        console.log(`Response status: ${testResponse.status}`);
-                        console.log(`Response headers:`, Object.fromEntries(testResponse.headers.entries()));
-                        
-                        if (testResponse.ok) {
-                            const html = await testResponse.text();
-                            console.log(`HTML length: ${html.length}`);
-                            
-                            // Extract image URLs
-                            const iconRegex = /<img[^>]+src=["']\/static\/uploads\/(\d+)\.png["'][^>]*>/g;
-                            const matches = [];
-                            let match;
-                            while ((match = iconRegex.exec(html)) !== null && matches.length < 5) {
-                                matches.push({
-                                    id: match[1],
-                                    url: `https://www.yotoicons.com/static/uploads/${match[1]}.png`
-                                });
-                            }
-                            
-                            sendResponse({
-                                success: true,
-                                query: testQuery,
-                                status: testResponse.status,
-                                htmlLength: html.length,
-                                foundIcons: matches.length,
-                                sampleIcons: matches,
-                                cacheSize: yotoIconsCache.size
-                            });
-                        } else {
-                            const errorText = await testResponse.text();
-                            sendResponse({
-                                success: false,
-                                status: testResponse.status,
-                                error: `HTTP ${testResponse.status}`,
-                                responseText: errorText.substring(0, 500)
-                            });
-                        }
-                    } catch (error) {
-                        sendResponse({
-                            success: false,
-                            error: error.message,
-                            stack: error.stack
-                        });
-                    }
-                    break;
 
                 case 'UPDATE_STATS':
                     await updateStats(request.stats);
