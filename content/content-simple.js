@@ -314,7 +314,6 @@ function showIconPreview(matches) {
       
       const validMatches = selectedMatches;
       
-      console.log('Valid matches to apply:', validMatches);
       
       if (validMatches.length === 0) {
         alert('No valid icons to apply. Try searching for different terms or check the icon matching.');
