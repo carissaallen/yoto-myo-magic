@@ -93,9 +93,32 @@ async function startOAuthFlow() {
     });
 
     const fullAuthUrl = `${authUrl}?${params.toString()}`;
-    chrome.tabs.create({url: fullAuthUrl});
+    
+    try {
+        // Get the current active window to determine which display to use
+        const currentWindow = await chrome.windows.getCurrent();
+        
+        // Create a small, centered popup window for auth on the same display
+        const popup = await chrome.windows.create({
+            url: fullAuthUrl,
+            type: 'popup',
+            width: 500,
+            height: 700,
+            left: currentWindow.left + Math.round((currentWindow.width - 500) / 2),
+            top: currentWindow.top + Math.round((currentWindow.height - 700) / 2),
+            focused: true
+        });
 
-    return {success: true};
+        // Return success immediately - the callback.html will handle token exchange
+        return {success: true, popupId: popup.id};
+        
+    } catch (error) {
+        if (error.message.includes('user did not approve') || error.message.includes('cancelled')) {
+            return {success: false, cancelled: true};
+        }
+        
+        return {success: false, error: error.message};
+    }
 }
 
 async function exchangeCodeForTokens(code) {
@@ -262,7 +285,7 @@ async function loadIconsCache() {
             });
         }
     } catch (error) {
-        console.warn('Failed to load icons cache:', error);
+        // Failed to load icons cache - continue silently
     }
 }
 
@@ -274,7 +297,7 @@ async function saveIconsCache() {
             [YOTO_ICONS_CACHE_KEY]: cacheObj
         });
     } catch (error) {
-        console.warn('Failed to save icons cache:', error);
+        // Failed to save icons cache - continue silently
     }
 }
 
@@ -390,7 +413,7 @@ async function downloadAndUploadIcon(yotoIcon) {
                         // Update cache with dataUrl
                         cached.dataUrl = dataUrl;
                         yotoIconsCache.set(cacheKey, cached);
-                        saveIconsCache().catch(console.warn);
+                        saveIconsCache().catch(() => {});
                         
                         return {
                             title: `${yotoIcon.title} (cached)`,
@@ -460,7 +483,7 @@ async function downloadAndUploadIcon(yotoIcon) {
         yotoIconsCache.set(cacheKey, cacheEntry);
         
         // Save cache to storage (fire and forget)
-        saveIconsCache().catch(console.warn);
+        saveIconsCache().catch(() => {});
         
         return {
             title: `${yotoIcon.title} (by @${yotoIcon.author})`,

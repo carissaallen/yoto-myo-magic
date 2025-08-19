@@ -1080,7 +1080,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             coverUrl = coverResponse.url;
           }
         } catch (error) {
-          console.warn('Error uploading cover:', error);
+          // Error uploading cover - continue silently
         }
       }
       
@@ -1103,7 +1103,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             iconIds[i] = response.iconId;
           }
         } catch (error) {
-          console.error(`Failed to upload icon ${i + 1}:`, error);
+          // Failed to upload icon - continue silently
         }
         
         progressBar.style.width = `${10 + (30 * (i + 1) / trackIcons.length)}%`;
