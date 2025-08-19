@@ -84,11 +84,9 @@ function isTokenExpired(token) {
 async function startOAuthFlow() {
     const authUrl = 'https://login.yotoplay.com/authorize';
 
-    const scopes = ['openid', 'profile', 'offline_access'];
-
     const params = new URLSearchParams({
         audience: 'https://api.yotoplay.com',
-        scope: scopes.join(' '),
+        scope: 'offline_access',
         response_type: 'code',
         client_id: CONFIG.YOTO_CLIENT_ID,
         redirect_uri: getRedirectUri()
