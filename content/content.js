@@ -1,5 +1,6 @@
 // Content script loaded
 
+
 // Configuration
 const CONFIG = {
   CHECK_INTERVAL: 1000, // Check for MYO elements every second
@@ -44,39 +45,20 @@ let state = {
   injectedUI: false
 };
 
-// Initialize
+// Initialize - simplified approach
 function init() {
-  // Initialize content script
+  console.log('[Yoto MYO Magic] Extension loaded on:', window.location.pathname);
   
-  // Check auth status first
+  // Check auth status
   chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(response => {
-    // Auth status received
     state.authenticated = response.authenticated;
   });
   
-  // Add a small delay to ensure page is loaded
+  // Simple delay then check for MYO page
   setTimeout(() => {
-    // Check if we're on a MYO page
     checkForMyoPage();
-    
-    // Set up mutation observer for dynamic content
     setupObserver();
   }, 1000);
-  
-  // Additional check specifically for the playlists page
-  if (window.location.pathname.includes('/my-cards/playlists')) {
-    // Detected playlists page, setting up additional checks
-    // Try multiple times to inject the button
-    const injectAttempts = [1500, 2500, 3500, 5000];
-    injectAttempts.forEach(delay => {
-      setTimeout(() => {
-        if (!document.querySelector('#yoto-import-btn')) {
-          // Retry injection
-          injectMyPlaylistsUI(null);
-        }
-      }, delay);
-    });
-  }
   
   // Listen for messages from popup/background
   chrome.runtime.onMessage.addListener(handleMessage);
@@ -84,13 +66,9 @@ function init() {
   // Listen for auth status updates
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTH_STATUS') {
-      // Auth status updated
       state.authenticated = request.authenticated;
-      
-      // Update button icon
       updateButtonIcon(request.authenticated);
       
-      // Re-check page if we just got authenticated
       if (request.authenticated && state.isMyoPage) {
         showNotification('Authentication successful! You can now use icon matching.', 'success');
       }
@@ -103,51 +81,102 @@ function checkForMyoPage() {
   const url = window.location.href;
   const path = window.location.pathname;
   
-  // Check page URL
-  
   // Check if we're on my.yotoplay.com
   if (!url.includes('my.yotoplay.com')) {
-    // Not on my.yotoplay.com
     return;
   }
   
   // Determine page type
   if (path.includes('/my-cards/playlists')) {
-    // On playlists page
+    console.log('[Yoto MYO Magic] Playlists page detected - setting up Import Playlist button...');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
-    // On card edit page
     state.isMyoPage = true;
     state.pageType = 'edit-card';
     // For edit pages, we need to inject the Icon Match button using content-simple.js
     // That's handled by the service worker
-  } else {
-    // Not on a relevant page
   }
-  
-  // Page type determined
 }
 
-// Wait for MYO elements to appear
+// Wait for MYO elements to appear - simplified approach
 function waitForMyoElements() {
-  // For playlists page, we only need to inject the Import button
+  // For playlists page, use simple retry logic like Icon Match button
   if (window.location.pathname.includes('/my-cards/playlists')) {
-    // Inject Import button for playlists page
-    // Give the page a moment to render, then inject
-    setTimeout(() => {
-      injectMyPlaylistsUI(null);
-    }, 500);
-    // Try again after a bit more time in case the page loads slowly
-    setTimeout(() => {
-      if (!document.querySelector('#yoto-import-btn')) {
-        injectMyPlaylistsUI(null);
-      }
-    }, 1500);
-    // No need to look for containers or do 30 attempts
+    // Simple retry pattern - matches the working Icon Match approach
+    const attempts = [500, 2000, 4000];
+    attempts.forEach((delay) => {
+      setTimeout(() => {
+        if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
+          checkAndInjectImportButton();
+        }
+      }, delay);
+    });
     return;
   }
+}
+
+// Simple injection function using "My playlists" heading as reliable anchor point
+function checkAndInjectImportButton() {
+  // Don't inject if already exists
+  if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
+    return;
+  }
+  
+  // Primary approach: Find "My playlists" heading and position button in optimal spot below it
+  const playlistsHeading = Array.from(document.querySelectorAll('h1, h2, h3')).find(el => {
+    const text = el.textContent?.trim()?.toLowerCase() || '';
+    return text.includes('playlist');
+  });
+  
+  
+  if (playlistsHeading) {
+    // Look for the container that holds both the heading and the content below it
+    const mainContainer = playlistsHeading.parentNode;
+    
+    if (mainContainer) {
+      // Find the descriptive text element after the heading
+      let targetElement = playlistsHeading;
+      let nextElement = playlistsHeading.nextElementSibling;
+      
+      // Look for the descriptive text in the next few siblings
+      while (nextElement && targetElement === playlistsHeading) {
+        const text = nextElement.textContent?.trim() || '';
+        if (text.includes('Create playlists here')) {
+          targetElement = nextElement;
+          break;
+        }
+        nextElement = nextElement.nextElementSibling;
+        
+        // Don't search more than 3 siblings to avoid going too far
+        if (!nextElement || nextElement === playlistsHeading.parentNode?.lastElementChild) {
+          break;
+        }
+      }
+      
+      // Create the button container
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'margin: 20px 0 24px 0; padding: 0;';
+      buttonContainer.id = 'yoto-import-container';
+      
+      const importButton = createImportButton();
+      buttonContainer.appendChild(importButton);
+      
+      // Insert after the target element (either heading or descriptive text)
+      if (targetElement.nextSibling) {
+        targetElement.parentNode.insertBefore(buttonContainer, targetElement.nextSibling);
+      } else {
+        targetElement.parentNode.appendChild(buttonContainer);
+      }
+      
+      console.log('[Yoto MYO Magic] Import Playlist button injected successfully');
+      
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 // These functions are no longer needed since we're not adding the Bulk Match button
@@ -224,79 +253,6 @@ function injectAddPlaylistUI(container) {
   }
 }
 
-// Inject UI for My Playlists page  
-function injectMyPlaylistsUI(container) {
-  // Check if we already added the Import button
-  if (document.querySelector('#yoto-import-btn')) {
-    return;
-  }
-  
-  // Try multiple approaches to find the right place for the Import button
-  
-  // Approach 1: Find the heading "My playlists"
-  const heading = Array.from(document.querySelectorAll('h1, h2, h3')).find(el => 
-    el.textContent?.trim() === 'My playlists'
-  );
-  
-  if (heading) {
-    // Look for the subtitle text after the heading
-    let targetElement = heading.nextElementSibling;
-    while (targetElement && !targetElement.textContent?.includes('Create playlists here')) {
-      targetElement = targetElement.nextElementSibling;
-      if (targetElement && targetElement.querySelector('h1, h2, h3')) {
-        // Stop if we hit another heading
-        break;
-      }
-    }
-    
-    if (targetElement) {
-      // Create a container for the Import button
-      const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = 'margin-top: 20px; margin-bottom: 24px;';
-      
-      // Add Import button
-      const importButton = createImportButton();
-      buttonContainer.appendChild(importButton);
-      
-      // Insert after the subtitle
-      if (targetElement.nextSibling) {
-        targetElement.parentNode.insertBefore(buttonContainer, targetElement.nextSibling);
-      } else {
-        targetElement.parentNode.appendChild(buttonContainer);
-      }
-    } else {
-      // Just place it after the heading
-      const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = 'margin-top: 20px; margin-bottom: 24px;';
-      
-      const importButton = createImportButton();
-      buttonContainer.appendChild(importButton);
-      
-      if (heading.nextSibling) {
-        heading.parentNode.insertBefore(buttonContainer, heading.nextSibling);
-      } else {
-        heading.parentNode.appendChild(buttonContainer);
-      }
-    }
-  } else {
-    // Approach 2: Find the first playlist card and insert before it
-    // Look for the "Add Playlist" card or the container with playlist cards
-    const addPlaylistCard = document.querySelector('[href*="/card/new"]')?.closest('div');
-    const playlistGrid = addPlaylistCard?.parentElement;
-    
-    if (playlistGrid) {
-      const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = 'margin-bottom: 24px;';
-      
-      const importButton = createImportButton();
-      buttonContainer.appendChild(importButton);
-      
-      playlistGrid.parentNode.insertBefore(buttonContainer, playlistGrid);
-    }
-  }
-  
-  // We're not adding the Bulk Match button anymore - it wasn't working properly
-}
 
 // Create auto-match button (Yoto-styled)
 function createAutoMatchButton() {
