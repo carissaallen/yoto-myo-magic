@@ -285,7 +285,7 @@ async function loadIconsCache() {
             });
         }
     } catch (error) {
-        // Failed to load icons cache - continue silently
+        console.warn('Failed to load icons cache:', error);
     }
 }
 
@@ -297,7 +297,7 @@ async function saveIconsCache() {
             [YOTO_ICONS_CACHE_KEY]: cacheObj
         });
     } catch (error) {
-        // Failed to save icons cache - continue silently
+        console.warn('Failed to save icons cache:', error);
     }
 }
 
@@ -413,7 +413,7 @@ async function downloadAndUploadIcon(yotoIcon) {
                         // Update cache with dataUrl
                         cached.dataUrl = dataUrl;
                         yotoIconsCache.set(cacheKey, cached);
-                        saveIconsCache().catch(() => {});
+                        saveIconsCache().catch(console.warn);
                         
                         return {
                             title: `${yotoIcon.title} (cached)`,
@@ -483,7 +483,7 @@ async function downloadAndUploadIcon(yotoIcon) {
         yotoIconsCache.set(cacheKey, cacheEntry);
         
         // Save cache to storage (fire and forget)
-        saveIconsCache().catch(() => {});
+        saveIconsCache().catch(console.warn);
         
         return {
             title: `${yotoIcon.title} (by @${yotoIcon.author})`,
