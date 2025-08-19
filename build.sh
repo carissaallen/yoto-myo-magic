@@ -25,6 +25,7 @@ zip -r "$OUTPUT_FILE" \
     jszip.min.js \
     callback.html \
     callback.js \
+    config.js \
     assets/ \
     background/ \
     content/ \
