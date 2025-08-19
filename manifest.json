@@ -16,7 +16,7 @@
     "https://my.yotoplay.com/*",
     "https://api.yotoplay.com/*",
     "https://login.yotoplay.com/*",
-    "https://yotoicons.com/*",
+    "https://www.yotoicons.com/*",
     "*://*.yotoplay.com/*",
     "https://www.google-analytics.com/*"
   ],
