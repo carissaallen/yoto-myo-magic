@@ -88,8 +88,10 @@ function checkForMyoPage() {
   }
   
   // Determine page type
-  if (path.includes('/my-cards/playlists')) {
-    console.log('[DEBUG] Playlists page detected - setting up Import Playlist button...');
+  console.log('[DEBUG] Current path:', path);
+  
+  if (path.includes('/my-cards/playlists') || path === '/my-cards') {
+    console.log('[DEBUG] My Cards/Playlists page detected - setting up Import Playlist button...');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
@@ -103,9 +105,10 @@ function checkForMyoPage() {
 
 // Wait for MYO elements to appear - simplified approach
 function waitForMyoElements() {
-  // For playlists page, use simple retry logic like Icon Match button
-  if (window.location.pathname.includes('/my-cards/playlists')) {
-    console.log('[DEBUG] Setting up Import button injection attempts...');
+  // For my-cards or playlists page, use simple retry logic like Icon Match button
+  const path = window.location.pathname;
+  if (path.includes('/my-cards/playlists') || path === '/my-cards') {
+    console.log('[DEBUG] Setting up Import button injection attempts for path:', path);
     // Simple retry pattern - matches the working Icon Match approach
     const attempts = [500, 2000, 4000];
     attempts.forEach((delay, index) => {
@@ -133,13 +136,16 @@ function checkAndInjectImportButton() {
     return true;
   }
   
-  // Primary approach: Find "My playlists" heading and position button in optimal spot below it
-  const playlistsHeading = Array.from(document.querySelectorAll('h1, h2, h3')).find(el => {
+  // Primary approach: Find "My playlists" or "My Cards" heading and position button in optimal spot below it
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
+  console.log('[DEBUG] All headings found:', headings.map(h => h.textContent?.trim()));
+  
+  const playlistsHeading = headings.find(el => {
     const text = el.textContent?.trim()?.toLowerCase() || '';
-    return text.includes('playlist');
+    return text.includes('playlist') || text.includes('my cards') || text.includes('cards');
   });
   
-  console.log('[DEBUG] Found playlists heading:', playlistsHeading?.textContent);
+  console.log('[DEBUG] Found target heading:', playlistsHeading?.textContent);
   
   
   if (playlistsHeading) {
