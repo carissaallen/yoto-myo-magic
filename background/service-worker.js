@@ -1,6 +1,7 @@
 // Import configuration and analytics
 importScripts('../config.js');
 importScripts('../lib/analytics.js');
+importScripts('../lib/utils.js');
 
 // Use config from the centralized config file
 const CONFIG = ExtensionConfig;
@@ -519,7 +520,7 @@ async function searchIcons(query) {
             }
         } catch (error) {}
 
-        const yotoMatches = allIcons.filter(icon => {
+        let yotoMatches = allIcons.filter(icon => {
             const allText = [
                 icon.title,
                 icon.mediaId,
@@ -528,10 +529,38 @@ async function searchIcons(query) {
             return allText.includes(lowerQuery);
         });
 
+        // If no matches and word appears plural, try singular form
+        if (yotoMatches.length === 0 && Utils.isPlural(query)) {
+            const singular = Utils.singularize(query);
+            if (singular !== query) {
+                console.log(`No matches for "${query}", trying singular: "${singular}"`);
+                const singularLower = singular.toLowerCase();
+                
+                yotoMatches = allIcons.filter(icon => {
+                    const allText = [
+                        icon.title,
+                        icon.mediaId,
+                        ...(icon.publicTags || [])
+                    ].filter(Boolean).join(' ').toLowerCase();
+                    return allText.includes(singularLower);
+                });
+            }
+        }
+
         // If no public Yoto icons found, search yotoicons.com and upload results
         if (yotoMatches.length === 0) {
             try {
-                const yotoIconsResults = await fetchFromYotoicons(query);
+                // Try yotoicons.com with original query first
+                let yotoIconsResults = await fetchFromYotoicons(query);
+                
+                // If no results and word appears plural, try singular on yotoicons.com
+                if (yotoIconsResults.length === 0 && Utils.isPlural(query)) {
+                    const singular = Utils.singularize(query);
+                    if (singular !== query) {
+                        console.log(`No yotoicons.com results for "${query}", trying singular: "${singular}"`);
+                        yotoIconsResults = await fetchFromYotoicons(singular);
+                    }
+                }
                 
                 if (yotoIconsResults.length > 0) {
                     // Download and upload icons in parallel, but limit concurrency
@@ -567,6 +596,15 @@ async function searchIcons(query) {
             }
         }
 
+        // Prepare search terms (original + singular if applicable)
+        const searchTerms = [lowerQuery];
+        if (Utils.isPlural(query)) {
+            const singular = Utils.singularize(query);
+            if (singular !== query) {
+                searchTerms.push(singular.toLowerCase());
+            }
+        }
+
         const filteredIcons = allIcons.filter(icon => {
             if (icon.isPlaceholder) {
                 return true;
@@ -582,12 +620,15 @@ async function searchIcons(query) {
                 icon.mediaId,
                 ...(icon.publicTags || [])
             ].filter(Boolean).join(' ').toLowerCase();
-            return allText.includes(lowerQuery);
+            
+            // Check if text matches any of our search terms
+            return searchTerms.some(term => allText.includes(term));
         });
 
         filteredIcons.sort((a, b) => {
-            const aExact = a.title?.toLowerCase() === lowerQuery;
-            const bExact = b.title?.toLowerCase() === lowerQuery;
+            // Check for exact matches with any search term
+            const aExact = searchTerms.some(term => a.title?.toLowerCase() === term);
+            const bExact = searchTerms.some(term => b.title?.toLowerCase() === term);
             if (aExact && !bExact) return -1;
             if (!aExact && bExact) return 1;
 
