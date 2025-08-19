@@ -8,7 +8,9 @@
     "storage",
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "identity",
+    "system.display"
   ],
   
   "host_permissions": [
@@ -62,6 +64,7 @@
     {
       "resources": [
         "assets/styles/*.css",
+        "assets/icons/*.png",
         "lib/*.js",
         "callback.html",
         "callback.js"

@@ -35,11 +35,10 @@ if (error) {
             messageEl.className = 'success';
             messageEl.textContent = '✓ You can now use Yoto MYO Magic';
             
-            // Close window and redirect to Yoto
+            // Close window after showing success message
             setTimeout(() => {
-                chrome.tabs.create({ url: 'https://my.yotoplay.com/my-cards' });
                 window.close();
-            }, 1500);
+            }, 1300);
         } else {
             statusEl.textContent = 'Token exchange failed';
             spinnerEl.style.display = 'none';

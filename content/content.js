@@ -47,11 +47,12 @@ let state = {
 
 // Initialize - simplified approach
 function init() {
-  console.log('[Yoto MYO Magic] Extension loaded on:', window.location.pathname);
+  console.log('[DEBUG] Yoto MYO Magic initializing on:', window.location.href);
   
   // Check auth status
   chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(response => {
     state.authenticated = response.authenticated;
+    console.log('[DEBUG] Auth status:', response.authenticated);
   });
   
   // Simple delay then check for MYO page
@@ -87,8 +88,10 @@ function checkForMyoPage() {
   }
   
   // Determine page type
-  if (path.includes('/my-cards/playlists')) {
-    console.log('[Yoto MYO Magic] Playlists page detected - setting up Import Playlist button...');
+  console.log('[DEBUG] Current path:', path);
+  
+  if (path.includes('/my-cards/playlists') || path === '/my-cards') {
+    console.log('[DEBUG] My Cards/Playlists page detected - setting up Import Playlist button...');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
@@ -102,14 +105,20 @@ function checkForMyoPage() {
 
 // Wait for MYO elements to appear - simplified approach
 function waitForMyoElements() {
-  // For playlists page, use simple retry logic like Icon Match button
-  if (window.location.pathname.includes('/my-cards/playlists')) {
+  // For my-cards or playlists page, use simple retry logic like Icon Match button
+  const path = window.location.pathname;
+  if (path.includes('/my-cards/playlists') || path === '/my-cards') {
+    console.log('[DEBUG] Setting up Import button injection attempts for path:', path);
     // Simple retry pattern - matches the working Icon Match approach
     const attempts = [500, 2000, 4000];
-    attempts.forEach((delay) => {
+    attempts.forEach((delay, index) => {
       setTimeout(() => {
+        console.log(`[DEBUG] Import button injection attempt ${index + 1} after ${delay}ms`);
         if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
-          checkAndInjectImportButton();
+          const result = checkAndInjectImportButton();
+          console.log(`[DEBUG] Injection attempt ${index + 1} result:`, result);
+        } else {
+          console.log(`[DEBUG] Import button already exists, skipping attempt ${index + 1}`);
         }
       }, delay);
     });
@@ -119,16 +128,24 @@ function waitForMyoElements() {
 
 // Simple injection function using "My playlists" heading as reliable anchor point
 function checkAndInjectImportButton() {
+  console.log('[DEBUG] checkAndInjectImportButton called');
+  
   // Don't inject if already exists
   if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
-    return;
+    console.log('[DEBUG] Button already exists, skipping injection');
+    return true;
   }
   
-  // Primary approach: Find "My playlists" heading and position button in optimal spot below it
-  const playlistsHeading = Array.from(document.querySelectorAll('h1, h2, h3')).find(el => {
+  // Primary approach: Find "My playlists" or "My Cards" heading and position button in optimal spot below it
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
+  console.log('[DEBUG] All headings found:', headings.map(h => h.textContent?.trim()));
+  
+  const playlistsHeading = headings.find(el => {
     const text = el.textContent?.trim()?.toLowerCase() || '';
-    return text.includes('playlist');
+    return text.includes('playlist') || text.includes('my cards') || text.includes('cards');
   });
+  
+  console.log('[DEBUG] Found target heading:', playlistsHeading?.textContent);
   
   
   if (playlistsHeading) {
@@ -170,8 +187,7 @@ function checkAndInjectImportButton() {
         targetElement.parentNode.appendChild(buttonContainer);
       }
       
-      console.log('[Yoto MYO Magic] Import Playlist button injected successfully');
-      
+      console.log('[DEBUG] Import Playlist button injected successfully');
       return true;
     }
   }
@@ -461,9 +477,50 @@ async function handleAutoMatchClick() {
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    // Start auth flow
-    // Start authentication
-    chrome.runtime.sendMessage({ action: 'START_AUTH' });
+    // Show loading state during auth
+    const button = document.getElementById('yoto-magic-match-btn');
+    const originalContent = button.innerHTML;
+    button.innerHTML = `
+      <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span>Authorizing...</span>
+    `;
+    
+    // Start seamless authentication
+    chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
+      if (authResult && authResult.success) {
+        // Popup opened successfully, wait for auth completion
+        showNotification('Please complete authorization in the popup window...', 'info');
+        
+        // Set up a listener for auth completion
+        const checkAuth = setInterval(async () => {
+          const authStatus = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+          if (authStatus && authStatus.authenticated) {
+            clearInterval(checkAuth);
+            showNotification('✓ Authorization complete! Starting import...', 'success');
+            handleAutoMatchClick();
+          }
+        }, 1000);
+        
+        // Stop checking after 2 minutes
+        setTimeout(() => {
+          clearInterval(checkAuth);
+          button.innerHTML = originalContent;
+          showNotification('Authorization timed out. Please try again.', 'error');
+        }, 120000);
+        
+      } else if (authResult && authResult.cancelled) {
+        // User cancelled auth
+        button.innerHTML = originalContent;
+        showNotification('Authorization cancelled.', 'info');
+      } else {
+        // Auth failed, restore button
+        button.innerHTML = originalContent;
+        showNotification('Authorization failed. Please try again.', 'error');
+      }
+    });
     return;
   }
   
@@ -506,10 +563,37 @@ async function handleBulkMatchClick() {
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    // Start auth flow
-    showNotification('Please authorize the app to continue...', 'info');
+    // Start seamless auth flow
+    showNotification('Authorizing with Yoto...', 'info');
+    
     // Start authentication
-    await chrome.runtime.sendMessage({ action: 'START_AUTH' });
+    const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
+    
+    if (authResult && authResult.success) {
+      // Popup opened successfully, wait for auth completion
+      showNotification('Please complete authorization in the popup window...', 'info');
+      
+      // Set up a listener for auth completion
+      const checkAuth = setInterval(async () => {
+        const authStatus = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+        if (authStatus && authStatus.authenticated) {
+          clearInterval(checkAuth);
+          showNotification('✓ Authorization complete! Continuing...', 'success');
+          handleBulkMatchClick();
+        }
+      }, 1000);
+      
+      // Stop checking after 2 minutes
+      setTimeout(() => {
+        clearInterval(checkAuth);
+        showNotification('Authorization timed out. Please try again.', 'error');
+      }, 120000);
+      
+    } else if (authResult && authResult.cancelled) {
+      showNotification('Authorization cancelled.', 'info');
+    } else {
+      showNotification('Authorization failed. Please try again.', 'error');
+    }
     return;
   }
   
@@ -529,7 +613,12 @@ async function handleBulkMatchClick() {
       state.authenticated = false;
       updateButtonIcon(false);
       showNotification('Session expired. Please authorize again.', 'error');
-      chrome.runtime.sendMessage({ action: 'START_AUTH' });
+      chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
+        if (authResult && authResult.success) {
+          showNotification('✓ Session restored!', 'success');
+          updateButtonIcon(true);
+        }
+      });
     } else {
       showNotification('Error fetching cards: ' + cardsResponse.error, 'error');
     }
@@ -556,8 +645,12 @@ async function handleImportClick() {
     if (!authResponse || !authResponse.authenticated) {
       showNotification('Please authenticate first. Click the extension icon.', 'info');
       // Try to start auth
-      chrome.runtime.sendMessage({ action: 'START_AUTH' }).catch(err => {
-        showNotification('Failed to start authentication. Please try again.', 'error');
+      chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
+        if (authResult && authResult.success) {
+          showNotification('✓ Authentication complete!', 'success');
+        } else {
+          showNotification('Failed to start authentication. Please try again.', 'error');
+        }
       });
       return;
     }
