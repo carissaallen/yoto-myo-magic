@@ -28,7 +28,7 @@ function cycleIcon(trackId, direction) {
     iconContainer.classList.add('icon-transition');
     setTimeout(() => iconContainer.classList.remove('icon-transition'), 300);
     
-    if (selectedIcon.url && selectedIcon.url.startsWith('http') && selectedIcon.url.length < 2000) {
+    if (selectedIcon.url && (selectedIcon.url.startsWith('http') || selectedIcon.url.startsWith('data:'))) {
       iconContainer.innerHTML = `<img src="${selectedIcon.url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;" onerror="this.style.display='none'; this.parentElement.innerHTML='❌';">`;
     } else {
       iconContainer.innerHTML = '🎵';
@@ -98,7 +98,7 @@ function showIconPreview(matches) {
         const hasMultipleIcons = match.iconOptions && match.iconOptions.length > 1;
         const selectedIndex = selectedIcons[match.uniqueTrackId] || 0;
         const selectedIcon = match.iconOptions && match.iconOptions[selectedIndex];
-        const hasValidIcon = selectedIcon && selectedIcon.url && !selectedIcon.url.includes('yotoicons.com');
+        const hasValidIcon = selectedIcon && selectedIcon.url;
         
         return `
         <div data-track-id="${match.uniqueTrackId}" style="
@@ -299,7 +299,7 @@ function showIconPreview(matches) {
         const selectedIndex = selectedIcons[match.uniqueTrackId] || 0;
         const selectedIcon = match.iconOptions[selectedIndex];
         
-        if (!selectedIcon || !selectedIcon.url || selectedIcon.url.includes('yotoicons.com')) {
+        if (!selectedIcon || !selectedIcon.iconId) {
           return null;
         }
         
@@ -314,8 +314,9 @@ function showIconPreview(matches) {
       
       const validMatches = selectedMatches;
       
+      
       if (validMatches.length === 0) {
-        alert('No valid icons to apply. Please search for icons on yotoicons.com manually.');
+        alert('No valid icons to apply. Try searching for different terms or check the icon matching.');
         modal.remove();
         return;
       }

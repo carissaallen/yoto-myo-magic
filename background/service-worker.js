@@ -233,10 +233,258 @@ async function getCardContent(cardId) {
     }
 }
 
+// Icon cache to avoid re-uploading same icons from yotoicons.com
+const yotoIconsCache = new Map();
+const YOTO_ICONS_CACHE_KEY = 'yoto_icons_cache';
+
+// Rate limiting for yotoicons.com requests
+const rateLimiter = {
+    lastRequest: 0,
+    minInterval: 1000, // 1 second between requests
+    
+    async wait() {
+        const now = Date.now();
+        const timeSinceLastRequest = now - this.lastRequest;
+        if (timeSinceLastRequest < this.minInterval) {
+            const waitTime = this.minInterval - timeSinceLastRequest;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        this.lastRequest = Date.now();
+    }
+};
+
+// Load cache from storage on startup
+async function loadIconsCache() {
+    try {
+        const result = await chrome.storage.local.get(YOTO_ICONS_CACHE_KEY);
+        const cached = result[YOTO_ICONS_CACHE_KEY];
+        if (cached && typeof cached === 'object') {
+            Object.entries(cached).forEach(([key, value]) => {
+                yotoIconsCache.set(key, value);
+            });
+        }
+    } catch (error) {
+        console.warn('Failed to load icons cache:', error);
+    }
+}
+
+// Save cache to storage
+async function saveIconsCache() {
+    try {
+        const cacheObj = Object.fromEntries(yotoIconsCache);
+        await chrome.storage.local.set({
+            [YOTO_ICONS_CACHE_KEY]: cacheObj
+        });
+    } catch (error) {
+        console.warn('Failed to save icons cache:', error);
+    }
+}
+
+// Fetch icons from yotoicons.com
+async function fetchFromYotoicons(query) {
+    try {
+        // Rate limiting
+        await rateLimiter.wait();
+        
+        const searchUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}`;
+        
+        const response = await fetch(searchUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const html = await response.text();
+        
+        // Parse HTML to extract icon information
+        const icons = [];
+        
+        // More comprehensive regex patterns
+        const iconRegex = /<img[^>]+src=["']\/static\/uploads\/(\d+)\.png["'][^>]*>/g;
+        
+        let match;
+        const seenIds = new Set();
+        
+        while ((match = iconRegex.exec(html)) !== null) {
+            const iconId = match[1];
+            
+            // Skip duplicates
+            if (seenIds.has(iconId)) continue;
+            seenIds.add(iconId);
+            
+            const iconUrl = `https://www.yotoicons.com/static/uploads/${iconId}.png`;
+            
+            // Extract author and title from surrounding context
+            const contextStart = Math.max(0, match.index - 500);
+            const contextEnd = Math.min(html.length, match.index + 500);
+            const context = html.slice(contextStart, contextEnd);
+            
+            // Look for author pattern
+            const authorMatch = context.match(/@([a-zA-Z0-9_-]+)/);
+            const author = authorMatch ? authorMatch[1] : 'unknown';
+            
+            // Look for title or alt text
+            const altMatch = match[0].match(/alt=["']([^"']+)["']/);
+            const titleMatch = context.match(/title=["']([^"']+)["']/);
+            
+            let title = `Icon ${iconId}`;
+            if (altMatch && altMatch[1] && !altMatch[1].includes('.png')) {
+                title = altMatch[1];
+            } else if (titleMatch && titleMatch[1]) {
+                title = titleMatch[1];
+            }
+            
+            icons.push({
+                id: iconId,
+                url: iconUrl,
+                title: `${query} icon ${iconId}`, // Include search term in title
+                author: author,
+                source: 'yotoicons',
+                searchQuery: query // Store original query for reference
+            });
+            
+            // Limit to first 10 results for performance
+            if (icons.length >= 10) break;
+        }
+        
+        return icons;
+    } catch (error) {
+        return [];
+    }
+}
+
+// Download icon from yotoicons.com and upload to Yoto
+async function downloadAndUploadIcon(yotoIcon) {
+    try {
+        // Check cache first
+        const cacheKey = yotoIcon.id;
+        if (yotoIconsCache.has(cacheKey)) {
+            const cached = yotoIconsCache.get(cacheKey);
+            
+            // Return cached entry regardless of dataUrl - we'll fix missing dataUrls by re-downloading the image
+            if (cached.dataUrl) {
+                return {
+                    title: `${yotoIcon.title} (cached)`,
+                    mediaId: cached.mediaId,
+                    url: cached.dataUrl,
+                    source: 'yotoicons-cached',
+                    author: yotoIcon.author,
+                    iconId: cached.iconId,
+                    searchQuery: yotoIcon.searchQuery,
+                    originalIconId: yotoIcon.id
+                };
+            } else {
+                // For old cache entries without dataUrl, re-download just the image to create dataUrl
+                try {
+                    const imageResponse = await fetch(yotoIcon.url);
+                    if (imageResponse.ok) {
+                        const arrayBuffer = await imageResponse.arrayBuffer();
+                        const bytes = new Uint8Array(arrayBuffer);
+                        let binary = '';
+                        bytes.forEach(byte => binary += String.fromCharCode(byte));
+                        const base64 = btoa(binary);
+                        const dataUrl = `data:image/png;base64,${base64}`;
+                        
+                        // Update cache with dataUrl
+                        cached.dataUrl = dataUrl;
+                        yotoIconsCache.set(cacheKey, cached);
+                        saveIconsCache().catch(console.warn);
+                        
+                        return {
+                            title: `${yotoIcon.title} (cached)`,
+                            mediaId: cached.mediaId,
+                            url: dataUrl,
+                            source: 'yotoicons-cached',
+                            author: yotoIcon.author,
+                            iconId: cached.iconId,
+                            searchQuery: yotoIcon.searchQuery,
+                            originalIconId: yotoIcon.id
+                        };
+                    }
+                } catch (error) {
+                    // Silently fail and use fallback
+                }
+                
+                // Fall back to original cached entry with API URL
+                return {
+                    title: `${yotoIcon.title} (cached)`,
+                    mediaId: cached.mediaId,
+                    url: cached.url, // Use original URL as fallback
+                    source: 'yotoicons-cached',
+                    author: yotoIcon.author,
+                    iconId: cached.iconId,
+                    searchQuery: yotoIcon.searchQuery,
+                    originalIconId: yotoIcon.id
+                };
+            }
+        }
+        
+        // Download the icon
+        const response = await fetch(yotoIcon.url);
+        if (!response.ok) {
+            throw new Error(`Failed to download icon: ${response.status}`);
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        
+        // Convert to base64 for upload
+        let binary = '';
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        const base64 = btoa(binary);
+        
+        // Upload to Yoto
+        const uploadResult = await uploadIcon({
+            data: base64,
+            type: 'image/png',
+            name: `yotoicon_${yotoIcon.id}.png`
+        });
+        
+        if (uploadResult.error) {
+            throw new Error(uploadResult.error);
+        }
+        
+        // Create a data URL for display purposes (since uploaded icons are private)
+        const dataUrl = `data:image/png;base64,${base64}`;
+        
+        // Cache the result
+        const cacheEntry = {
+            mediaId: uploadResult.mediaId,
+            iconId: uploadResult.iconId,
+            url: `https://api.yotoplay.com/media/${uploadResult.mediaId}`,
+            dataUrl: dataUrl, // Store data URL for display
+            uploadedAt: new Date().toISOString()
+        };
+        yotoIconsCache.set(cacheKey, cacheEntry);
+        
+        // Save cache to storage (fire and forget)
+        saveIconsCache().catch(console.warn);
+        
+        return {
+            title: `${yotoIcon.title} (by @${yotoIcon.author})`,
+            mediaId: uploadResult.mediaId,
+            url: dataUrl, // Use data URL for display instead of API URL
+            source: 'yotoicons-uploaded',
+            author: yotoIcon.author,
+            iconId: uploadResult.iconId,
+            searchQuery: yotoIcon.searchQuery,
+            originalIconId: yotoIcon.id
+        };
+        
+    } catch (error) {
+        return null;
+    }
+}
+
 async function searchIcons(query) {
     try {
         const lowerQuery = query.toLowerCase();
         let allIcons = [];
+        
 
         try {
             const yotoResponse = await makeAuthenticatedRequest('/media/displayIcons/user/yoto');
@@ -259,23 +507,55 @@ async function searchIcons(query) {
             return allText.includes(lowerQuery);
         });
 
+        // If no public Yoto icons found, search yotoicons.com and upload results
         if (yotoMatches.length === 0) {
-            const yotoiconsUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}`;
-            const yotoiconsPlaceholder = {
-                title: `Search "${query}" on yotoicons.com`,
-                description: 'Click to search on yotoicons.com',
-                url: yotoiconsUrl,
-                source: 'yotoicons-link',
-                mediaId: 'yotoicons-search',
-                isPlaceholder: true
-            };
-            allIcons.push(yotoiconsPlaceholder);
+            try {
+                const yotoIconsResults = await fetchFromYotoicons(query);
+                
+                if (yotoIconsResults.length > 0) {
+                    // Download and upload icons in parallel, but limit concurrency
+                    const uploadPromises = yotoIconsResults.slice(0, 5).map(icon => 
+                        downloadAndUploadIcon(icon)
+                    );
+                    
+                    const uploadResults = await Promise.allSettled(uploadPromises);
+                    
+                    // Process successful uploads
+                    uploadResults.forEach(result => {
+                        if (result.status === 'fulfilled' && result.value) {
+                            allIcons.push(result.value);
+                        }
+                    });
+                }
+            } catch (error) {
+                // Silently continue if yotoicons.com fails
+            }
+            
+            // Add fallback link if still no results
+            if (allIcons.filter(icon => !icon.isPlaceholder).length === 0) {
+                const yotoiconsUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}`;
+                const yotoiconsPlaceholder = {
+                    title: `Search "${query}" on yotoicons.com`,
+                    description: 'Click to search on yotoicons.com',
+                    url: yotoiconsUrl,
+                    source: 'yotoicons-link',
+                    mediaId: 'yotoicons-search',
+                    isPlaceholder: true
+                };
+                allIcons.push(yotoiconsPlaceholder);
+            }
         }
 
         const filteredIcons = allIcons.filter(icon => {
             if (icon.isPlaceholder) {
                 return true;
             }
+            
+            // Always include yotoicons that were just uploaded for this search
+            if (icon.source?.startsWith('yotoicons')) {
+                return true;
+            }
+            
             const allText = [
                 icon.title,
                 icon.mediaId,
@@ -290,8 +570,18 @@ async function searchIcons(query) {
             if (aExact && !bExact) return -1;
             if (!aExact && bExact) return 1;
 
-            if (a.source === 'yoto-public' && b.source !== 'yoto-public') return -1;
-            if (a.source !== 'yoto-public' && b.source === 'yoto-public') return 1;
+            // Prioritize: yoto-public > yotoicons-cached > yotoicons-uploaded > yotoicons-link > others
+            const sourceOrder = {
+                'yoto-public': 1,
+                'yotoicons-cached': 2,
+                'yotoicons-uploaded': 3,
+                'yotoicons-link': 4
+            };
+            
+            const aOrder = sourceOrder[a.source] || 5;
+            const bOrder = sourceOrder[b.source] || 5;
+            
+            if (aOrder !== bOrder) return aOrder - bOrder;
 
             return 0;
         });
@@ -311,10 +601,9 @@ async function matchIcons(tracks) {
         try {
             const fullResults = await searchIcons(track.title);
             if (fullResults.icons && fullResults.icons.length > 0) {
-                const validIcons = fullResults.icons.filter(icon => 
-                    !icon.isPlaceholder && 
-                    !icon.url?.includes('yotoicons.com')
-                ).slice(0, 10);
+                const validIcons = fullResults.icons.filter(icon => {
+                    return !icon.isPlaceholder && icon.url && (icon.url.startsWith('http') || icon.url.startsWith('data:'));
+                }).slice(0, 10);
                 
                 iconOptions = validIcons.map(icon => {
                     let iconUrl = icon.url || icon.mediaUrl || null;
@@ -323,14 +612,15 @@ async function matchIcons(tracks) {
                         iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
                     }
                     
-                    const isValidUrl = iconUrl && 
-                                     iconUrl.startsWith('http') && 
-                                     iconUrl.length < 2000 && 
-                                     !iconUrl.includes('data:');
+                    // Updated validation to support data URLs
+                    const isValidUrl = iconUrl && (
+                        iconUrl.startsWith('http') || 
+                        iconUrl.startsWith('data:')
+                    );
                     
                     return {
                         url: isValidUrl ? iconUrl : null,
-                        iconId: icon.mediaId || icon.id || icon.displayIconId,
+                        iconId: icon.mediaId || icon.id || icon.displayIconId || icon.iconId,
                         title: icon.title || null
                     };
                 });
@@ -386,6 +676,7 @@ async function matchIcons(tracks) {
             iconOptions: iconOptions,
             selectedIndex: 0
         };
+
 
         matches.push(matchResult);
     }
@@ -457,6 +748,7 @@ async function updateCardIcons(cardId, iconMatches) {
                 iconsUpdated++;
             });
         }
+
 
         if (iconsUpdated === 0) {
             return {success: false, error: 'No chapters found to update'};
@@ -721,6 +1013,7 @@ async function uploadIcon(iconFileData) {
             }
         );
         
+        
         if (response.error) {
             return { error: response.error };
         }
@@ -980,6 +1273,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse(icons);
                     break;
 
+                case 'CLEAR_YOTOICONS_CACHE':
+                    // Clear the yotoicons cache to force re-download with dataUrls
+                    try {
+                        const cacheSize = yotoIconsCache.size;
+                        yotoIconsCache.clear();
+                        await chrome.storage.local.remove(YOTO_ICONS_CACHE_KEY);
+                        
+                        sendResponse({
+                            success: true,
+                            message: `Cleared ${cacheSize} cached yotoicons`,
+                            clearedCount: cacheSize
+                        });
+                    } catch (error) {
+                        sendResponse({
+                            success: false,
+                            error: error.message
+                        });
+                    }
+                    break;
+
+
                 case 'UPDATE_STATS':
                     await updateStats(request.stats);
                     sendResponse({success: true});
@@ -1113,6 +1427,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     }
     
     const isValid = await TokenManager.isTokenValid();
+    
+    // Load yotoicons cache
+    await loadIconsCache();
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
