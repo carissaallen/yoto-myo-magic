@@ -96,28 +96,28 @@ async function startOAuthFlow() {
     const fullAuthUrl = `${authUrl}?${params.toString()}`;
     
     try {
-        // Get the current active window to determine which display to use
-        const currentWindow = await chrome.windows.getCurrent();
+        // Get the current active tab
+        const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
         
-        // Create a small, centered popup window for auth on the same display
-        const popup = await chrome.windows.create({
-            url: fullAuthUrl,
-            type: 'popup',
-            width: 500,
-            height: 700,
-            left: currentWindow.left + Math.round((currentWindow.width - 500) / 2),
-            top: currentWindow.top + Math.round((currentWindow.height - 700) / 2),
-            focused: true
+        if (!activeTab) {
+            return {success: false, error: 'No active tab found'};
+        }
+
+        // Store the original tab URL and ID for return navigation
+        await chrome.storage.local.set({
+            'auth_return_tab': {
+                tabId: activeTab.id,
+                url: activeTab.url,
+                timestamp: Date.now()
+            }
         });
 
-        // Return success immediately - the callback.html will handle token exchange
-        return {success: true, popupId: popup.id};
+        // Navigate the current tab to the auth URL
+        await chrome.tabs.update(activeTab.id, {url: fullAuthUrl});
+        
+        return {success: true, redirected: true};
         
     } catch (error) {
-        if (error.message.includes('user did not approve') || error.message.includes('cancelled')) {
-            return {success: false, cancelled: true};
-        }
-        
         return {success: false, error: error.message};
     }
 }
