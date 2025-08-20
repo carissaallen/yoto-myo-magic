@@ -619,14 +619,40 @@ function createButton() {
         cardId: cardId
       });
       
+      console.log('[Icon Match] Raw API response:', contentResponse);
+      
       const tracks = [];
       
+      // Handle API errors gracefully
+      if (contentResponse.error) {
+        if (contentResponse.error.includes('403')) {
+          console.warn('[Icon Match] API access forbidden (403) - falling back to DOM parsing');
+          // Continue to DOM parsing fallback below
+        } else if (contentResponse.error.includes('401')) {
+          alert('Authentication required. Please refresh the page and try again.');
+          button.disabled = false;
+          button.innerHTML = `${puzzlePieceIcon}<span>Icon Match</span>`;
+          button.style.opacity = '1';
+          return;
+        } else {
+          console.error('[Icon Match] API error:', contentResponse.error);
+          // Continue to DOM parsing fallback below
+        }
+      }
+      
       if (!contentResponse.error && contentResponse.card) {
+        console.log('[Icon Match] Card content:', contentResponse.card);
+        
         if (contentResponse.card?.content?.chapters && contentResponse.card.content.chapters.length > 0) {
+          console.log('[Icon Match] Found', contentResponse.card.content.chapters.length, 'chapters');
+          
           contentResponse.card.content.chapters.forEach((chapter, chapterIndex) => {
+            console.log('[Icon Match] Chapter', chapterIndex, ':', chapter.title, 'tracks:', chapter.tracks?.length || 0);
+            
             if (chapter.tracks && Array.isArray(chapter.tracks)) {
               chapter.tracks.forEach((track, trackIndex) => {
                 if (track.title) {
+                  console.log('[Icon Match] Found track:', track.title);
                   tracks.push({
                     id: track.key || `track-${chapterIndex}-${trackIndex}`,
                     title: track.title,
@@ -639,51 +665,101 @@ function createButton() {
               });
             }
           });
+        } else {
+          console.log('[Icon Match] No chapters found in card content');
         }
         
-        if (tracks.length === 0 && contentResponse.card?.title) {
-          tracks.push({
-            id: 'card-title',
-            title: contentResponse.card.title,
-            index: 0,
-            type: 'card'
-          });
-        }
+        // Only use card title as fallback if we really can't find any tracks
+        // This will be handled later after DOM parsing attempts
       }
       
       if (tracks.length === 0) {
+        console.log('[Icon Match] No tracks from API, attempting DOM parsing...');
         
-        let allTextInputs = Array.from(document.querySelectorAll('input[type="text"]'));
+        // Cast a wider net to find track inputs
+        const allTextInputs = Array.from(document.querySelectorAll('input[type="text"]'));
         const allInputs = Array.from(document.querySelectorAll('input'));
         const editableElements = Array.from(document.querySelectorAll('[contenteditable="true"]'));
-        const allElements = Array.from(document.querySelectorAll('*'));
-        const trackElements = allElements.filter(el => {
-          const text = el.textContent?.trim() || '';
-          return /^\d+\.\s+\w+/.test(text) && !el.querySelector('*');
-        });
+        const textareas = Array.from(document.querySelectorAll('textarea'));
+        
+        // Focus specifically on chapter title inputs - these are the most reliable
+        const chapterTitleInputs = Array.from(document.querySelectorAll('textarea[id*="chapter"][id*="title"]'));
+        
+        console.log('[Icon Match] Found chapter title inputs:', chapterTitleInputs.length);
+        
+        // If we found specific chapter title inputs, use only those
+        const trackCandidates = chapterTitleInputs.length > 0 ? chapterTitleInputs : [
+          ...allTextInputs,
+          ...textareas,
+          ...editableElements
+        ];
+        
+        console.log('[Icon Match] Found candidates:', trackCandidates.length);
+        console.log('[Icon Match] Text inputs:', allTextInputs.length, 'All inputs:', allInputs.length, 'Editable:', editableElements.length, 'Textareas:', textareas.length);
+        
+        console.log('[Icon Match] Found', allInputs.length, 'inputs and', editableElements.length, 'editable elements');
         
         const foundTracks = new Set();
         
-        allInputs.forEach((input, index) => {
-          const value = input.value?.trim();
+        // Process all candidates to find track titles
+        trackCandidates.forEach((element, index) => {
+          let value = '';
+          let elementType = '';
           
-          if (!value || value.length === 0) return;
+          if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+            value = element.value?.trim();
+            elementType = `${element.tagName}(${element.type || 'text'})`;
+          } else {
+            value = element.textContent?.trim();
+            elementType = element.tagName;
+          }
           
-          if (value === playlistTitle) {
+          const id = element.id || '';
+          const className = element.className || '';
+          
+          console.log(`[Icon Match] Candidate ${index + 1} (${elementType}):`, {
+            value: value,
+            id: id,
+            className: className,
+            tagName: element.tagName
+          });
+          
+          if (!value || value.length === 0) {
+            console.log(`[Icon Match] Candidate ${index + 1}: Empty, skipping`);
             return;
           }
           
+          if (value === playlistTitle) {
+            console.log(`[Icon Match] Candidate ${index + 1}: Matches playlist title, skipping`);
+            return;
+          }
+          
+          // Skip very short content (likely placeholders)
+          if (value.length <= 1) {
+            console.log(`[Icon Match] Candidate ${index + 1}: Too short (${value.length} chars), skipping`);
+            return;
+          }
+          
+          // Skip very long content (probably not track titles)
+          if (value.length > 100) {
+            console.log(`[Icon Match] Candidate ${index + 1}: Too long (${value.length} chars), skipping`);
+            return;
+          }
+          
+          // Skip common placeholder values
+          if (value.toLowerCase() === 'x' || value.toLowerCase() === 'untitled' || value === '...') {
+            console.log(`[Icon Match] Candidate ${index + 1}: Placeholder value, skipping`);
+            return;
+          }
+          
+          console.log(`[Icon Match] Candidate ${index + 1}: Adding as track:`, value);
           foundTracks.add(value);
         });
         
-        editableElements.forEach(el => {
-          const value = el.textContent?.trim();
-          if (value && value !== playlistTitle && value.length > 0) {
-            foundTracks.add(value);
-          }
-        });
+        console.log('[Icon Match] Total unique tracks found:', foundTracks.size);
         
         Array.from(foundTracks).forEach((title, index) => {
+          console.log('[Icon Match] Adding track:', title);
           tracks.push({
             id: `track-${index + 1}`,
             title: title,
@@ -692,13 +768,25 @@ function createButton() {
           });
         });
         
-        if (tracks.length === 0 && playlistTitle && playlistTitle !== 'Untitled Playlist') {
-          tracks.push({
-            id: 'playlist-title',
-            title: playlistTitle,
-            index: 0,
-            type: 'playlist'
-          });
+        // Last resort fallbacks - use card/playlist title only if no tracks found
+        if (tracks.length === 0) {
+          if (contentResponse.card?.title && contentResponse.card.title !== 'Untitled Playlist') {
+            console.warn('[Icon Match] No individual tracks found, falling back to card title:', contentResponse.card.title);
+            tracks.push({
+              id: 'card-title',
+              title: contentResponse.card.title,
+              index: 0,
+              type: 'card'
+            });
+          } else if (playlistTitle && playlistTitle !== 'Untitled Playlist') {
+            console.warn('[Icon Match] No individual tracks found, falling back to playlist title:', playlistTitle);
+            tracks.push({
+              id: 'playlist-title', 
+              title: playlistTitle,
+              index: 0,
+              type: 'playlist'
+            });
+          }
         }
       }
       
