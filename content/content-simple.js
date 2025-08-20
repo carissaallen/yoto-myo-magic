@@ -628,14 +628,11 @@ function createButton() {
         cardId: cardId
       });
       
-      console.log('[Icon Match] Raw API response:', contentResponse);
-      
       const tracks = [];
       
       // Handle API errors gracefully
       if (contentResponse.error) {
         if (contentResponse.error.includes('403')) {
-          console.warn('[Icon Match] API access forbidden (403) - falling back to DOM parsing');
           // Continue to DOM parsing fallback below
         } else if (contentResponse.error.includes('401')) {
           alert('Authentication required. Please refresh the page and try again.');
@@ -650,18 +647,14 @@ function createButton() {
       }
       
       if (!contentResponse.error && contentResponse.card) {
-        console.log('[Icon Match] Card content:', contentResponse.card);
         
         if (contentResponse.card?.content?.chapters && contentResponse.card.content.chapters.length > 0) {
-          console.log('[Icon Match] Found', contentResponse.card.content.chapters.length, 'chapters');
           
           contentResponse.card.content.chapters.forEach((chapter, chapterIndex) => {
-            console.log('[Icon Match] Chapter', chapterIndex, ':', chapter.title, 'tracks:', chapter.tracks?.length || 0);
             
             if (chapter.tracks && Array.isArray(chapter.tracks)) {
               chapter.tracks.forEach((track, trackIndex) => {
                 if (track.title) {
-                  console.log('[Icon Match] Found track:', track.title);
                   tracks.push({
                     id: track.key || `track-${chapterIndex}-${trackIndex}`,
                     title: track.title,
@@ -675,7 +668,6 @@ function createButton() {
             }
           });
         } else {
-          console.log('[Icon Match] No chapters found in card content');
         }
         
         // Only use card title as fallback if we really can't find any tracks
@@ -683,7 +675,6 @@ function createButton() {
       }
       
       if (tracks.length === 0) {
-        console.log('[Icon Match] No tracks from API, attempting optimized DOM parsing...');
         
         // Optimized single query using CSS selector groups
         const trackCandidates = document.querySelectorAll(
@@ -692,11 +683,6 @@ function createButton() {
           'textarea:not([placeholder*="500 characters"]), ' +
           '[contenteditable="true"]'
         );
-        
-        console.log('[Icon Match] Found candidates:', trackCandidates.length);
-        console.log('[Icon Match] Text inputs:', allTextInputs.length, 'All inputs:', allInputs.length, 'Editable:', editableElements.length, 'Textareas:', textareas.length);
-        
-        console.log('[Icon Match] Found', allInputs.length, 'inputs and', editableElements.length, 'editable elements');
         
         const foundTracks = new Set();
         
@@ -716,49 +702,34 @@ function createButton() {
           const id = element.id || '';
           const className = element.className || '';
           
-          console.log(`[Icon Match] Candidate ${index + 1} (${elementType}):`, {
-            value: value,
-            id: id,
-            className: className,
-            tagName: element.tagName
-          });
-          
           if (!value || value.length === 0) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Empty, skipping`);
             return;
           }
           
           if (value === playlistTitle) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Matches playlist title, skipping`);
             return;
           }
           
           // Skip very short content (likely placeholders)
           if (value.length <= 1) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Too short (${value.length} chars), skipping`);
             return;
           }
           
           // Skip very long content (probably not track titles)
           if (value.length > 100) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Too long (${value.length} chars), skipping`);
             return;
           }
           
           // Skip common placeholder values
           if (value.toLowerCase() === 'x' || value.toLowerCase() === 'untitled' || value === '...') {
-            console.log(`[Icon Match] Candidate ${index + 1}: Placeholder value, skipping`);
             return;
           }
           
-          console.log(`[Icon Match] Candidate ${index + 1}: Adding as track:`, value);
           foundTracks.add(value);
         });
         
-        console.log('[Icon Match] Total unique tracks found:', foundTracks.size);
         
         Array.from(foundTracks).forEach((title, index) => {
-          console.log('[Icon Match] Adding track:', title);
           tracks.push({
             id: `track-${index + 1}`,
             title: title,
@@ -828,7 +799,6 @@ function createButton() {
         let response;
         
         if (iconMatchCache.has(cacheKey)) {
-          console.log('[Icon Match] Using cached icon matches');
           response = iconMatchCache.get(cacheKey);
         } else {
           response = await chrome.runtime.sendMessage({ 
