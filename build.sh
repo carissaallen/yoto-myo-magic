@@ -38,6 +38,7 @@ zip -r "$OUTPUT_FILE" \
     -x "*.swo" \
     -x "*~" \
     -x "test-files/*" \
+    -x "docs/*" \
     -x "*.md" \
     -x ".git/*" \
     -x ".gitignore" \
@@ -45,7 +46,9 @@ zip -r "$OUTPUT_FILE" \
     -x ".idea/*" \
     -x "node_modules/*" \
     -x "package*.json" \
-    -x "build.sh"
+    -x "config.template.js" \
+    -x "build.sh" \
+    -x "LICENSE"
 
 echo "✅ Build complete: $OUTPUT_FILE"
 echo "Size: $(du -h "$OUTPUT_FILE" | cut -f1)"

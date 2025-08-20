@@ -35,25 +35,11 @@ class TokenManager {
         const result = await chrome.storage.local.get(CONFIG.TOKEN_STORAGE_KEY);
         const tokens = result[CONFIG.TOKEN_STORAGE_KEY] || null;
         
-        if (tokens) {
-            console.log('[TokenManager] Retrieved tokens:', {
-                hasAccessToken: !!tokens.access_token,
-                hasRefreshToken: !!tokens.refresh_token,
-                accessTokenLength: tokens.access_token?.length || 0,
-                accessTokenStart: tokens.access_token?.substring(0, 50) || 'none'
-            });
-        }
         
         return tokens;
     }
 
     static async setTokens(tokens) {
-        console.log('[TokenManager] Storing tokens:', {
-            hasAccessToken: !!tokens.access_token,
-            hasRefreshToken: !!tokens.refresh_token,
-            accessTokenLength: tokens.access_token?.length || 0,
-            accessTokenStart: tokens.access_token?.substring(0, 50) || 'none'
-        });
         
         await chrome.storage.local.set({
             [CONFIG.TOKEN_STORAGE_KEY]: {
@@ -83,7 +69,6 @@ class TokenManager {
         // Clear any stored OAuth state
         await chrome.storage.local.remove('oauth_state');
         
-        console.log('[Auth] Cleared all authentication data and cache');
     }
 
     static async isTokenValid() {
@@ -181,12 +166,6 @@ async function startOAuthFlow(interactive = true) {
         const error = url.searchParams.get('error');
         const returnedState = url.searchParams.get('state');
 
-        console.log('[OAuth] Response params:', {
-            code: code ? 'present' : 'missing',
-            error: error,
-            state: returnedState,
-            expectedState: state
-        });
 
         if (error) {
             if (error === 'access_denied') {
@@ -247,7 +226,6 @@ async function exchangeCodeForTokens(code) {
             redirect_uri: getRedirectUri()
         };
         
-        console.log('[Token Exchange] Request body:', tokenRequestBody);
         
         const response = await fetch('https://login.yotoplay.com/oauth/token', {
             method: 'POST',
@@ -279,37 +257,26 @@ async function exchangeCodeForTokens(code) {
 async function makeAuthenticatedRequest(endpoint, options = {}) {
     let tokens = await TokenManager.getTokens();
     
-    console.log('[API Auth] Token status:', {
-        hasTokens: !!tokens,
-        hasAccessToken: !!(tokens?.access_token),
-        accessTokenLength: tokens?.access_token?.length || 0,
-        isExpired: tokens?.access_token ? isTokenExpired(tokens.access_token) : 'no token'
-    });
     
     // Check if token has required scopes for API access
     if (tokens?.access_token) {
         try {
             const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
             const scopes = payload.scope || payload.scopes || '';
-            console.log('[API Auth] Token scopes:', scopes);
         } catch (e) {
             console.warn('[API Auth] Could not decode token scopes');
         }
     }
 
     if (tokens && isTokenExpired(tokens.access_token)) {
-        console.log('[API Auth] Token expired, refreshing...');
         try {
             tokens = await TokenManager.refreshToken();
-            console.log('[API Auth] Token refreshed successfully');
         } catch (error) {
-            console.log('[API Auth] Token refresh failed:', error);
             return {error: 'Authentication required', needsAuth: true};
         }
     }
 
     if (!tokens || !tokens.access_token) {
-        console.log('[API Auth] No valid tokens available');
         return {error: 'Not authenticated', needsAuth: true};
     }
 
@@ -333,28 +300,12 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             ...options.headers
         };
 
-        console.log('[API Request]', {
-            url: url,
-            method: options.method || 'GET',
-            headers: authHeaders,
-            body: options.body,
-            tokenInfo: {
-                tokenLength: tokens.access_token.length,
-                tokenStart: tokens.access_token.substring(0, 50),
-                tokenHasDots: (tokens.access_token.match(/\./g) || []).length
-            }
-        });
 
         const response = await fetch(url, {
             ...options,
             headers: authHeaders
         });
 
-        console.log('[API Response]', {
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries())
-        });
 
         if (response.status === 401) {
             tokens = await TokenManager.refreshToken();
@@ -363,13 +314,11 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
 
         if (response.status === 403) {
             const errorText = await response.text();
-            console.log('[API 403 Error Response Body]', errorText);
             throw new Error(`API request forbidden: ${response.status}`);
         }
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.log('[API Error Response Body]', errorText);
             try {
                 const errorJson = JSON.parse(errorText);
                 if (errorJson.error?.message) {
@@ -382,7 +331,6 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
         }
 
         const responseJson = await response.json();
-        console.log('[API Success Response Body]', responseJson);
         return responseJson;
     } catch (error) {
         throw error;
@@ -698,7 +646,6 @@ async function searchIcons(query) {
         if (yotoMatches.length === 0 && Utils.isPlural(query)) {
             const singular = Utils.singularize(query);
             if (singular !== query) {
-                console.log(`No matches for "${query}", trying singular: "${singular}"`);
                 const singularLower = singular.toLowerCase();
                 
                 yotoMatches = allIcons.filter(icon => {
@@ -722,7 +669,6 @@ async function searchIcons(query) {
                 if (yotoIconsResults.length === 0 && Utils.isPlural(query)) {
                     const singular = Utils.singularize(query);
                     if (singular !== query) {
-                        console.log(`No yotoicons.com results for "${query}", trying singular: "${singular}"`);
                         yotoIconsResults = await fetchFromYotoicons(singular);
                     }
                 }
@@ -1176,12 +1122,9 @@ async function uploadCoverImage(imageFileData) {
             return { error: response.error };
         }
         
-        
-        
         // The response should contain the URL for the uploaded cover image
         // Based on the actual response structure: { coverImage: { mediaId, mediaUrl } }
         if (response.coverImage && response.coverImage.mediaUrl) {
-            
             return {
                 success: true,
                 url: response.coverImage.mediaUrl,
@@ -1206,8 +1149,6 @@ async function uploadCoverImage(imageFileData) {
                 url: response.mediaUrl
             };
         }
-        
-        // If we get here, log the entire response to understand its structure
         
         return { error: 'Unexpected response structure from cover upload' };
     } catch (error) {
@@ -1239,7 +1180,6 @@ async function uploadIcon(iconFileData) {
                 }
             }
         );
-        
         
         if (response.error) {
             return { error: response.error };
@@ -1379,7 +1319,7 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
                 const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
                 userId = payload.sub || 'unknown';
             } catch (e) {
-                
+                // Ignore decode errors for user ID
             }
         }
         
@@ -1402,12 +1342,9 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
         
         // Only add cover if we have a valid URL
         if (coverUrlString) {
-            
             metadata.cover = {
                 imageL: coverUrlString
             };
-        } else {
-            
         }
         
         const content = {
@@ -1426,8 +1363,6 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             updatedAt: new Date().toISOString()
         };
         
-        
-        
         let createResponse = await makeAuthenticatedRequest('/content', {
             method: 'POST',
             headers: {
@@ -1436,16 +1371,8 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             body: JSON.stringify(content)
         });
         
-        console.log('[CREATE_PLAYLIST] API Response:', {
-            hasError: !!createResponse.error,
-            hasCardId: !!createResponse.cardId,
-            cardId: createResponse.cardId,
-            fullResponse: createResponse
-        });
-        
         // If it fails with a cover, try without the cover
         if (createResponse.error && coverUrlString) {
-            console.log('[CREATE_PLAYLIST] Retrying without cover image...');
             delete metadata.cover;
             const contentWithoutCover = {
                 ...content,
@@ -1461,24 +1388,17 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             });
             
             if (!createResponse.error) {
-                console.log('[CREATE_PLAYLIST] Retry successful without cover');
+                // Retry without cover succeeded
             }
         }
         
         // Check if we got a cardId in the response - this means success
         if (createResponse.cardId) {
-            console.log('[CREATE_PLAYLIST] Success! Card created with ID:', createResponse.cardId);
-            
             // Try to fetch the created card to verify it exists
             try {
                 const verifyResponse = await makeAuthenticatedRequest(`/content/${createResponse.cardId}`);
-                console.log('[CREATE_PLAYLIST] Verification of created card:', {
-                    exists: !verifyResponse.error,
-                    hasContent: !!verifyResponse.card,
-                    title: verifyResponse.card?.title
-                });
             } catch (e) {
-                console.warn('[CREATE_PLAYLIST] Could not verify created card:', e);
+                // Verification failed, but card was created successfully
             }
         }
         
