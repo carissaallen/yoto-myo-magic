@@ -7,16 +7,54 @@ importScripts('../lib/utils.js');
 const CONFIG = ExtensionConfig;
 
 function getRedirectUri() {
-    return `chrome-extension://${CONFIG.EXTENSION_ID}/callback.html`;
+    // Use Chrome's built-in redirect URI for extensions
+    return chrome.identity.getRedirectURL();
+}
+
+// PKCE utilities for secure OAuth flow
+function generateCodeVerifier() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return base64URLEncode(array);
+}
+
+async function generateCodeChallenge(codeVerifier) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(codeVerifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return base64URLEncode(new Uint8Array(digest));
+}
+
+function base64URLEncode(buffer) {
+    const base64 = btoa(String.fromCharCode(...buffer));
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 class TokenManager {
     static async getTokens() {
         const result = await chrome.storage.local.get(CONFIG.TOKEN_STORAGE_KEY);
-        return result[CONFIG.TOKEN_STORAGE_KEY] || null;
+        const tokens = result[CONFIG.TOKEN_STORAGE_KEY] || null;
+        
+        if (tokens) {
+            console.log('[TokenManager] Retrieved tokens:', {
+                hasAccessToken: !!tokens.access_token,
+                hasRefreshToken: !!tokens.refresh_token,
+                accessTokenLength: tokens.access_token?.length || 0,
+                accessTokenStart: tokens.access_token?.substring(0, 50) || 'none'
+            });
+        }
+        
+        return tokens;
     }
 
     static async setTokens(tokens) {
+        console.log('[TokenManager] Storing tokens:', {
+            hasAccessToken: !!tokens.access_token,
+            hasRefreshToken: !!tokens.refresh_token,
+            accessTokenLength: tokens.access_token?.length || 0,
+            accessTokenStart: tokens.access_token?.substring(0, 50) || 'none'
+        });
+        
         await chrome.storage.local.set({
             [CONFIG.TOKEN_STORAGE_KEY]: {
                 ...tokens,
@@ -27,6 +65,25 @@ class TokenManager {
 
     static async clearTokens() {
         await chrome.storage.local.remove(CONFIG.TOKEN_STORAGE_KEY);
+    }
+    
+    static async clearAllAuthData() {
+        // Clear stored tokens
+        await chrome.storage.local.remove(CONFIG.TOKEN_STORAGE_KEY);
+        
+        // Clear Chrome identity cache by attempting to revoke access
+        // This forces the next auth to re-authenticate
+        try {
+            // Clear web auth flow cache
+            await chrome.identity.clearAllCachedAuthTokens?.();
+        } catch (e) {
+            // API might not be available in all Chrome versions
+        }
+        
+        // Clear any stored OAuth state
+        await chrome.storage.local.remove('oauth_state');
+        
+        console.log('[Auth] Cleared all authentication data and cache');
     }
 
     static async isTokenValid() {
@@ -82,59 +139,122 @@ function isTokenExpired(token) {
     }
 }
 
-async function startOAuthFlow() {
+async function startOAuthFlow(interactive = true) {
     const authUrl = 'https://login.yotoplay.com/authorize';
 
+    // Generate state parameter for CSRF protection
+    const state = crypto.randomUUID();
+    
+    // Store state for later verification
+    await chrome.storage.local.set({
+        'oauth_state': state
+    });
+    
     const params = new URLSearchParams({
         audience: 'https://api.yotoplay.com',
-        scope: 'offline_access',
+        scope: 'offline_access openid profile',
         response_type: 'code',
         client_id: CONFIG.YOTO_CLIENT_ID,
-        redirect_uri: getRedirectUri()
+        redirect_uri: getRedirectUri(),
+        state: state,
+        // Add prompt=login to force re-authentication when interactive
+        // This ensures we don't use cached sessions from wrong account
+        ...(interactive ? { prompt: 'login' } : {})
     });
 
     const fullAuthUrl = `${authUrl}?${params.toString()}`;
     
     try {
-        // Get the current active tab
-        const [activeTab] = await chrome.tabs.query({active: true, currentWindow: true});
-        
-        if (!activeTab) {
-            return {success: false, error: 'No active tab found'};
-        }
-
-        // Store the original tab URL and ID for return navigation
-        await chrome.storage.local.set({
-            'auth_return_tab': {
-                tabId: activeTab.id,
-                url: activeTab.url,
-                timestamp: Date.now()
-            }
+        // Use Chrome's built-in OAuth flow - this is the proper way for extensions!
+        const responseUrl = await chrome.identity.launchWebAuthFlow({
+            url: fullAuthUrl,
+            interactive: interactive // false for silent auth, true for user interaction
         });
 
-        // Navigate the current tab to the auth URL
-        await chrome.tabs.update(activeTab.id, {url: fullAuthUrl});
+        if (!responseUrl) {
+            return {success: false, error: 'No response URL received'};
+        }
+
+        // Extract the authorization code from the response URL
+        const url = new URL(responseUrl);
+        const code = url.searchParams.get('code');
+        const error = url.searchParams.get('error');
+        const returnedState = url.searchParams.get('state');
+
+        console.log('[OAuth] Response params:', {
+            code: code ? 'present' : 'missing',
+            error: error,
+            state: returnedState,
+            expectedState: state
+        });
+
+        if (error) {
+            if (error === 'access_denied') {
+                return {success: false, cancelled: true};
+            }
+            return {success: false, error: `Authentication error: ${error}`};
+        }
+
+        if (!code) {
+            return {success: false, error: 'No authorization code received'};
+        }
+
+        // Get stored state for verification
+        const storedData = await chrome.storage.local.get(['oauth_state']);
+        const expectedState = storedData.oauth_state;
         
-        return {success: true, redirected: true};
+        // Verify state parameter for CSRF protection
+        if (returnedState !== expectedState) {
+            return {success: false, error: 'Invalid state parameter - possible CSRF attack'};
+        }
+
+        // Exchange the code for tokens immediately
+        const tokenResult = await exchangeCodeForTokens(code);
+        
+        // Clean up stored state data
+        await chrome.storage.local.remove(['oauth_state']);
+        if (tokenResult.success) {
+            return {
+                success: true, 
+                authenticated: true, 
+                silent: !interactive,
+                tokens: tokenResult.tokens
+            };
+        } else {
+            return {success: false, error: tokenResult.error};
+        }
         
     } catch (error) {
+        if (error.message && error.message.includes('user did not approve')) {
+            return {success: false, cancelled: true};
+        }
+        
+        // If this was a silent attempt and it failed, that's expected
+        if (!interactive) {
+            return {success: false, error: 'Silent authentication failed', needsInteractive: true};
+        }
+        
         return {success: false, error: error.message};
     }
 }
 
 async function exchangeCodeForTokens(code) {
     try {
+        const tokenRequestBody = {
+            grant_type: 'authorization_code',
+            client_id: CONFIG.YOTO_CLIENT_ID,
+            code: code,
+            redirect_uri: getRedirectUri()
+        };
+        
+        console.log('[Token Exchange] Request body:', tokenRequestBody);
+        
         const response = await fetch('https://login.yotoplay.com/oauth/token', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                client_id: CONFIG.YOTO_CLIENT_ID,
-                code: code,
-                redirect_uri: getRedirectUri()
-            })
+            body: new URLSearchParams(tokenRequestBody)
         });
 
         if (!response.ok) {
@@ -158,16 +278,38 @@ async function exchangeCodeForTokens(code) {
 
 async function makeAuthenticatedRequest(endpoint, options = {}) {
     let tokens = await TokenManager.getTokens();
+    
+    console.log('[API Auth] Token status:', {
+        hasTokens: !!tokens,
+        hasAccessToken: !!(tokens?.access_token),
+        accessTokenLength: tokens?.access_token?.length || 0,
+        isExpired: tokens?.access_token ? isTokenExpired(tokens.access_token) : 'no token'
+    });
+    
+    // Check if token has required scopes for API access
+    if (tokens?.access_token) {
+        try {
+            const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
+            const scopes = payload.scope || payload.scopes || '';
+            console.log('[API Auth] Token scopes:', scopes);
+        } catch (e) {
+            console.warn('[API Auth] Could not decode token scopes');
+        }
+    }
 
     if (tokens && isTokenExpired(tokens.access_token)) {
+        console.log('[API Auth] Token expired, refreshing...');
         try {
             tokens = await TokenManager.refreshToken();
+            console.log('[API Auth] Token refreshed successfully');
         } catch (error) {
+            console.log('[API Auth] Token refresh failed:', error);
             return {error: 'Authentication required', needsAuth: true};
         }
     }
 
     if (!tokens || !tokens.access_token) {
+        console.log('[API Auth] No valid tokens available');
         return {error: 'Not authenticated', needsAuth: true};
     }
 
@@ -191,9 +333,27 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             ...options.headers
         };
 
+        console.log('[API Request]', {
+            url: url,
+            method: options.method || 'GET',
+            headers: authHeaders,
+            body: options.body,
+            tokenInfo: {
+                tokenLength: tokens.access_token.length,
+                tokenStart: tokens.access_token.substring(0, 50),
+                tokenHasDots: (tokens.access_token.match(/\./g) || []).length
+            }
+        });
+
         const response = await fetch(url, {
             ...options,
             headers: authHeaders
+        });
+
+        console.log('[API Response]', {
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries())
         });
 
         if (response.status === 401) {
@@ -202,11 +362,14 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
         }
 
         if (response.status === 403) {
+            const errorText = await response.text();
+            console.log('[API 403 Error Response Body]', errorText);
             throw new Error(`API request forbidden: ${response.status}`);
         }
 
         if (!response.ok) {
             const errorText = await response.text();
+            console.log('[API Error Response Body]', errorText);
             try {
                 const errorJson = JSON.parse(errorText);
                 if (errorJson.error?.message) {
@@ -218,7 +381,9 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             throw new Error(`API request failed: ${response.status} - ${errorText}`);
         }
 
-        return await response.json();
+        const responseJson = await response.json();
+        console.log('[API Success Response Body]', responseJson);
+        return responseJson;
     } catch (error) {
         throw error;
     }
@@ -1230,7 +1395,9 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
                 fileSize: totalFileSize,
                 readableFileSize: Math.round((totalFileSize / 1024 / 1024) * 10) / 10,
                 hasStreams: false
-            }
+            },
+            visible: true,
+            category: 'music'
         };
         
         // Only add cover if we have a valid URL
@@ -1255,7 +1422,8 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             title: title,
             createdByClientId: CONFIG.YOTO_CLIENT_ID,
             userId: userId,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         };
         
         
@@ -1268,9 +1436,16 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             body: JSON.stringify(content)
         });
         
+        console.log('[CREATE_PLAYLIST] API Response:', {
+            hasError: !!createResponse.error,
+            hasCardId: !!createResponse.cardId,
+            cardId: createResponse.cardId,
+            fullResponse: createResponse
+        });
+        
         // If it fails with a cover, try without the cover
         if (createResponse.error && coverUrlString) {
-            
+            console.log('[CREATE_PLAYLIST] Retrying without cover image...');
             delete metadata.cover;
             const contentWithoutCover = {
                 ...content,
@@ -1286,7 +1461,24 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             });
             
             if (!createResponse.error) {
-                
+                console.log('[CREATE_PLAYLIST] Retry successful without cover');
+            }
+        }
+        
+        // Check if we got a cardId in the response - this means success
+        if (createResponse.cardId) {
+            console.log('[CREATE_PLAYLIST] Success! Card created with ID:', createResponse.cardId);
+            
+            // Try to fetch the created card to verify it exists
+            try {
+                const verifyResponse = await makeAuthenticatedRequest(`/content/${createResponse.cardId}`);
+                console.log('[CREATE_PLAYLIST] Verification of created card:', {
+                    exists: !verifyResponse.error,
+                    hasContent: !!verifyResponse.card,
+                    title: verifyResponse.card?.title
+                });
+            } catch (e) {
+                console.warn('[CREATE_PLAYLIST] Could not verify created card:', e);
             }
         }
         
@@ -1302,11 +1494,59 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             switch (request.action) {
                 case 'CHECK_AUTH':
                     const isValid = await TokenManager.isTokenValid();
-                    sendResponse({authenticated: isValid});
+                    let userEmail = null;
+                    if (isValid) {
+                        // Also return the authenticated user's email so UI can verify it matches
+                        const tokens = await TokenManager.getTokens();
+                        if (tokens?.access_token) {
+                            try {
+                                const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
+                                userEmail = payload.email || payload.preferred_username || null;
+                            } catch (e) {
+                                // Ignore decode errors
+                            }
+                        }
+                    }
+                    sendResponse({
+                        authenticated: isValid,
+                        userEmail: userEmail
+                    });
+                    break;
+
+                case 'DEBUG_TOKENS':
+                    const debugTokens = await TokenManager.getTokens();
+                    if (debugTokens && debugTokens.access_token) {
+                        try {
+                            // Decode the JWT payload to see scopes
+                            const payload = JSON.parse(atob(debugTokens.access_token.split('.')[1]));
+                            sendResponse({
+                                success: true,
+                                scopes: payload.scope || payload.scp || 'No scopes found',
+                                audience: payload.aud,
+                                expiry: new Date(payload.exp * 1000).toISOString()
+                            });
+                        } catch (error) {
+                            sendResponse({success: false, error: 'Could not decode token'});
+                        }
+                    } else {
+                        sendResponse({success: false, error: 'No tokens found'});
+                    }
+                    break;
+
+                case 'CLEAR_AUTH':
+                    await TokenManager.clearAllAuthData();
+                    sendResponse({success: true, message: 'All authentication data cleared'});
                     break;
 
                 case 'START_AUTH':
-                    const authResult = await startOAuthFlow();
+                    // Try silent authentication first (like MYO Studio)
+                    let authResult = await startOAuthFlow(false); // Silent attempt
+                    
+                    if (!authResult.success && authResult.needsInteractive) {
+                        // Silent auth failed, try interactive
+                        authResult = await startOAuthFlow(true); // Interactive fallback
+                    }
+                    
                     sendResponse(authResult);
                     break;
 
@@ -1430,8 +1670,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'LOGOUT':
-                    await TokenManager.clearTokens();
-                    sendResponse({success: true});
+                    await TokenManager.clearAllAuthData();
+                    sendResponse({success: true, message: 'Logged out and cleared all auth data'});
                     break;
                     
                 case 'TRACK_EVENT':
