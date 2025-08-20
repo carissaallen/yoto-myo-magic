@@ -4,6 +4,10 @@
 
 const selectedIcons = {};
 let currentMatches = [];
+const iconMatchCache = new Map();
+let authCached = null;
+let authCacheTime = 0;
+const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 function cycleIcon(trackId, direction) {
   const match = currentMatches.find(m => m.uniqueTrackId === trackId);
@@ -572,11 +576,15 @@ function createButton() {
   };
   
   button.onclick = async () => {
-    const tokenResponse = await chrome.runtime.sendMessage({ action: 'GET_ACCESS_TOKEN' });
+    // Check cached auth status first
+    const now = Date.now();
+    if (!authCached || now - authCacheTime > AUTH_CACHE_DURATION) {
+      const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+      authCached = authResponse.authenticated;
+      authCacheTime = now;
+    }
     
-    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-    
-    if (!authResponse.authenticated) {
+    if (!authCached) {
       button.innerHTML = `
         ${puzzlePieceIcon}
         <span>Authorizing...</span>
@@ -587,6 +595,7 @@ function createButton() {
           ${puzzlePieceIcon}
           <span>Icon Match</span>
         `;
+        authCached = null; // Invalidate cache
       }, 2000);
     } else {
       
@@ -619,14 +628,11 @@ function createButton() {
         cardId: cardId
       });
       
-      console.log('[Icon Match] Raw API response:', contentResponse);
-      
       const tracks = [];
       
       // Handle API errors gracefully
       if (contentResponse.error) {
         if (contentResponse.error.includes('403')) {
-          console.warn('[Icon Match] API access forbidden (403) - falling back to DOM parsing');
           // Continue to DOM parsing fallback below
         } else if (contentResponse.error.includes('401')) {
           alert('Authentication required. Please refresh the page and try again.');
@@ -641,18 +647,14 @@ function createButton() {
       }
       
       if (!contentResponse.error && contentResponse.card) {
-        console.log('[Icon Match] Card content:', contentResponse.card);
         
         if (contentResponse.card?.content?.chapters && contentResponse.card.content.chapters.length > 0) {
-          console.log('[Icon Match] Found', contentResponse.card.content.chapters.length, 'chapters');
           
           contentResponse.card.content.chapters.forEach((chapter, chapterIndex) => {
-            console.log('[Icon Match] Chapter', chapterIndex, ':', chapter.title, 'tracks:', chapter.tracks?.length || 0);
             
             if (chapter.tracks && Array.isArray(chapter.tracks)) {
               chapter.tracks.forEach((track, trackIndex) => {
                 if (track.title) {
-                  console.log('[Icon Match] Found track:', track.title);
                   tracks.push({
                     id: track.key || `track-${chapterIndex}-${trackIndex}`,
                     title: track.title,
@@ -666,7 +668,6 @@ function createButton() {
             }
           });
         } else {
-          console.log('[Icon Match] No chapters found in card content');
         }
         
         // Only use card title as fallback if we really can't find any tracks
@@ -674,30 +675,14 @@ function createButton() {
       }
       
       if (tracks.length === 0) {
-        console.log('[Icon Match] No tracks from API, attempting DOM parsing...');
         
-        // Cast a wider net to find track inputs
-        const allTextInputs = Array.from(document.querySelectorAll('input[type="text"]'));
-        const allInputs = Array.from(document.querySelectorAll('input'));
-        const editableElements = Array.from(document.querySelectorAll('[contenteditable="true"]'));
-        const textareas = Array.from(document.querySelectorAll('textarea'));
-        
-        // Focus specifically on chapter title inputs - these are the most reliable
-        const chapterTitleInputs = Array.from(document.querySelectorAll('textarea[id*="chapter"][id*="title"]'));
-        
-        console.log('[Icon Match] Found chapter title inputs:', chapterTitleInputs.length);
-        
-        // If we found specific chapter title inputs, use only those
-        const trackCandidates = chapterTitleInputs.length > 0 ? chapterTitleInputs : [
-          ...allTextInputs,
-          ...textareas,
-          ...editableElements
-        ];
-        
-        console.log('[Icon Match] Found candidates:', trackCandidates.length);
-        console.log('[Icon Match] Text inputs:', allTextInputs.length, 'All inputs:', allInputs.length, 'Editable:', editableElements.length, 'Textareas:', textareas.length);
-        
-        console.log('[Icon Match] Found', allInputs.length, 'inputs and', editableElements.length, 'editable elements');
+        // Optimized single query using CSS selector groups
+        const trackCandidates = document.querySelectorAll(
+          'textarea[id*="chapter"][id*="title"], ' +
+          'input[type="text"]:not([placeholder="Playlist name"]), ' +
+          'textarea:not([placeholder*="500 characters"]), ' +
+          '[contenteditable="true"]'
+        );
         
         const foundTracks = new Set();
         
@@ -717,49 +702,34 @@ function createButton() {
           const id = element.id || '';
           const className = element.className || '';
           
-          console.log(`[Icon Match] Candidate ${index + 1} (${elementType}):`, {
-            value: value,
-            id: id,
-            className: className,
-            tagName: element.tagName
-          });
-          
           if (!value || value.length === 0) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Empty, skipping`);
             return;
           }
           
           if (value === playlistTitle) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Matches playlist title, skipping`);
             return;
           }
           
           // Skip very short content (likely placeholders)
           if (value.length <= 1) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Too short (${value.length} chars), skipping`);
             return;
           }
           
           // Skip very long content (probably not track titles)
           if (value.length > 100) {
-            console.log(`[Icon Match] Candidate ${index + 1}: Too long (${value.length} chars), skipping`);
             return;
           }
           
           // Skip common placeholder values
           if (value.toLowerCase() === 'x' || value.toLowerCase() === 'untitled' || value === '...') {
-            console.log(`[Icon Match] Candidate ${index + 1}: Placeholder value, skipping`);
             return;
           }
           
-          console.log(`[Icon Match] Candidate ${index + 1}: Adding as track:`, value);
           foundTracks.add(value);
         });
         
-        console.log('[Icon Match] Total unique tracks found:', foundTracks.size);
         
         Array.from(foundTracks).forEach((title, index) => {
-          console.log('[Icon Match] Adding track:', title);
           tracks.push({
             id: `track-${index + 1}`,
             title: title,
@@ -824,10 +794,28 @@ function createButton() {
       }
       
       try {
-        const response = await chrome.runtime.sendMessage({ 
-          action: 'MATCH_ICONS',
-          tracks: tracks
-        });
+        // Check cache first
+        const cacheKey = JSON.stringify(tracks.map(t => t.title));
+        let response;
+        
+        if (iconMatchCache.has(cacheKey)) {
+          response = iconMatchCache.get(cacheKey);
+        } else {
+          response = await chrome.runtime.sendMessage({ 
+            action: 'MATCH_ICONS',
+            tracks: tracks
+          });
+          
+          // Cache successful responses
+          if (response.matches && response.matches.length > 0) {
+            iconMatchCache.set(cacheKey, response);
+            // Clear old cache entries if too many
+            if (iconMatchCache.size > 10) {
+              const firstKey = iconMatchCache.keys().next().value;
+              iconMatchCache.delete(firstKey);
+            }
+          }
+        }
         
         if (response.matches && response.matches.length > 0) {
           showIconPreview(response.matches);
@@ -1172,29 +1160,42 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         }
       }
       
-      // Step 2: Upload icons
+      // Step 2: Upload icons in parallel batches
       statusText.textContent = 'Uploading icons...';
       progressBar.style.width = '10%';
       
       const iconIds = [];
-      for (let i = 0; i < trackIcons.length; i++) {
-        const iconFile = trackIcons[i];
-        statusText.textContent = `Uploading icon ${i + 1} of ${trackIcons.length}...`;
+      const BATCH_SIZE = 3; // Upload 3 icons at a time
+      
+      for (let i = 0; i < trackIcons.length; i += BATCH_SIZE) {
+        const batch = trackIcons.slice(i, Math.min(i + BATCH_SIZE, trackIcons.length));
+        statusText.textContent = `Uploading icons ${i + 1}-${Math.min(i + BATCH_SIZE, trackIcons.length)} of ${trackIcons.length}...`;
         
-        try {
-          const response = await chrome.runtime.sendMessage({
-            action: 'UPLOAD_ICON',
-            file: await fileToBase64(iconFile)
-          });
-          
-          if (response.success && response.iconId) {
-            iconIds[i] = response.iconId;
+        const batchPromises = batch.map(async (iconFile, batchIndex) => {
+          try {
+            const response = await chrome.runtime.sendMessage({
+              action: 'UPLOAD_ICON',
+              file: await fileToBase64(iconFile)
+            });
+            
+            if (response.success && response.iconId) {
+              return { index: i + batchIndex, iconId: response.iconId };
+            }
+            return null;
+          } catch (error) {
+            console.error(`Failed to upload icon ${i + batchIndex + 1}:`, error);
+            return null;
           }
-        } catch (error) {
-          console.error(`Failed to upload icon ${i + 1}:`, error);
-        }
+        });
         
-        progressBar.style.width = `${10 + (30 * (i + 1) / trackIcons.length)}%`;
+        const results = await Promise.all(batchPromises);
+        results.forEach(result => {
+          if (result) {
+            iconIds[result.index] = result.iconId;
+          }
+        });
+        
+        progressBar.style.width = `${10 + (30 * Math.min(i + BATCH_SIZE, trackIcons.length) / trackIcons.length)}%`;
       }
       
       // Step 2: Upload and transcode audio files

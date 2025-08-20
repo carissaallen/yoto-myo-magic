@@ -1,6 +1,3 @@
-// Content script loaded
-
-
 // Configuration
 const CONFIG = {
   CHECK_INTERVAL: 1000, // Check for MYO elements every second
@@ -42,36 +39,42 @@ let state = {
   authenticated: false,
   tracks: [],
   observer: null,
-  injectedUI: false
+  injectedUI: false,
+  authCacheTime: 0,
+  iconMatchCache: new Map()
 };
+
+// Cache duration constants
+const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const ICON_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 // Initialize - simplified approach
 function init() {
-  console.log('[DEBUG] Yoto MYO Magic initializing on:', window.location.href);
   
-  // Check auth status and try silent auth if needed
-  chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(async response => {
-    if (response.authenticated) {
-      state.authenticated = true;
-      console.log('[DEBUG] Auth status: authenticated');
-    } else {
-      // Try silent authentication immediately (like MYO Studio)
-      console.log('[DEBUG] Not authenticated, attempting silent auth...');
-      try {
-        const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
-        if (authResult && authResult.success && authResult.authenticated && authResult.silent) {
-          state.authenticated = true;
-          console.log('[DEBUG] Silent authentication successful');
-        } else {
+  // Check auth status with caching
+  const now = Date.now();
+  if (!state.authenticated || now - state.authCacheTime > AUTH_CACHE_DURATION) {
+    chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(async response => {
+      if (response.authenticated) {
+        state.authenticated = true;
+        state.authCacheTime = now;
+      } else {
+        // Try silent authentication immediately (like MYO Studio)
+        try {
+          const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
+          if (authResult && authResult.success && authResult.authenticated && authResult.silent) {
+            state.authenticated = true;
+            state.authCacheTime = now;
+          } else {
+            state.authenticated = false;
+          }
+        } catch (error) {
           state.authenticated = false;
-          console.log('[DEBUG] Silent authentication failed, will need interactive auth');
+          console.error('[Auth] Silent auth error:', error);
         }
-      } catch (error) {
-        state.authenticated = false;
-        console.log('[DEBUG] Silent auth error:', error);
       }
-    }
-  });
+    });
+  }
   
   // Simple delay then check for MYO page
   setTimeout(() => {
@@ -105,11 +108,8 @@ function checkForMyoPage() {
     return;
   }
   
-  // Determine page type
-  console.log('[DEBUG] Current path:', path);
   
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
-    console.log('[DEBUG] My Cards/Playlists page detected - setting up Import Playlist button...');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
@@ -126,17 +126,13 @@ function waitForMyoElements() {
   // For my-cards or playlists page, use simple retry logic like Icon Match button
   const path = window.location.pathname;
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
-    console.log('[DEBUG] Setting up Import button injection attempts for path:', path);
     // Simple retry pattern - matches the working Icon Match approach
     const attempts = [500, 2000, 4000];
     attempts.forEach((delay, index) => {
       setTimeout(() => {
-        console.log(`[DEBUG] Import button injection attempt ${index + 1} after ${delay}ms`);
         if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
           const result = checkAndInjectImportButton();
-          console.log(`[DEBUG] Injection attempt ${index + 1} result:`, result);
         } else {
-          console.log(`[DEBUG] Import button already exists, skipping attempt ${index + 1}`);
         }
       }, delay);
     });
@@ -146,24 +142,20 @@ function waitForMyoElements() {
 
 // Simple injection function using "My playlists" heading as reliable anchor point
 function checkAndInjectImportButton() {
-  console.log('[DEBUG] checkAndInjectImportButton called');
   
   // Only inject on main playlists page, not edit pages
   const path = window.location.pathname;
   if (path.includes('/edit') || path.includes('/card/')) {
-    console.log('[DEBUG] On edit page, skipping Import Playlist button injection');
     return false;
   }
   
   // Don't inject if already exists
   if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
-    console.log('[DEBUG] Button already exists, skipping injection');
     return true;
   }
   
   // Primary approach: Find "My playlists" or "My Cards" heading and position button in optimal spot below it
   const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
-  console.log('[DEBUG] All headings found:', headings.map(h => h.textContent?.trim()));
   
   const playlistsHeading = headings.find(el => {
     const text = el.textContent?.trim()?.toLowerCase() || '';
@@ -171,9 +163,6 @@ function checkAndInjectImportButton() {
     return (text.includes('my playlist') || text.includes('my cards') || text.includes('cards')) && 
            !text.includes('edit');
   });
-  
-  console.log('[DEBUG] Found target heading:', playlistsHeading?.textContent);
-  
   
   if (playlistsHeading) {
     // Look for the container that holds both the heading and the content below it
@@ -213,8 +202,6 @@ function checkAndInjectImportButton() {
       } else {
         targetElement.parentNode.appendChild(buttonContainer);
       }
-      
-      console.log('[DEBUG] Import Playlist button injected successfully');
       return true;
     }
   }
@@ -1466,12 +1453,13 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
-// Utility function for chunked parallel uploads
-async function uploadInChunks(items, uploadFn, chunkSize = 5, onProgress) {
+// Utility function for chunked parallel uploads (optimized)
+async function uploadInChunks(items, uploadFn, chunkSize = 8, onProgress) {
   const results = [];
   const totalItems = items.length;
   let completedItems = 0;
   
+  // Increased chunk size for better parallelization
   for (let i = 0; i < items.length; i += chunkSize) {
     const chunk = items.slice(i, i + chunkSize);
     const chunkPromises = chunk.map((item, index) => 
@@ -1481,6 +1469,12 @@ async function uploadInChunks(items, uploadFn, chunkSize = 5, onProgress) {
           onProgress(completedItems, totalItems);
         }
         return result;
+      }).catch(error => {
+        completedItems++;
+        if (onProgress) {
+          onProgress(completedItems, totalItems);
+        }
+        return { status: 'rejected', reason: error };
       })
     );
     
@@ -1631,8 +1625,8 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       };
       
       // Automatically choose upload strategy based on file count
-      // Use chunked strategy for 20+ audio files to prevent browser overload
-      const uploadStrategy = audioFiles.length >= 20 ? 'chunked' : 'parallel';
+      // Use chunked strategy for 10+ audio files for better performance
+      const uploadStrategy = audioFiles.length >= 10 ? 'chunked' : 'parallel';
       
       
       let uploadedCoverUrl = null;
@@ -1640,9 +1634,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       const uploadedTracks = [];
       
       if (uploadStrategy === 'chunked') {
-        // CHUNKED UPLOAD (For large playlists with 20+ audio files)
+        // CHUNKED UPLOAD (For playlists with 10+ audio files)
         statusText.textContent = 'Uploading files...';
-        const chunkSize = 5; // Upload 5 files at a time
+        const chunkSize = 8; // Upload 8 files at a time for better throughput
         
         // Upload cover first if exists
         if (coverImage) {
