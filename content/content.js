@@ -42,36 +42,47 @@ let state = {
   authenticated: false,
   tracks: [],
   observer: null,
-  injectedUI: false
+  injectedUI: false,
+  authCacheTime: 0,
+  iconMatchCache: new Map()
 };
+
+// Cache duration constants
+const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const ICON_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
 // Initialize - simplified approach
 function init() {
   console.log('[DEBUG] Yoto MYO Magic initializing on:', window.location.href);
   
-  // Check auth status and try silent auth if needed
-  chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(async response => {
-    if (response.authenticated) {
-      state.authenticated = true;
-      console.log('[DEBUG] Auth status: authenticated');
-    } else {
-      // Try silent authentication immediately (like MYO Studio)
-      console.log('[DEBUG] Not authenticated, attempting silent auth...');
-      try {
-        const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
-        if (authResult && authResult.success && authResult.authenticated && authResult.silent) {
-          state.authenticated = true;
-          console.log('[DEBUG] Silent authentication successful');
-        } else {
+  // Check auth status with caching
+  const now = Date.now();
+  if (!state.authenticated || now - state.authCacheTime > AUTH_CACHE_DURATION) {
+    chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(async response => {
+      if (response.authenticated) {
+        state.authenticated = true;
+        state.authCacheTime = now;
+        console.log('[DEBUG] Auth status: authenticated');
+      } else {
+        // Try silent authentication immediately (like MYO Studio)
+        console.log('[DEBUG] Not authenticated, attempting silent auth...');
+        try {
+          const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
+          if (authResult && authResult.success && authResult.authenticated && authResult.silent) {
+            state.authenticated = true;
+            state.authCacheTime = now;
+            console.log('[DEBUG] Silent authentication successful');
+          } else {
+            state.authenticated = false;
+            console.log('[DEBUG] Silent authentication failed, will need interactive auth');
+          }
+        } catch (error) {
           state.authenticated = false;
-          console.log('[DEBUG] Silent authentication failed, will need interactive auth');
+          console.log('[DEBUG] Silent auth error:', error);
         }
-      } catch (error) {
-        state.authenticated = false;
-        console.log('[DEBUG] Silent auth error:', error);
       }
-    }
-  });
+    });
+  }
   
   // Simple delay then check for MYO page
   setTimeout(() => {
@@ -1466,12 +1477,13 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
-// Utility function for chunked parallel uploads
-async function uploadInChunks(items, uploadFn, chunkSize = 5, onProgress) {
+// Utility function for chunked parallel uploads (optimized)
+async function uploadInChunks(items, uploadFn, chunkSize = 8, onProgress) {
   const results = [];
   const totalItems = items.length;
   let completedItems = 0;
   
+  // Increased chunk size for better parallelization
   for (let i = 0; i < items.length; i += chunkSize) {
     const chunk = items.slice(i, i + chunkSize);
     const chunkPromises = chunk.map((item, index) => 
@@ -1481,6 +1493,12 @@ async function uploadInChunks(items, uploadFn, chunkSize = 5, onProgress) {
           onProgress(completedItems, totalItems);
         }
         return result;
+      }).catch(error => {
+        completedItems++;
+        if (onProgress) {
+          onProgress(completedItems, totalItems);
+        }
+        return { status: 'rejected', reason: error };
       })
     );
     
@@ -1631,8 +1649,8 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       };
       
       // Automatically choose upload strategy based on file count
-      // Use chunked strategy for 20+ audio files to prevent browser overload
-      const uploadStrategy = audioFiles.length >= 20 ? 'chunked' : 'parallel';
+      // Use chunked strategy for 10+ audio files for better performance
+      const uploadStrategy = audioFiles.length >= 10 ? 'chunked' : 'parallel';
       
       
       let uploadedCoverUrl = null;
@@ -1640,9 +1658,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       const uploadedTracks = [];
       
       if (uploadStrategy === 'chunked') {
-        // CHUNKED UPLOAD (For large playlists with 20+ audio files)
+        // CHUNKED UPLOAD (For playlists with 10+ audio files)
         statusText.textContent = 'Uploading files...';
-        const chunkSize = 5; // Upload 5 files at a time
+        const chunkSize = 8; // Upload 8 files at a time for better throughput
         
         // Upload cover first if exists
         if (coverImage) {
