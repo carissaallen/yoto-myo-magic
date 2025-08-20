@@ -490,27 +490,10 @@ async function handleAutoMatchClick() {
     
     // Start seamless authentication
     chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-      if (authResult && authResult.success) {
-        // Popup opened successfully, wait for auth completion
-        showNotification('Please complete authorization in the popup window...', 'info');
-        
-        // Set up a listener for auth completion
-        const checkAuth = setInterval(async () => {
-          const authStatus = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-          if (authStatus && authStatus.authenticated) {
-            clearInterval(checkAuth);
-            showNotification('✓ Authorization complete! Starting import...', 'success');
-            handleAutoMatchClick();
-          }
-        }, 1000);
-        
-        // Stop checking after 2 minutes
-        setTimeout(() => {
-          clearInterval(checkAuth);
-          button.innerHTML = originalContent;
-          showNotification('Authorization timed out. Please try again.', 'error');
-        }, 120000);
-        
+      if (authResult && authResult.success && authResult.redirected) {
+        // User will be redirected to auth page - show message
+        showNotification('Redirecting to authentication...', 'info');
+        // The page will redirect, so we don't need to do anything else
       } else if (authResult && authResult.cancelled) {
         // User cancelled auth
         button.innerHTML = originalContent;
@@ -569,26 +552,10 @@ async function handleBulkMatchClick() {
     // Start authentication
     const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
     
-    if (authResult && authResult.success) {
-      // Popup opened successfully, wait for auth completion
-      showNotification('Please complete authorization in the popup window...', 'info');
-      
-      // Set up a listener for auth completion
-      const checkAuth = setInterval(async () => {
-        const authStatus = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-        if (authStatus && authStatus.authenticated) {
-          clearInterval(checkAuth);
-          showNotification('✓ Authorization complete! Continuing...', 'success');
-          handleBulkMatchClick();
-        }
-      }, 1000);
-      
-      // Stop checking after 2 minutes
-      setTimeout(() => {
-        clearInterval(checkAuth);
-        showNotification('Authorization timed out. Please try again.', 'error');
-      }, 120000);
-      
+    if (authResult && authResult.success && authResult.redirected) {
+      // User will be redirected to auth page
+      showNotification('Redirecting to authentication...', 'info');
+      // The page will redirect, so we don't need to do anything else
     } else if (authResult && authResult.cancelled) {
       showNotification('Authorization cancelled.', 'info');
     } else {
@@ -614,9 +581,8 @@ async function handleBulkMatchClick() {
       updateButtonIcon(false);
       showNotification('Session expired. Please authorize again.', 'error');
       chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-        if (authResult && authResult.success) {
-          showNotification('✓ Session restored!', 'success');
-          updateButtonIcon(true);
+        if (authResult && authResult.success && authResult.redirected) {
+          showNotification('Redirecting to authentication...', 'info');
         }
       });
     } else {
@@ -646,8 +612,8 @@ async function handleImportClick() {
       showNotification('Please authenticate first. Click the extension icon.', 'info');
       // Try to start auth
       chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-        if (authResult && authResult.success) {
-          showNotification('✓ Authentication complete!', 'success');
+        if (authResult && authResult.success && authResult.redirected) {
+          showNotification('Redirecting to authentication...', 'info');
         } else {
           showNotification('Failed to start authentication. Please try again.', 'error');
         }
@@ -2001,6 +1967,25 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
   };
 }
 
+// Check if user just returned from authentication
+function checkForAuthReturn() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const authSuccess = urlParams.get('auth_success');
+  
+  if (authSuccess === 'true') {
+    // Clean up URL
+    const cleanUrl = window.location.origin + window.location.pathname;
+    window.history.replaceState({}, '', cleanUrl);
+    
+    // Show success message
+    showNotification('✓ Authentication successful! You can now use import features.', 'success');
+    
+    // Update auth state
+    state.authenticated = true;
+  }
+}
+
 // Initialize the content script
 injectStyles();
+checkForAuthReturn();
 init();
