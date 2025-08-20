@@ -49,10 +49,28 @@ let state = {
 function init() {
   console.log('[DEBUG] Yoto MYO Magic initializing on:', window.location.href);
   
-  // Check auth status
-  chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(response => {
-    state.authenticated = response.authenticated;
-    console.log('[DEBUG] Auth status:', response.authenticated);
+  // Check auth status and try silent auth if needed
+  chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(async response => {
+    if (response.authenticated) {
+      state.authenticated = true;
+      console.log('[DEBUG] Auth status: authenticated');
+    } else {
+      // Try silent authentication immediately (like MYO Studio)
+      console.log('[DEBUG] Not authenticated, attempting silent auth...');
+      try {
+        const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
+        if (authResult && authResult.success && authResult.authenticated && authResult.silent) {
+          state.authenticated = true;
+          console.log('[DEBUG] Silent authentication successful');
+        } else {
+          state.authenticated = false;
+          console.log('[DEBUG] Silent authentication failed, will need interactive auth');
+        }
+      } catch (error) {
+        state.authenticated = false;
+        console.log('[DEBUG] Silent auth error:', error);
+      }
+    }
   });
   
   // Simple delay then check for MYO page
@@ -90,7 +108,7 @@ function checkForMyoPage() {
   // Determine page type
   console.log('[DEBUG] Current path:', path);
   
-  if (path.includes('/my-cards/playlists') || path === '/my-cards') {
+  if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
     console.log('[DEBUG] My Cards/Playlists page detected - setting up Import Playlist button...');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
@@ -107,7 +125,7 @@ function checkForMyoPage() {
 function waitForMyoElements() {
   // For my-cards or playlists page, use simple retry logic like Icon Match button
   const path = window.location.pathname;
-  if (path.includes('/my-cards/playlists') || path === '/my-cards') {
+  if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
     console.log('[DEBUG] Setting up Import button injection attempts for path:', path);
     // Simple retry pattern - matches the working Icon Match approach
     const attempts = [500, 2000, 4000];
@@ -130,6 +148,13 @@ function waitForMyoElements() {
 function checkAndInjectImportButton() {
   console.log('[DEBUG] checkAndInjectImportButton called');
   
+  // Only inject on main playlists page, not edit pages
+  const path = window.location.pathname;
+  if (path.includes('/edit') || path.includes('/card/')) {
+    console.log('[DEBUG] On edit page, skipping Import Playlist button injection');
+    return false;
+  }
+  
   // Don't inject if already exists
   if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
     console.log('[DEBUG] Button already exists, skipping injection');
@@ -142,7 +167,9 @@ function checkAndInjectImportButton() {
   
   const playlistsHeading = headings.find(el => {
     const text = el.textContent?.trim()?.toLowerCase() || '';
-    return text.includes('playlist') || text.includes('my cards') || text.includes('cards');
+    // Only match main playlists page headings, not edit page headings
+    return (text.includes('my playlist') || text.includes('my cards') || text.includes('cards')) && 
+           !text.includes('edit');
   });
   
   console.log('[DEBUG] Found target heading:', playlistsHeading?.textContent);
@@ -490,10 +517,15 @@ async function handleAutoMatchClick() {
     
     // Start seamless authentication
     chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-      if (authResult && authResult.success && authResult.redirected) {
-        // User will be redirected to auth page - show message
-        showNotification('Redirecting to authentication...', 'info');
-        // The page will redirect, so we don't need to do anything else
+      if (authResult && authResult.success && authResult.authenticated) {
+        if (authResult.silent) {
+          // Silent authentication succeeded - completely seamless!
+          showNotification('✓ Ready! Starting icon matching...', 'success');
+        } else {
+          // Interactive authentication succeeded
+          showNotification('✓ Authentication complete! Starting icon matching...', 'success');
+        }
+        handleAutoMatchClick();
       } else if (authResult && authResult.cancelled) {
         // User cancelled auth
         button.innerHTML = originalContent;
@@ -552,10 +584,15 @@ async function handleBulkMatchClick() {
     // Start authentication
     const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
     
-    if (authResult && authResult.success && authResult.redirected) {
-      // User will be redirected to auth page
-      showNotification('Redirecting to authentication...', 'info');
-      // The page will redirect, so we don't need to do anything else
+    if (authResult && authResult.success && authResult.authenticated) {
+      if (authResult.silent) {
+        // Silent authentication succeeded - completely seamless!
+        showNotification('✓ Ready! Continuing...', 'success');
+      } else {
+        // Interactive authentication succeeded
+        showNotification('✓ Authentication complete! Continuing...', 'success');
+      }
+      handleBulkMatchClick();
     } else if (authResult && authResult.cancelled) {
       showNotification('Authorization cancelled.', 'info');
     } else {
@@ -581,8 +618,21 @@ async function handleBulkMatchClick() {
       updateButtonIcon(false);
       showNotification('Session expired. Please authorize again.', 'error');
       chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-        if (authResult && authResult.success && authResult.redirected) {
-          showNotification('Redirecting to authentication...', 'info');
+        if (authResult && authResult.success && authResult.authenticated) {
+          if (authResult.silent) {
+            showNotification('✓ Session restored silently!', 'success');
+          } else {
+            showNotification('✓ Session restored!', 'success');
+          }
+          updateButtonIcon(true);
+          // Retry the bulk match operation
+          setTimeout(() => {
+            handleBulkMatchClick();
+          }, 500);
+        } else if (authResult && authResult.cancelled) {
+          showNotification('Authorization cancelled.', 'info');
+        } else {
+          showNotification('Failed to restore session. Please try again.', 'error');
         }
       });
     } else {
@@ -612,8 +662,18 @@ async function handleImportClick() {
       showNotification('Please authenticate first. Click the extension icon.', 'info');
       // Try to start auth
       chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-        if (authResult && authResult.success && authResult.redirected) {
-          showNotification('Redirecting to authentication...', 'info');
+        if (authResult && authResult.success && authResult.authenticated) {
+          if (authResult.silent) {
+            showNotification('✓ Ready! You can now import playlists.', 'success');
+          } else {
+            showNotification('✓ Authentication complete!', 'success');
+          }
+          // Refresh auth state and try import again
+          setTimeout(() => {
+            handleImportClick();
+          }, 500);
+        } else if (authResult && authResult.cancelled) {
+          showNotification('Authorization cancelled.', 'info');
         } else {
           showNotification('Failed to start authentication. Please try again.', 'error');
         }
