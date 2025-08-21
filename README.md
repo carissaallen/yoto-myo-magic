@@ -15,12 +15,16 @@ Skip the tedious manual upload process! Import complete playlists with audio fil
 - **Supported Formats**: MP3, M4A, WAV, OGG, FLAC, AAC, OPUS, WMA
 - **Automatic Transcoding**: Files are automatically converted to Yoto-compatible format
 
+![Demo](./demo/import-playlist-demo.gif)
+
 #### 🐙 Automatic Icon Management
 - **Smart Icon Matching**: AI-powered matching based on track titles
 - **Bulk Icon Import**: Include custom icons in your ZIP/folder (1.png, 2.png, etc.)
 - **Yoto Icon Library**: Access and search Yoto's entire icon collection
 - **Confidence Scoring**: See how certain the matches are
 - **Manual Override**: Easily change any suggestion
+
+![Demo](./demo/icon-match-demo.gif)
 
 #### 📤 Smart Upload Strategies
 - **Parallel Upload**: Fast upload for small playlists (< 20 tracks)
