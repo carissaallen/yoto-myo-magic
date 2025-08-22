@@ -6,19 +6,16 @@
   
   "permissions": [
     "storage",
-    "activeTab",
     "scripting",
     "tabs",
     "identity"
   ],
   
   "host_permissions": [
-    "https://yotoplay.com/*",
     "https://my.yotoplay.com/*",
     "https://api.yotoplay.com/*",
     "https://login.yotoplay.com/*",
     "https://www.yotoicons.com/*",
-    "*://*.yotoplay.com/*",
     "https://www.google-analytics.com/*"
   ],
   
