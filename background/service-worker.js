@@ -772,7 +772,9 @@ async function matchIcons(tracks) {
         let iconOptions = [];
 
         try {
-            const fullResults = await searchIcons(track.title);
+            // Also try with possessives removed for better matching
+            const cleanedTitle = track.title.replace(/'s\b/gi, '');
+            const fullResults = await searchIcons(cleanedTitle);
             if (fullResults.icons && fullResults.icons.length > 0) {
                 const validIcons = fullResults.icons.filter(icon => {
                     return !icon.isPlaceholder && icon.url && (icon.url.startsWith('http') || icon.url.startsWith('data:'));
@@ -803,7 +805,10 @@ async function matchIcons(tracks) {
         } catch (error) {}
 
         if (iconOptions.length < 5) {
-            const keywords = track.title.toLowerCase().split(' ').filter(word => word.length >= 3);
+            const keywords = track.title.toLowerCase()
+                .split(' ')
+                .map(word => word.replace(/'s$/i, ''))  // Remove possessive 's
+                .filter(word => word.length >= 3);
 
             for (const keyword of keywords) {
                 if (iconOptions.length >= 10) break;

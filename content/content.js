@@ -82,8 +82,6 @@ function init() {
     setupObserver();
   }, 1000);
   
-  // Listen for messages from popup/background
-  chrome.runtime.onMessage.addListener(handleMessage);
   
   // Listen for auth status updates
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -211,16 +209,6 @@ function checkAndInjectImportButton() {
 
 // These functions are no longer needed since we're not adding the Bulk Match button
 // Keeping them empty to avoid breaking any references
-function fallbackInject() {
-  // Not used anymore
-}
-
-function findMyoContainer() {
-  // Not used anymore
-  return null;
-}
-
-// Initialize MYO features
 function initializeMyoFeatures(container) {
   // Initialize MYO features
   
@@ -703,8 +691,9 @@ function showImportOptionsModal() {
     bottom: 0;
     z-index: 999999;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 20vh;
     background-color: rgba(0, 0, 0, 0.5);
   `;
   
@@ -991,21 +980,21 @@ async function processFolderFiles(files) {
   
   imageFiles.forEach(f => {
     const fileName = f.name.split('/').pop();
-    // Check if filename starts with a number
-    if (/^[\d\s_-]*\d+[\s_-]*\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(fileName)) {
+    // Check if filename contains a number pattern (supports "01.png", "Icon 01.png", "icon_01.png", "icn3.png", etc.)
+    // Extract the number to ensure proper sorting
+    const numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
+    if (numberMatch) {
+      // Store the extracted number for sorting
+      f.extractedNumber = parseInt(numberMatch[1]);
       numericImages.push(f);
     } else {
       nonNumericImages.push(f);
     }
   });
   
-  // Sort numeric images by their number
+  // Sort numeric images by their extracted number
   numericImages.sort((a, b) => {
-    const fileNameA = a.name.split('/').pop();
-    const fileNameB = b.name.split('/').pop();
-    const numA = parseInt(fileNameA.match(/\d+/)[0]);
-    const numB = parseInt(fileNameB.match(/\d+/)[0]);
-    return numA - numB;
+    return (a.extractedNumber || 0) - (b.extractedNumber || 0);
   });
   
   // Use numeric images as track icons
@@ -1184,19 +1173,21 @@ async function processZipFile(file) {
     const nonNumericImages = [];
     
     imageFiles.forEach(f => {
-      // Check if filename starts with a number (allowing for 01, 1, 001, etc.)
-      if (/^[\d\s_-]*\d+[\s_-]*\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(f.name)) {
+      // Check if filename contains a number pattern (supports "01.png", "Icon 01.png", "icon_01.png", "icn3.png", etc.)
+      // Extract the number to ensure proper sorting
+      const numberMatch = f.name.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
+      if (numberMatch) {
+        // Store the extracted number for sorting
+        f.extractedNumber = parseInt(numberMatch[1]);
         numericImages.push(f);
       } else {
         nonNumericImages.push(f);
       }
     });
     
-    // Sort numeric images by their number
+    // Sort numeric images by their extracted number
     numericImages.sort((a, b) => {
-      const numA = parseInt(a.name.match(/\d+/)[0]);
-      const numB = parseInt(b.name.match(/\d+/)[0]);
-      return numA - numB;
+      return (a.extractedNumber || 0) - (b.extractedNumber || 0);
     });
     
     // If we have numeric images, use them as track icons
@@ -1518,8 +1509,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     background: rgba(0, 0, 0, 0.8);
     z-index: 99999;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 20vh;
     animation: fadeIn 0.3s ease;
   `;
   
@@ -1674,7 +1666,8 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           
           iconResults.forEach((result) => {
             if (result.status === 'fulfilled' && !result.value.response.error) {
-              const iconNumber = parseInt(result.value.iconFile.name.match(/\d+/)[0]) - 1;
+              // Use the pre-extracted number (already stored when detecting icons)
+              const iconNumber = (result.value.iconFile.extractedNumber || parseInt(result.value.iconFile.name.match(/\d+/)?.[0] || '1')) - 1;
               uploadedIconIds[iconNumber] = result.value.response.iconId;
             }
           });
@@ -1785,7 +1778,8 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               const { response, iconFile } = value;
               if (!response.error && response.iconId) {
                 // Store icon ID at correct index based on filename
-                const iconNumber = parseInt(iconFile.name.match(/\d+/)[0]) - 1;
+                // Use the pre-extracted number (already stored when detecting icons)
+                const iconNumber = (iconFile.extractedNumber || parseInt(iconFile.name.match(/\d+/)?.[0] || '1')) - 1;
                 uploadedIconIds[iconNumber] = response.iconId;
               } else {
                 
@@ -1838,7 +1832,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       statusText.textContent = 'Import complete!';
       
       // Show success message with auto-refresh
-      // Clear modal but keep it centered
+      // Clear modal but keep it positioned
       modal.innerHTML = '';
       modal.style.cssText = `
         position: fixed;
@@ -1849,8 +1843,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         background: rgba(0, 0, 0, 0.8);
         z-index: 99999;
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: center;
+        padding-top: 20vh;
         animation: fadeIn 0.3s ease;
       `;
       

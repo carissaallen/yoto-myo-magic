@@ -40,9 +40,9 @@ Skip the tedious manual upload process! Import complete playlists with audio fil
 ## 🚀 Installation
 
 ### From Chrome Web Store
-1. Visit the [Chrome Web Store](https://chrome.google.com/webstore) (link coming soon)
+1. Visit the [Chrome Web Store](https://chromewebstore.google.com/detail/iehnjhgdgfepcjlbfkpngibijmffcmpp?utm_source=item-share-cb)
 2. Click "Add to Chrome"
-3. Confirm the installation
+3. Voila! The extension is installed
 
 ## 📖 How to Use
 
@@ -55,8 +55,8 @@ Skip the tedious manual upload process! Import complete playlists with audio fil
    - Optional: Create a ZIP file of the folder
 
 2. **Go to Yoto**:
-   - Navigate to [my.yotoplay.com](https://my.yotoplay.com)
-   - Go to "My Cards" → "Add a playlist"
+   - Navigate to [Yoto Make Your Own](https://us.yotoplay.com/make-your-own)
+   - Click "Vist Library / Make Playlist" → Log in
 
 3. **Import Your Playlist**:
    - Click the "Import Playlist" button (added by the extension)
@@ -85,6 +85,8 @@ my-playlist/
 
 ## 📈 Privacy & Analytics
 
+See [PRIVACY](PRIVACY.md) file for details
+
 - **Google Analytics 4**: Used to track feature usage (no personal data)
 - **Local Storage Only**: All settings stored locally in your browser
 - **No Server Storage**: We don't store any of your content or data
@@ -92,7 +94,7 @@ my-playlist/
 ## 🆘 Support
 
 ### Getting Help
-- **Issues**: [Report bugs or request features](https://github.com/yourusername/yoto-myo-magic/issues)
+- **Issues**: [Report bugs or request features](https://chromewebstore.google.com/detail/iehnjhgdgfepcjlbfkpngibijmffcmpp/support)
 
 ### Common Issues
 
