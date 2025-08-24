@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Yoto MYO Magic",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Import playlists from ZIP files or folders to Yoto MYO cards with automatic icon matching",
   
   "permissions": [
