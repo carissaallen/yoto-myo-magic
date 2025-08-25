@@ -1,39 +1,3 @@
-// Configuration
-const CONFIG = {
-  CHECK_INTERVAL: 1000, // Check for MYO elements every second
-  DEBOUNCE_DELAY: 500,
-  SELECTORS: {
-    // Updated selectors based on actual Yoto website structure
-    // Page detection
-    ADD_PLAYLIST_PAGE: 'h2:has-text("Add a playlist")',
-    MY_PLAYLISTS_PAGE: 'h1:has-text("My playlists")',
-    
-    // Button containers where we'll inject our UI
-    BUTTON_ROW: '.flex.gap-2', // Container with existing buttons like "Icons & Titles"
-    ACTION_BUTTONS: 'button:has-text("Icons & Titles"), button:has-text("Download")',
-    
-    // Playlist elements
-    PLAYLIST_NAME_INPUT: 'input[placeholder="Playlist name"]',
-    PLAYLIST_DESCRIPTION: 'textarea[placeholder*="maximum 500 characters"]',
-    ARTWORK_SECTION: '.flex.flex-col:has(img[alt*="artwork"])',
-    
-    // Audio/Track elements  
-    ADD_AUDIO_BUTTON: 'button:has-text("Add audio")',
-    ADD_STREAM_BUTTON: 'button:has-text("Add stream")',
-    TRACK_CONTAINER: '.space-y-2:has(button:has-text("Add audio"))',
-    
-    // My Playlists page specific
-    PLAYLISTS_TOOLBAR: '.flex.items-center.justify-between',
-    PLAYLIST_CARD: '.rounded-lg.shadow',
-    SORT_BUTTON: 'button:has-text("Sort Playlists")',
-    
-    // MYO Studio buttons (to detect and position relative to)
-    MYO_STUDIO_BUTTONS: 'button:has-text("MYO Magic"), button:has-text("Import"), button:has-text("Actions")',
-    COFFEE_BUTTON: 'button:has-text("Say thanks with a Coffee")'
-  }
-};
-
-// State
 let state = {
   isMyoPage: false,
   authenticated: false,
@@ -44,12 +8,12 @@ let state = {
   iconMatchCache: new Map()
 };
 
-// Cache duration constants
 const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-const ICON_CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
 
-// Initialize - simplified approach
 function init() {
+  console.log('[Yoto MYO Magic] Extension initializing...');
+  console.log('[Yoto MYO Magic] Current URL:', window.location.href);
+  console.log('[Yoto MYO Magic] Path:', window.location.pathname);
   
   // Check auth status with caching
   const now = Date.now();
@@ -71,6 +35,16 @@ function init() {
         } catch (error) {
           state.authenticated = false;
           console.error('[Auth] Silent auth error:', error);
+          // Track auth errors to GA4
+          chrome.runtime.sendMessage({
+            action: 'TRACK_ERROR',
+            error: error.message,
+            context: {
+              action: 'silent_auth',
+              component: 'content',
+              authenticated: false
+            }
+          });
         }
       }
     });
@@ -78,6 +52,7 @@ function init() {
   
   // Simple delay then check for MYO page
   setTimeout(() => {
+    console.log('[Yoto MYO Magic] Checking for MYO page after delay...');
     checkForMyoPage();
     setupObserver();
   }, 1000);
@@ -101,13 +76,19 @@ function checkForMyoPage() {
   const url = window.location.href;
   const path = window.location.pathname;
   
+  console.log('[Yoto MYO Magic] checkForMyoPage called');
+  console.log('[Yoto MYO Magic] URL:', url);
+  console.log('[Yoto MYO Magic] Path:', path);
+  
   // Check if we're on my.yotoplay.com
   if (!url.includes('my.yotoplay.com')) {
+    console.log('[Yoto MYO Magic] Not on my.yotoplay.com, skipping');
     return;
   }
   
   
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
+    console.log('[Yoto MYO Magic] Detected My Playlists page');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
     waitForMyoElements();
@@ -123,14 +104,22 @@ function checkForMyoPage() {
 function waitForMyoElements() {
   // For my-cards or playlists page, use simple retry logic like Icon Match button
   const path = window.location.pathname;
+  console.log('[Yoto MYO Magic] waitForMyoElements called, path:', path);
+  
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
     // Simple retry pattern - matches the working Icon Match approach
     const attempts = [500, 2000, 4000];
+    console.log('[Yoto MYO Magic] Starting retry attempts for button injection');
+    
     attempts.forEach((delay, index) => {
       setTimeout(() => {
+        console.log(`[Yoto MYO Magic] Attempt ${index + 1} at ${delay}ms`);
         if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
+          console.log('[Yoto MYO Magic] Buttons not found, attempting injection');
           const result = checkAndInjectImportButton();
+          console.log('[Yoto MYO Magic] Injection result:', result);
         } else {
+          console.log('[Yoto MYO Magic] Buttons already exist, skipping');
         }
       }, delay);
     });
@@ -141,18 +130,15 @@ function waitForMyoElements() {
 // Simple injection function using "My playlists" heading as reliable anchor point
 function checkAndInjectImportButton() {
   
-  // Only inject on main playlists page, not edit pages
   const path = window.location.pathname;
   if (path.includes('/edit') || path.includes('/card/')) {
     return false;
   }
   
-  // Don't inject if already exists
   if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
     return true;
   }
   
-  // Primary approach: Find "My playlists" or "My Cards" heading and position button in optimal spot below it
   const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
   
   const playlistsHeading = headings.find(el => {
@@ -207,88 +193,6 @@ function checkAndInjectImportButton() {
   return false;
 }
 
-// These functions are no longer needed since we're not adding the Bulk Match button
-// Keeping them empty to avoid breaking any references
-function initializeMyoFeatures(container) {
-  // Initialize MYO features
-  
-  // Extract track information
-  extractTracks(container);
-  
-  // Inject UI elements
-  if (!state.injectedUI) {
-    injectUI(container);
-    state.injectedUI = true;
-  }
-  
-  // Set up track observers
-  observeTracks(container);
-}
-
-// Extract track information (when on edit page with tracks)
-function extractTracks(container) {
-  state.tracks = [];
-  
-  // This will be implemented when we have access to the actual edit page
-  // For now, we'll focus on button injection
-  // Track extraction for edit pages
-}
-
-// Inject UI elements
-function injectUI(container) {
-  // Inject UI based on page type
-  
-  if (state.pageType === 'add-playlist') {
-    injectAddPlaylistUI(container);
-  } else if (state.pageType === 'my-playlists') {
-    injectMyPlaylistsUI(container);
-  }
-  
-  // Create preview overlay (hidden by default)
-  if (!document.getElementById('yoto-magic-overlay')) {
-    const overlay = createPreviewOverlay();
-    document.body.appendChild(overlay);
-  }
-}
-
-// Inject UI for Add Playlist page
-function injectAddPlaylistUI(container) {
-  // Find the button row with MYO Studio buttons
-  const buttonRows = document.querySelectorAll('.flex.gap-2');
-  
-  for (const row of buttonRows) {
-    // Check if this row has MYO Studio buttons
-    const hasMyoStudio = row.querySelector('button')?.textContent?.includes('Icons & Titles') ||
-                        row.querySelector('button')?.textContent?.includes('MYO Magic');
-    
-    if (hasMyoStudio && !row.querySelector('#yoto-magic-match-btn')) {
-      const button = createAutoMatchButton();
-      // Insert after the last button in the row
-      row.appendChild(button);
-      // Auto-Match button added
-      break;
-    }
-  }
-}
-
-
-// Create auto-match button (Yoto-styled)
-function createAutoMatchButton() {
-  const button = document.createElement('button');
-  button.id = 'yoto-magic-match-btn';
-  button.className = 'inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
-  button.innerHTML = `
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-    </svg>
-    <span>Auto-Match Icons</span>
-  `;
-  
-  // Add click handler
-  button.addEventListener('click', handleAutoMatchClick);
-  
-  return button;
-}
 
 // Create import button for My Playlists page
 function createImportButton() {
@@ -351,36 +255,6 @@ function createImportButton() {
   return button;
 }
 
-// Create bulk match button for My Playlists page
-function createBulkMatchButton() {
-  const button = document.createElement('button');
-  button.id = 'yoto-magic-bulk-btn';
-  
-  // Match the style of other buttons on the page
-  button.className = 'inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500';
-  
-  // Check auth state to determine icon
-  const iconSvg = state.authenticated ? 
-    // Magic wand icon for authenticated
-    `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
-    </svg>` :
-    // Lock icon for not authenticated
-    `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-    </svg>`;
-  
-  button.innerHTML = `
-    ${iconSvg}
-    <span>Bulk Icon Match</span>
-  `;
-  
-  // Add click handler
-  button.addEventListener('click', handleBulkMatchClick);
-  
-  return button;
-}
-
 // Update button icon based on auth state
 function updateButtonIcon(authenticated) {
   const button = document.getElementById('yoto-magic-bulk-btn');
@@ -402,84 +276,11 @@ function updateButtonIcon(authenticated) {
   `;
 }
 
-// Create preview overlay
-function createPreviewOverlay() {
-  const overlay = document.createElement('div');
-  overlay.id = 'yoto-magic-overlay';
-  overlay.className = 'yoto-magic-overlay';
-  overlay.style.cssText = `
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 10000;
-    animation: fadeIn 0.3s ease;
-  `;
-  
-  overlay.innerHTML = `
-    <div class="yoto-magic-modal" style="
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      border-radius: 12px;
-      padding: 30px;
-      max-width: 800px;
-      max-height: 80vh;
-      overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    ">
-      <h2 style="margin: 0 0 20px 0; color: #2c3e50;">Icon Matching Preview</h2>
-      <div id="yoto-magic-preview-content">
-        <!-- Dynamic content will be inserted here -->
-      </div>
-      <div class="yoto-magic-actions" style="
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-        margin-top: 30px;
-        padding-top: 20px;
-        border-top: 1px solid #e5e7eb;
-      ">
-        <button id="yoto-magic-cancel" style="
-          padding: 10px 20px;
-          background: #f3f4f6;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-        ">Cancel</button>
-        <button id="yoto-magic-apply" style="
-          padding: 10px 20px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-        ">Apply Changes</button>
-      </div>
-    </div>
-  `;
-  
-  // Add event listeners
-  overlay.querySelector('#yoto-magic-cancel').addEventListener('click', hideOverlay);
-  overlay.querySelector('#yoto-magic-apply').addEventListener('click', applyIconChanges);
-  
-  return overlay;
-}
-
-// Handle auto-match button click
+// Handle auto-match button click (currently unused - button not injected on edit pages)
 async function handleAutoMatchClick() {
-  // Auto-match clicked
-  
-  // Check if we're authenticated with Yoto API
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    // Show loading state during auth
     const button = document.getElementById('yoto-magic-match-btn');
     const originalContent = button.innerHTML;
     button.innerHTML = `
@@ -490,11 +291,10 @@ async function handleAutoMatchClick() {
       <span>Authorizing...</span>
     `;
     
-    // Start seamless authentication
     chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
       if (authResult && authResult.success && authResult.authenticated) {
         if (authResult.silent) {
-          // Silent authentication succeeded - completely seamless!
+          // Silent authentication succeeded
           showNotification('✓ Ready! Starting icon matching...', 'success');
         } else {
           // Interactive authentication succeeded
@@ -514,10 +314,7 @@ async function handleAutoMatchClick() {
     return;
   }
   
-  // Get playlist name for context
   const playlistName = document.querySelector('input[placeholder="Playlist name"]')?.value || 'Untitled Playlist';
-  
-  // Show loading state
   const button = document.getElementById('yoto-magic-match-btn');
   const originalContent = button.innerHTML;
   button.innerHTML = `
@@ -541,27 +338,30 @@ async function handleAutoMatchClick() {
     showNotification('Error matching icons. Please try again.', 'error');
     showNotification('Failed to match icons. Please try again.', 'error');
     button.innerHTML = originalContent;
+    // Track matching errors
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'Icon matching failed',
+      context: {
+        action: 'icon_match',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
     button.disabled = false;
   }
 }
 
-// Handle bulk match button click
 async function handleBulkMatchClick() {
-  
-  
-  // Check if we're authenticated with Yoto API
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   
   if (!authResponse.authenticated) {
-    // Start seamless auth flow
     showNotification('Authorizing with Yoto...', 'info');
-    
-    // Start authentication
     const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
     
     if (authResult && authResult.success && authResult.authenticated) {
       if (authResult.silent) {
-        // Silent authentication succeeded - completely seamless!
+        // Silent authentication succeeded
         showNotification('✓ Ready! Continuing...', 'success');
       } else {
         // Interactive authentication succeeded
@@ -579,13 +379,9 @@ async function handleBulkMatchClick() {
   // Update button icon to show we're authenticated
   state.authenticated = true;
   updateButtonIcon(true);
-  
   showNotification('Fetching your cards...', 'info');
-  
-  // Test API by fetching cards
+
   const cardsResponse = await chrome.runtime.sendMessage({ action: 'GET_CARDS' });
-  
-  
   if (cardsResponse.error) {
     if (cardsResponse.needsAuth) {
       // Token might be expired, try again
@@ -624,15 +420,10 @@ async function handleBulkMatchClick() {
   }
 }
 
-// Handle import button click
 async function handleImportClick() {
-  // Import clicked
-  
   try {
-    // Check authentication first
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-    // Check auth response
-    
+
     if (!authResponse || !authResponse.authenticated) {
       showNotification('Please authenticate first. Click the extension icon.', 'info');
       // Try to start auth
@@ -660,27 +451,30 @@ async function handleImportClick() {
     openFolderSelector();
   } catch (error) {
     showNotification('Error occurred. Please try again.', 'error');
+    // Track import errors
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'Import initialization failed',
+      context: {
+        action: 'import_init',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
     // If auth check fails, still show the import options
     showNotification('Proceeding without auth check...', 'warning');
     openFolderSelector();
   }
 }
 
-// Open folder selector directly
 function openFolderSelector() {
-  // Show import options modal
   showImportOptionsModal();
 }
 
-// Show modal with import options
 function showImportOptionsModal() {
-  // Show import options
-  
-  // Remove any existing modal
   const existingModal = document.getElementById('yoto-import-options-modal');
   if (existingModal) existingModal.remove();
   
-  // Create modal with inline styles
   const modal = document.createElement('div');
   modal.id = 'yoto-import-options-modal';
   modal.style.cssText = `
@@ -797,7 +591,6 @@ function showImportOptionsModal() {
   });
 }
 
-// Select ZIP file
 function selectZipFile() {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
@@ -821,7 +614,6 @@ function selectZipFile() {
   fileInput.click();
 }
 
-// Select folder
 function selectFolder() {
   const folderInput = document.createElement('input');
   folderInput.type = 'file';
@@ -845,15 +637,7 @@ function selectFolder() {
   folderInput.click();
 }
 
-// Deprecated - kept for backward compatibility if needed
-// Use showImportOptionsModal() instead
-function showCustomFilePicker() {
-  showImportOptionsModal();
-}
-
-// Process files from folder selection
 async function processFolderFiles(files) {
-  // Extract folder name from the first file's path
   let folderName = 'Imported Playlist';
   if (files[0] && files[0].webkitRelativePath) {
     const pathParts = files[0].webkitRelativePath.split('/');
@@ -868,22 +652,16 @@ async function processFolderFiles(files) {
   
   // Filter out Mac metadata and non-media files
   const cleanFiles = Array.from(files).filter(f => {
-    // Skip Mac metadata files
     if (f.name.startsWith('._') || f.webkitRelativePath.includes('__MACOSX/')) {
       return false;
     }
-    
-    // Skip .DS_Store and other system files
     if (f.name === '.DS_Store' || f.name === 'Thumbs.db') {
       return false;
     }
-    
-    // Check if it's a media file
     const ext = f.name.split('.').pop().toLowerCase();
     return audioExtensions.includes(ext) || imageExtensions.includes(ext);
   });
   
-  // Collect all audio and image files with file sizes
   const allAudioFiles = [];
   const allImageFiles = [];
   
@@ -898,7 +676,6 @@ async function processFolderFiles(files) {
     }
   });
   
-  // Smart audio folder detection (same logic as ZIP)
   let audioFiles = [];
   
   // 1. First, look for folders containing 'audio' in the name
@@ -1029,28 +806,23 @@ async function processFolderFiles(files) {
   }
   
   // Files processed successfully
-  
   showNotification(`Folder processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
   
   // Show import modal with the files
   showImportModal(audioFiles, trackIcons, coverImage, folderName, 'folder');
 }
 
-// Process ZIP file
 async function processZipFile(file) {
   try {
     // JSZip is now loaded via manifest.json
     const zip = new JSZip();
     const contents = await zip.loadAsync(file);
     
-    // Extract folder name from zip filename
     let folderName = file.name.replace(/\.zip$/i, '');
     
-    // Supported audio and image extensions
     const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
     const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
     
-    // Collect all files first
     const allAudioFiles = [];
     const allImageFiles = [];
     const filesByPath = {};
@@ -1095,7 +867,6 @@ async function processZipFile(file) {
       }
     }
     
-    // Smart audio folder detection
     let audioFiles = [];
     
     // 1. First, look for folders containing 'audio' in the name
@@ -1125,7 +896,6 @@ async function processZipFile(file) {
       );
     }
     
-    // Smart image folder detection
     let imageFiles = [];
     
     // 1. First, look for folders containing 'images' or 'icons' in the name
@@ -1158,7 +928,6 @@ async function processZipFile(file) {
     
     // Sort audio files naturally (handle numbers properly)
     audioFiles.sort((a, b) => {
-      // Natural sort that handles numbers properly
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
     
@@ -1168,7 +937,6 @@ async function processZipFile(file) {
     const trackIcons = [];
     let coverImage = null;
     
-    // First, separate by naming pattern and size
     const numericImages = [];
     const nonNumericImages = [];
     
@@ -1177,7 +945,6 @@ async function processZipFile(file) {
       // Extract the number to ensure proper sorting
       const numberMatch = f.name.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
       if (numberMatch) {
-        // Store the extracted number for sorting
         f.extractedNumber = parseInt(numberMatch[1]);
         numericImages.push(f);
       } else {
@@ -1185,26 +952,21 @@ async function processZipFile(file) {
       }
     });
     
-    // Sort numeric images by their extracted number
     numericImages.sort((a, b) => {
       return (a.extractedNumber || 0) - (b.extractedNumber || 0);
     });
     
-    // If we have numeric images, use them as track icons
     if (numericImages.length > 0) {
       trackIcons.push(...numericImages);
     }
     
     // Find cover image from non-numeric images (typically the largest one)
     if (nonNumericImages.length > 0) {
-      // Pick the largest non-numeric image as the cover
       coverImage = nonNumericImages.reduce((largest, current) => {
         return (current.fileSize > largest.fileSize) ? current : largest;
       });
     }
     
-    // If no non-numeric cover found but we have images, 
-    // check if there's a significantly larger image that could be the cover
     if (!coverImage && imageFiles.length > 0) {
       const avgSize = imageFiles.reduce((sum, f) => sum + f.fileSize, 0) / imageFiles.length;
       const largeImages = imageFiles.filter(f => f.fileSize > avgSize * 3); // 3x larger than average
@@ -1224,7 +986,6 @@ async function processZipFile(file) {
     }
     
     // Files processed successfully
-    
     showNotification(`ZIP processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
     
     // Show import modal with the extracted files
@@ -1233,12 +994,19 @@ async function processZipFile(file) {
   } catch (error) {
     showNotification('Error processing file. Please check the file format.', 'error');
     showNotification('Failed to process ZIP file. Error: ' + error.message, 'error');
+    // Track ZIP processing errors
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'ZIP processing failed',
+      context: {
+        action: 'process_zip',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
   }
 }
 
-
-
-// Show notification
 function showNotification(message, type = 'info') {
   // Remove existing notification
   const existing = document.querySelector('.yoto-magic-notification');
@@ -1257,63 +1025,6 @@ function showNotification(message, type = 'info') {
   setTimeout(() => {
     notification.remove();
   }, 5000);
-}
-
-// Show preview overlay
-function showPreview(matches) {
-  const overlay = document.getElementById('yoto-magic-overlay');
-  const content = document.getElementById('yoto-magic-preview-content');
-  
-  // Generate preview content
-  content.innerHTML = `
-    <div class="preview-list" style="display: flex; flex-direction: column; gap: 12px;">
-      ${matches.map(match => `
-        <div class="preview-item" style="
-          display: flex;
-          align-items: center;
-          gap: 16px;
-          padding: 12px;
-          background: #f9fafb;
-          border-radius: 8px;
-        " data-track-id="${match.trackId}">
-          <div class="preview-icon" style="
-            width: 48px;
-            height: 48px;
-            background: #e5e7eb;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">
-            ${match.suggestedIcon ? 
-              `<img src="${match.suggestedIcon}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">` :
-              '?'}
-          </div>
-          <div class="preview-details" style="flex: 1;">
-            <div style="font-weight: 500; color: #2c3e50;">${match.trackTitle}</div>
-            <div style="font-size: 12px; color: #94a3b8;">
-              Confidence: ${match.confidence}%
-            </div>
-          </div>
-          <div class="confidence-badge" style="
-            padding: 4px 8px;
-            background: ${match.confidence > 80 ? '#4ade80' : match.confidence > 50 ? '#fbbf24' : '#f87171'};
-            color: white;
-            border-radius: 4px;
-            font-size: 12px;
-          ">
-            ${match.confidence > 80 ? 'Excellent' : match.confidence > 50 ? 'Good' : 'Low'}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-  
-  // Store matches for applying later
-  overlay.dataset.matches = JSON.stringify(matches);
-  
-  // Show overlay
-  overlay.style.display = 'block';
 }
 
 // Hide overlay
@@ -1362,7 +1073,12 @@ function setupObserver() {
   
   state.observer = new MutationObserver((mutations) => {
     // Check if we've navigated to a MYO page
-    if (!state.isMyoPage && window.location.href.includes('/myo/')) {
+    const currentPath = window.location.pathname;
+    if (!state.isMyoPage && 
+        (currentPath.includes('/my-cards/playlists') || 
+         currentPath.includes('/my-cards') ||
+         currentPath.includes('/card/'))) {
+      console.log('[Yoto MYO Magic] Navigation detected to MYO page');
       checkForMyoPage();
     }
   });
@@ -1373,41 +1089,6 @@ function setupObserver() {
   });
 }
 
-// Observe track changes
-function observeTracks(container) {
-  const trackObserver = new MutationObserver(() => {
-    extractTracks(container);
-  });
-  
-  trackObserver.observe(container, {
-    childList: true,
-    subtree: true,
-    characterData: true
-  });
-}
-
-// Handle messages from popup/background
-function handleMessage(request, sender, sendResponse) {
-  switch (request.action) {
-    case 'START_MATCHING':
-      handleAutoMatchClick();
-      sendResponse({ success: true });
-      break;
-      
-    case 'GET_TRACKS':
-      sendResponse({ tracks: state.tracks });
-      break;
-      
-    case 'IS_MYO_PAGE':
-      sendResponse({ isMyoPage: state.isMyoPage });
-      break;
-      
-    default:
-      sendResponse({ error: 'Unknown action' });
-  }
-  
-  return true; // Keep channel open for async response
-}
 
 // Add CSS for animations
 function injectStyles() {
@@ -1945,6 +1626,16 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       
     } catch (error) {
       showNotification('Import failed: ' + error.message, 'error');
+      // Track import failures
+      chrome.runtime.sendMessage({
+        action: 'TRACK_ERROR',
+        error: error.message || 'Playlist import failed',
+        context: {
+          action: 'import_playlist',
+          component: 'content',
+          authenticated: state.authenticated
+        }
+      });
       
       // Track failed import
       chrome.runtime.sendMessage({

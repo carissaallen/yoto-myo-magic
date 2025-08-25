@@ -11,19 +11,6 @@ function getRedirectUri() {
     return chrome.identity.getRedirectURL();
 }
 
-// PKCE utilities for secure OAuth flow
-function generateCodeVerifier() {
-    const array = new Uint8Array(32);
-    crypto.getRandomValues(array);
-    return base64URLEncode(array);
-}
-
-async function generateCodeChallenge(codeVerifier) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(codeVerifier);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return base64URLEncode(new Uint8Array(digest));
-}
 
 function base64URLEncode(buffer) {
     const base64 = btoa(String.fromCharCode(...buffer));
@@ -34,8 +21,6 @@ class TokenManager {
     static async getTokens() {
         const result = await chrome.storage.local.get(CONFIG.TOKEN_STORAGE_KEY);
         const tokens = result[CONFIG.TOKEN_STORAGE_KEY] || null;
-        
-        
         return tokens;
     }
 
@@ -99,7 +84,13 @@ class TokenManager {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to refresh token');
+                const error = new Error(`Failed to refresh token: ${response.status}`);
+                YotoAnalytics.trackError(error, {
+                    action: 'token_refresh',
+                    code: response.status,
+                    component: 'service-worker'
+                });
+                throw error;
             }
 
             const newTokens = await response.json();
@@ -213,6 +204,11 @@ async function startOAuthFlow(interactive = true) {
             return {success: false, error: 'Silent authentication failed', needsInteractive: true};
         }
         
+        YotoAnalytics.trackCriticalError(error, {
+            action: 'oauth_flow',
+            component: 'service-worker',
+            authenticated: false
+        });
         return {success: false, error: error.message};
     }
 }
@@ -237,7 +233,13 @@ async function exchangeCodeForTokens(code) {
 
         if (!response.ok) {
             const error = await response.text();
-            throw new Error(`Token exchange failed: ${error}`);
+            const err = new Error(`Token exchange failed: ${error}`);
+            YotoAnalytics.trackCriticalError(err, {
+                action: 'token_exchange',
+                code: response.status,
+                component: 'service-worker'
+            });
+            throw err;
         }
 
         const tokens = await response.json();
@@ -308,13 +310,26 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
 
 
         if (response.status === 401) {
+            YotoAnalytics.trackError('401 Unauthorized - Token expired', {
+                action: 'api_request',
+                code: 401,
+                url: endpoint,
+                component: 'service-worker'
+            });
             tokens = await TokenManager.refreshToken();
             return makeAuthenticatedRequest(endpoint, options);
         }
 
         if (response.status === 403) {
             const errorText = await response.text();
-            throw new Error(`API request forbidden: ${response.status}`);
+            const error = new Error(`API request forbidden: ${response.status}`);
+            YotoAnalytics.trackCriticalError(error, {
+                action: 'api_request',
+                code: 403,
+                url: endpoint,
+                component: 'service-worker'
+            });
+            throw error;
         }
 
         if (!response.ok) {
@@ -984,103 +999,6 @@ async function updateCardIcons(cardId, iconMatches) {
     }
 }
 
-// This function has been moved to line 811 to avoid duplication
-
-// Upload audio file and handle transcoding
-async function uploadAudio(fileData) {
-    try {
-        // Handle base64 encoded file data from content script
-        let fileBuffer;
-        let contentType = 'audio/mpeg';
-        let fileName = 'audio';
-        
-        if (fileData.data) {
-            // Convert base64 to ArrayBuffer
-            const binaryString = atob(fileData.data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            fileBuffer = bytes.buffer;
-            contentType = fileData.type || 'audio/mpeg';
-            fileName = fileData.name || 'audio';
-        } else {
-            fileBuffer = fileData;
-        }
-        // Step 1: Get upload URL
-        const uploadUrlResponse = await makeAuthenticatedRequest(
-            '/media/transcode/audio/uploadUrl',
-            {
-                method: 'GET'
-            }
-        );
-
-        if (uploadUrlResponse.error) {
-            throw new Error(`Failed to get upload URL: ${uploadUrlResponse.error}`);
-        }
-
-        const { upload: { uploadUrl: audioUploadUrl, uploadId } } = uploadUrlResponse;
-
-        if (!audioUploadUrl) {
-            throw new Error('Failed to get upload URL');
-        }
-
-        // Step 2: Upload audio file
-        const uploadResponse = await fetch(audioUploadUrl, {
-            method: 'PUT',
-            body: fileBuffer,
-            headers: {
-                'Content-Type': contentType
-            }
-        });
-
-        if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload audio: ${uploadResponse.status}`);
-        }
-
-        // Step 3: Wait for transcoding
-        let transcodedAudio = null;
-        let attempts = 0;
-        const maxAttempts = 120; // 60 seconds with 500ms intervals - increased for larger files
-
-        while (attempts < maxAttempts) {
-            const transcodeResponse = await makeAuthenticatedRequest(
-                `/media/upload/${uploadId}/transcoded?loudnorm=false`,
-                {
-                    method: 'GET'
-                }
-            );
-
-            if (transcodeResponse.transcode?.transcodedSha256) {
-                transcodedAudio = transcodeResponse.transcode;
-                break;
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-            attempts++;
-        }
-
-        if (!transcodedAudio) {
-            throw new Error('Transcoding timed out');
-        }
-
-        // Return the transcoded audio data
-        return {
-            trackUrl: `yoto:#${transcodedAudio.transcodedSha256}`,
-            duration: transcodedAudio.transcodedInfo?.duration,
-            fileSize: transcodedAudio.transcodedInfo?.fileSize,
-            channels: transcodedAudio.transcodedInfo?.channels,
-            format: transcodedAudio.transcodedInfo?.format,
-            title: transcodedAudio.transcodedInfo?.metadata?.title || fileName
-        };
-    } catch (error) {
-        
-        throw error;
-    }
-}
-
-// Removed duplicate createPlaylistContent function - using the simpler one below
-
 // Helper function to format duration
 function formatDuration(seconds) {
     const hours = Math.floor(seconds / 3600);
@@ -1597,6 +1515,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 case 'LOGOUT':
                     await TokenManager.clearAllAuthData();
                     sendResponse({success: true, message: 'Logged out and cleared all auth data'});
+                    break;
+                    
+                case 'TRACK_ERROR':
+                    // Track errors to GA4
+                    if (typeof YotoAnalytics !== 'undefined') {
+                        YotoAnalytics.trackError(request.error, request.context || {});
+                    }
+                    sendResponse({success: true});
                     break;
                     
                 case 'TRACK_EVENT':
