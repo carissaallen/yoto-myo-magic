@@ -13,8 +13,8 @@ if (typeof ExtensionConfig === 'undefined') {
     // The security comes from the redirect URI validation on Yoto's side
     YOTO_CLIENT_ID: '91cvZsRLdqJpX2PDNJxjsm9yvco0xnQh',
     
-    // Extension Configuration
-    EXTENSION_ID: 'mjljammaehdojchngjnooekefnogdhol',
+    // Public Google Chrome Extension ID
+    EXTENSION_ID: 'iehnjhgdgfepcjlbfkpngibijmffcmpp',
     
     // API Endpoints
     YOTO_API_BASE: 'https://api.yotoplay.com',
