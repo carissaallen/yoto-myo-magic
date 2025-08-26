@@ -1168,6 +1168,20 @@ function injectStyles() {
   document.head.appendChild(style);
 }
 
+function cleanTrackTitle(filename) {
+  // Remove file extension
+  let title = filename.replace(/\.[^/.]+$/, '');
+  // Remove leading numbers with various separators (01., 01-, 01_, 01 )
+  title = title.replace(/^\d+[\s._-]+/, '');
+  // Trim any remaining whitespace
+  title = title.trim();
+  // If title is empty after cleaning, use original without extension
+  if (!title) {
+    title = filename.replace(/\.[^/.]+$/, '');
+  }
+  return title;
+}
+
 // Utility function for chunked parallel uploads (optimized)
 async function uploadInChunks(items, uploadFn, chunkSize = 8, onProgress) {
   const results = [];
@@ -1421,7 +1435,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         audioResults.forEach((result, index) => {
           if (result.status === 'fulfilled' && !result.value.response.error) {
             uploadedTracks[index] = {
-              title: result.value.audioFile.name.replace(/\.[^/.]+$/, ''),
+              title: cleanTrackTitle(result.value.audioFile.name),
               transcodedAudio: result.value.response.transcodedAudio
             };
           } else if (result.status === 'rejected' || result.value.response.error) {
@@ -1512,7 +1526,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               const { response, audioFile, index: audioIndex } = value;
               if (!response.error && response.transcodedAudio) {
                 uploadedTracks[audioIndex] = {
-                  title: audioFile.name.replace(/\.[^/.]+$/, ''),
+                  title: cleanTrackTitle(audioFile.name),
                   transcodedAudio: response.transcodedAudio
                 };
               } else {
