@@ -50,11 +50,13 @@ function init() {
     });
   }
   
+  setupObserver();
+  setupNavigationListener();
+  
   // Simple delay then check for MYO page
   setTimeout(() => {
     console.log('[Yoto MYO Magic] Checking for MYO page after delay...');
     checkForMyoPage();
-    setupObserver();
   }, 1000);
   
   
@@ -91,12 +93,17 @@ function checkForMyoPage() {
     console.log('[Yoto MYO Magic] Detected My Playlists page');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
+    // Always attempt to inject buttons when detecting playlists page
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
     state.isMyoPage = true;
     state.pageType = 'edit-card';
     // For edit pages, we need to inject the Icon Match button using content-simple.js
     // That's handled by the service worker
+  } else {
+    // Reset state when on other pages
+    state.isMyoPage = false;
+    state.pageType = null;
   }
 }
 
@@ -107,13 +114,18 @@ function waitForMyoElements() {
   console.log('[Yoto MYO Magic] waitForMyoElements called, path:', path);
   
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
-    // Simple retry pattern - matches the working Icon Match approach
-    const attempts = [500, 2000, 4000];
-    console.log('[Yoto MYO Magic] Starting retry attempts for button injection');
+    if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
+      console.log('[Yoto MYO Magic] Attempting immediate injection');
+      const result = checkAndInjectImportButton();
+      console.log('[Yoto MYO Magic] Immediate injection result:', result);
+    }
+    
+    const attempts = [500, 1500, 3000];
+    console.log('[Yoto MYO Magic] Setting up retry attempts for button injection');
     
     attempts.forEach((delay, index) => {
       setTimeout(() => {
-        console.log(`[Yoto MYO Magic] Attempt ${index + 1} at ${delay}ms`);
+        console.log(`[Yoto MYO Magic] Retry attempt ${index + 1} at ${delay}ms`);
         if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
           console.log('[Yoto MYO Magic] Buttons not found, attempting injection');
           const result = checkAndInjectImportButton();
@@ -1067,6 +1079,37 @@ async function applyIconChanges() {
   });
 }
 
+function setupNavigationListener() {
+  // Listen for popstate events (back/forward navigation)
+  window.addEventListener('popstate', () => {
+    const path = window.location.pathname;
+    if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
+      // Small delay to let the page update
+      setTimeout(() => {
+        checkForMyoPage();
+      }, 100);
+    }
+  });
+  
+  // Also listen for pushstate/replacestate for SPA navigation
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+  
+  history.pushState = function() {
+    originalPushState.apply(history, arguments);
+    setTimeout(() => {
+      checkForMyoPage();
+    }, 100);
+  };
+  
+  history.replaceState = function() {
+    originalReplaceState.apply(history, arguments);
+    setTimeout(() => {
+      checkForMyoPage();
+    }, 100);
+  };
+}
+
 // Set up mutation observer
 function setupObserver() {
   if (state.observer) return;
@@ -1074,12 +1117,12 @@ function setupObserver() {
   state.observer = new MutationObserver((mutations) => {
     // Check if we've navigated to a MYO page
     const currentPath = window.location.pathname;
-    if (!state.isMyoPage && 
-        (currentPath.includes('/my-cards/playlists') || 
-         currentPath.includes('/my-cards') ||
-         currentPath.includes('/card/'))) {
-      console.log('[Yoto MYO Magic] Navigation detected to MYO page');
+    if (currentPath.includes('/my-cards/playlists') || 
+        currentPath === '/my-cards' || 
+        currentPath === '/my-cards/') {
       checkForMyoPage();
+    } else if (currentPath.includes('/card/')) {
+      state.isMyoPage = false;
     }
   });
   
@@ -1123,6 +1166,20 @@ function injectStyles() {
     }
   `;
   document.head.appendChild(style);
+}
+
+function cleanTrackTitle(filename) {
+  // Remove file extension
+  let title = filename.replace(/\.[^/.]+$/, '');
+  // Remove leading numbers with various separators (01., 01-, 01_, 01 )
+  title = title.replace(/^\d+[\s._-]+/, '');
+  // Trim any remaining whitespace
+  title = title.trim();
+  // If title is empty after cleaning, use original without extension
+  if (!title) {
+    title = filename.replace(/\.[^/.]+$/, '');
+  }
+  return title;
 }
 
 // Utility function for chunked parallel uploads (optimized)
@@ -1378,7 +1435,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         audioResults.forEach((result, index) => {
           if (result.status === 'fulfilled' && !result.value.response.error) {
             uploadedTracks[index] = {
-              title: result.value.audioFile.name.replace(/\.[^/.]+$/, ''),
+              title: cleanTrackTitle(result.value.audioFile.name),
               transcodedAudio: result.value.response.transcodedAudio
             };
           } else if (result.status === 'rejected' || result.value.response.error) {
@@ -1469,7 +1526,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               const { response, audioFile, index: audioIndex } = value;
               if (!response.error && response.transcodedAudio) {
                 uploadedTracks[audioIndex] = {
-                  title: audioFile.name.replace(/\.[^/.]+$/, ''),
+                  title: cleanTrackTitle(audioFile.name),
                   transcodedAudio: response.transcodedAudio
                 };
               } else {
