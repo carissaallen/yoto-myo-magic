@@ -1,9 +1,4 @@
 const DEFAULT_SETTINGS = {
-  confidenceThreshold: 70,
-  autoMatchEnabled: false,
-  synonymsEnabled: true,
-  defaultIcon: 'question',
-  preferredThemes: ['animals'],
   debugMode: false
 };
 
@@ -14,15 +9,6 @@ const elements = {
   statusText: document.getElementById('statusText'),
   authButton: document.getElementById('authButton'),
   
-  // Preferences
-  confidenceThreshold: document.getElementById('confidenceThreshold'),
-  confidenceValue: document.getElementById('confidenceValue'),
-  autoMatchEnabled: document.getElementById('autoMatchEnabled'),
-  synonymsEnabled: document.getElementById('synonymsEnabled'),
-  
-  // Default Icons
-  defaultIcon: document.getElementById('defaultIcon'),
-  themeChips: document.getElementById('themeChips'),
   
   // Advanced
   clearCacheBtn: document.getElementById('clearCacheBtn'),
@@ -58,18 +44,9 @@ async function loadSettings() {
     const settings = { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
     
     // Apply settings to UI
-    elements.confidenceThreshold.value = settings.confidenceThreshold;
-    elements.confidenceValue.textContent = `${settings.confidenceThreshold}%`;
-    elements.autoMatchEnabled.checked = settings.autoMatchEnabled;
-    elements.synonymsEnabled.checked = settings.synonymsEnabled;
-    elements.defaultIcon.value = settings.defaultIcon;
-    elements.debugMode.checked = settings.debugMode;
-    
-    // Set theme chips
-    const themeInputs = elements.themeChips.querySelectorAll('input[type="checkbox"]');
-    themeInputs.forEach(input => {
-      input.checked = settings.preferredThemes.includes(input.value);
-    });
+    if (elements.debugMode) {
+      elements.debugMode.checked = settings.debugMode;
+    }
   } catch (error) {
     
   }
@@ -78,17 +55,8 @@ async function loadSettings() {
 // Save settings to storage
 async function saveSettings() {
   try {
-    // Collect theme preferences
-    const themeInputs = elements.themeChips.querySelectorAll('input[type="checkbox"]:checked');
-    const preferredThemes = Array.from(themeInputs).map(input => input.value);
-    
     const settings = {
-      confidenceThreshold: parseInt(elements.confidenceThreshold.value),
-      autoMatchEnabled: elements.autoMatchEnabled.checked,
-      synonymsEnabled: elements.synonymsEnabled.checked,
-      defaultIcon: elements.defaultIcon.value,
-      preferredThemes: preferredThemes,
-      debugMode: elements.debugMode.checked
+      debugMode: elements.debugMode ? elements.debugMode.checked : false
     };
     
     await chrome.storage.sync.set({ settings });
@@ -142,21 +110,9 @@ function setupEventListeners() {
   elements.authButton.addEventListener('click', handleAuthToggle);
   
   // Settings changes
-  elements.confidenceThreshold.addEventListener('input', (e) => {
-    elements.confidenceValue.textContent = `${e.target.value}%`;
-    debouncedSave();
-  });
-  
-  elements.autoMatchEnabled.addEventListener('change', debouncedSave);
-  elements.synonymsEnabled.addEventListener('change', debouncedSave);
-  elements.defaultIcon.addEventListener('change', debouncedSave);
-  elements.debugMode.addEventListener('change', debouncedSave);
-  
-  // Theme chips
-  const themeInputs = elements.themeChips.querySelectorAll('input[type="checkbox"]');
-  themeInputs.forEach(input => {
-    input.addEventListener('change', debouncedSave);
-  });
+  if (elements.debugMode) {
+    elements.debugMode.addEventListener('change', debouncedSave);
+  }
   
   // Clear cache
   elements.clearCacheBtn.addEventListener('click', handleClearCache);
@@ -299,9 +255,9 @@ function showNotification(message, type = 'success') {
   notification.textContent = message;
   
   if (type === 'error') {
-    notification.style.background = 'linear-gradient(135deg, #f87171 0%, #ef4444 100%)';
+    notification.style.background = '#ef4444';
   } else {
-    notification.style.background = 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)';
+    notification.style.background = '#1558d1';
   }
   
   notification.classList.add('show');
