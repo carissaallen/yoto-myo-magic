@@ -3,91 +3,130 @@ body {
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   font-size: 14px;
-  color: #333;
-  background: #fff;
-  width: 280px;
+  color: #2c3e50;
+  background: #ffffff;
+  width: 320px;
   min-height: 200px;
 }
 
 .popup-container {
-  padding: 16px;
-}
-
-.popup-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.popup-icon {
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-}
-
-.popup-header h1 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #2c3e50;
-}
-
-.popup-content p {
-  margin: 0 0 16px 0;
-  line-height: 1.4;
-  color: #666;
-}
-
-.popup-actions {
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.popup-button {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  align-items: center;
   text-align: center;
 }
 
+.popup-header {
+  margin-bottom: 20px;
+}
+
+.header-image {
+  width: 100%;
+  height: auto;
+  max-width: 220px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.popup-content {
+  width: 100%;
+}
+
+.description {
+  margin: 0 0 20px 0;
+  line-height: 1.6;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.popup-button {
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 8px;
+  letter-spacing: normal;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .popup-button.primary {
-  background: #FFD700;
-  color: #000;
+  background: #1558d1;
+  color: #ffffff;
+  box-shadow: none;
+  border: 1px solid #1558d1;
 }
 
 .popup-button.primary:hover {
-  background: #FFC700;
-  transform: translateY(-1px);
+  background: #0f47a8;
+  border-color: #0f47a8;
+  transform: none;
+  box-shadow: none;
+}
+
+.popup-button.primary:active {
+  transform: translateY(0);
 }
 
 .popup-button.secondary {
-  background: #f8f9fa;
-  color: #666;
-  border: 1px solid #e0e0e0;
+  background: #ffffff;
+  color: #1558d1;
+  border: 1px solid #1558d1;
 }
 
 .popup-button.secondary:hover {
-  background: #e9ecef;
-  color: #495057;
+  background: #f0f5ff;
+  color: #0f47a8;
+  border-color: #0f47a8;
 }
 
-.popup-info {
-  padding-top: 12px;
-  border-top: 1px solid #e0e0e0;
+.popup-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+  width: 100%;
 }
 
-.popup-note {
+.footer-note {
   font-size: 12px;
-  color: #888;
+  color: #9ca3af;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1f2937;
+    color: #f9fafb;
+  }
+  
+  .description {
+    color: #d1d5db;
+  }
+  
+  .popup-button.secondary {
+    background: #374151;
+    color: #d1d5db;
+    border-color: #4b5563;
+  }
+  
+  .popup-button.secondary:hover {
+    background: #4b5563;
+    color: #e5e7eb;
+    border-color: #6b7280;
+  }
+  
+  .popup-footer {
+    border-top-color: #374151;
+  }
+  
+  .footer-note {
+    color: #9ca3af;
+  }
 }
