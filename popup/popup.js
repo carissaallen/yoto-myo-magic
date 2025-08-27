@@ -1,13 +1,15 @@
 document.addEventListener('DOMContentLoaded', function() {
-  const openOptionsButton = document.getElementById('open-options');
-  const viewPermissionsButton = document.getElementById('view-permissions');
+  const goToYotoButton = document.getElementById('go-to-yoto');
+  const manageExtensionButton = document.getElementById('manage-extension');
   
-  openOptionsButton.addEventListener('click', function() {
-    chrome.runtime.openOptionsPage();
+  goToYotoButton.addEventListener('click', function() {
+    chrome.tabs.create({
+      url: 'https://my.yotoplay.com/my-cards/playlists'
+    });
     window.close();
   });
   
-  viewPermissionsButton.addEventListener('click', function() {
+  manageExtensionButton.addEventListener('click', function() {
     chrome.tabs.create({
       url: 'chrome://extensions/?id=' + chrome.runtime.id
     });
