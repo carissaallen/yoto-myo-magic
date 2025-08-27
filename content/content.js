@@ -1131,8 +1131,9 @@ async function processBulkZipFile(file) {
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 20vh;
     z-index: 10001;
   `;
   
@@ -2057,7 +2058,16 @@ async function processBulkImport(playlists, modal) {
   const startButton = document.querySelector('#start-bulk-import');
   const cancelButton = document.querySelector('#cancel-bulk-import');
   
-  // Show progress and disable buttons
+  const playlistSelectionArea = document.querySelector('#bulk-import-progress').previousElementSibling;
+  if (playlistSelectionArea) {
+    playlistSelectionArea.style.display = 'none';
+  }
+  
+  const foundPlaylistsText = document.querySelector('#bulk-import-progress').parentElement.querySelector('div[style*="margin-bottom: 20px; color: #666;"]');
+  if (foundPlaylistsText) {
+    foundPlaylistsText.style.display = 'none';
+  }
+  
   progressDiv.style.display = 'block';
   startButton.disabled = true;
   startButton.style.opacity = '0.5';
@@ -2180,23 +2190,32 @@ async function processBulkImport(playlists, modal) {
   
   // Show success modal and auto-refresh if successful
   if (successfulImports > 0) {
-    // Create success notification modal
     const successModal = document.createElement('div');
     successModal.style.cssText = `
       position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 20vh;
+      z-index: 10002;
+    `;
+    
+    const successContent = document.createElement('div');
+    successContent.style.cssText = `
       background: white;
       border-radius: 12px;
       padding: 24px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      z-index: 10002;
       text-align: center;
       min-width: 300px;
     `;
     
-    successModal.innerHTML = `
+    successContent.innerHTML = `
       <div style="margin-bottom: 16px;">
         <svg style="width: 48px; height: 48px; color: #10b981; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -2205,6 +2224,8 @@ async function processBulkImport(playlists, modal) {
       <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">Import Successful!</h3>
       <p style="margin: 0; color: #6b7280; font-size: 14px;">Refreshing page to show new playlists...</p>
     `;
+    
+    successModal.appendChild(successContent);
     
     // Remove the bulk import modal
     modal.remove();
