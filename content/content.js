@@ -11,9 +11,6 @@ let state = {
 const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 function init() {
-  console.log('[Yoto MYO Magic] Extension initializing...');
-  console.log('[Yoto MYO Magic] Current URL:', window.location.href);
-  console.log('[Yoto MYO Magic] Path:', window.location.pathname);
   
   // Check auth status with caching
   const now = Date.now();
@@ -23,7 +20,6 @@ function init() {
         state.authenticated = true;
         state.authCacheTime = now;
       } else {
-        // Try silent authentication immediately (like MYO Studio)
         try {
           const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
           if (authResult && authResult.success && authResult.authenticated && authResult.silent) {
@@ -35,7 +31,6 @@ function init() {
         } catch (error) {
           state.authenticated = false;
           console.error('[Auth] Silent auth error:', error);
-          // Track auth errors to GA4
           chrome.runtime.sendMessage({
             action: 'TRACK_ERROR',
             error: error.message,
@@ -53,14 +48,11 @@ function init() {
   setupObserver();
   setupNavigationListener();
   
-  // Simple delay then check for MYO page
   setTimeout(() => {
-    console.log('[Yoto MYO Magic] Checking for MYO page after delay...');
     checkForMyoPage();
   }, 1000);
   
   
-  // Listen for auth status updates
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTH_STATUS') {
       state.authenticated = request.authenticated;
@@ -73,65 +65,42 @@ function init() {
   });
 }
 
-// Check if current page is a MYO editing page
 function checkForMyoPage() {
   const url = window.location.href;
   const path = window.location.pathname;
   
-  console.log('[Yoto MYO Magic] checkForMyoPage called');
-  console.log('[Yoto MYO Magic] URL:', url);
-  console.log('[Yoto MYO Magic] Path:', path);
-  
-  // Check if we're on my.yotoplay.com
   if (!url.includes('my.yotoplay.com')) {
-    console.log('[Yoto MYO Magic] Not on my.yotoplay.com, skipping');
     return;
   }
   
   
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
-    console.log('[Yoto MYO Magic] Detected My Playlists page');
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
-    // Always attempt to inject buttons when detecting playlists page
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
     state.isMyoPage = true;
     state.pageType = 'edit-card';
-    // For edit pages, we need to inject the Icon Match button using content-simple.js
-    // That's handled by the service worker
   } else {
-    // Reset state when on other pages
     state.isMyoPage = false;
     state.pageType = null;
   }
 }
 
-// Wait for MYO elements to appear - simplified approach
 function waitForMyoElements() {
-  // For my-cards or playlists page, use simple retry logic like Icon Match button
   const path = window.location.pathname;
-  console.log('[Yoto MYO Magic] waitForMyoElements called, path:', path);
   
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
     if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
-      console.log('[Yoto MYO Magic] Attempting immediate injection');
-      const result = checkAndInjectImportButton();
-      console.log('[Yoto MYO Magic] Immediate injection result:', result);
+      checkAndInjectImportButton();
     }
     
     const attempts = [500, 1500, 3000];
-    console.log('[Yoto MYO Magic] Setting up retry attempts for button injection');
     
-    attempts.forEach((delay, index) => {
+    attempts.forEach((delay) => {
       setTimeout(() => {
-        console.log(`[Yoto MYO Magic] Retry attempt ${index + 1} at ${delay}ms`);
         if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
-          console.log('[Yoto MYO Magic] Buttons not found, attempting injection');
-          const result = checkAndInjectImportButton();
-          console.log('[Yoto MYO Magic] Injection result:', result);
-        } else {
-          console.log('[Yoto MYO Magic] Buttons already exist, skipping');
+          checkAndInjectImportButton();
         }
       }, delay);
     });
@@ -139,7 +108,6 @@ function waitForMyoElements() {
   }
 }
 
-// Simple injection function using "My playlists" heading as reliable anchor point
 function checkAndInjectImportButton() {
   
   const path = window.location.pathname;
@@ -186,11 +154,13 @@ function checkAndInjectImportButton() {
       
       // Create the button container
       const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = 'margin: 20px 0 24px 0; padding: 0;';
+      buttonContainer.style.cssText = 'margin: 20px 0 24px 0; padding: 0; display: flex; gap: 12px; align-items: center;';
       buttonContainer.id = 'yoto-import-container';
       
       const importButton = createImportButton();
+      const bulkImportButton = createBulkImportButton();
       buttonContainer.appendChild(importButton);
+      buttonContainer.appendChild(bulkImportButton);
       
       // Insert after the target element (either heading or descriptive text)
       if (targetElement.nextSibling) {
@@ -206,7 +176,6 @@ function checkAndInjectImportButton() {
 }
 
 
-// Create import button for My Playlists page
 function createImportButton() {
   const button = document.createElement('button');
   button.id = 'yoto-import-btn';
@@ -267,7 +236,67 @@ function createImportButton() {
   return button;
 }
 
-// Update button icon based on auth state
+function createBulkImportButton() {
+  const button = document.createElement('button');
+  button.id = 'yoto-bulk-import-btn';
+  
+  // Bulk import icon SVG - using multiple stacked folders icon
+  const bulkIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <g id="BulkImport">
+        <g>
+          <path d="M22 11v6a2 2 0 01-2 2H10a2 2 0 01-2-2v-6a2 2 0 012-2h3l2 2h5a2 2 0 012 2z" stroke="currentColor" stroke-width="2" fill="none"/>
+          <path d="M2 6v9a2 2 0 002 2h3" stroke="currentColor" stroke-width="2" fill="none" opacity="0.6"/>
+          <path d="M5 3v6" stroke="currentColor" stroke-width="2" fill="none" opacity="0.4"/>
+        </g>
+      </g>
+    </svg>
+  `;
+  
+  button.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
+  `;
+  
+  button.innerHTML = `
+    ${bulkIcon}
+    <span>Bulk Import</span>
+  `;
+  
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#10b981';
+    button.style.borderColor = '#10b981';
+    button.style.transform = 'translateY(-1px)';
+  };
+  
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+  };
+  
+  button.addEventListener('click', handleBulkImportClick);
+  
+  return button;
+}
+
 function updateButtonIcon(authenticated) {
   const button = document.getElementById('yoto-magic-bulk-btn');
   if (!button) return;
@@ -288,149 +317,7 @@ function updateButtonIcon(authenticated) {
   `;
 }
 
-// Handle auto-match button click (currently unused - button not injected on edit pages)
-async function handleAutoMatchClick() {
-  const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-  
-  if (!authResponse.authenticated) {
-    const button = document.getElementById('yoto-magic-match-btn');
-    const originalContent = button.innerHTML;
-    button.innerHTML = `
-      <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      <span>Authorizing...</span>
-    `;
-    
-    chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-      if (authResult && authResult.success && authResult.authenticated) {
-        if (authResult.silent) {
-          // Silent authentication succeeded
-          showNotification('✓ Ready! Starting icon matching...', 'success');
-        } else {
-          // Interactive authentication succeeded
-          showNotification('✓ Authentication complete! Starting icon matching...', 'success');
-        }
-        handleAutoMatchClick();
-      } else if (authResult && authResult.cancelled) {
-        // User cancelled auth
-        button.innerHTML = originalContent;
-        showNotification('Authorization cancelled.', 'info');
-      } else {
-        // Auth failed, restore button
-        button.innerHTML = originalContent;
-        showNotification('Authorization failed. Please try again.', 'error');
-      }
-    });
-    return;
-  }
-  
-  const playlistName = document.querySelector('input[placeholder="Playlist name"]')?.value || 'Untitled Playlist';
-  const button = document.getElementById('yoto-magic-match-btn');
-  const originalContent = button.innerHTML;
-  button.innerHTML = `
-    <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-    </svg>
-    <span>Matching icons...</span>
-  `;
-  button.disabled = true;
-  
-  try {
-    // For now, show a demo of what will happen
-    // API integration placeholder
-    setTimeout(() => {
-      showNotification(`Icon matching for "${playlistName}" will be implemented soon!`, 'info');
-      button.innerHTML = originalContent;
-      button.disabled = false;
-    }, 1500);
-  } catch (error) {
-    showNotification('Error matching icons. Please try again.', 'error');
-    showNotification('Failed to match icons. Please try again.', 'error');
-    button.innerHTML = originalContent;
-    // Track matching errors
-    chrome.runtime.sendMessage({
-      action: 'TRACK_ERROR',
-      error: error.message || 'Icon matching failed',
-      context: {
-        action: 'icon_match',
-        component: 'content',
-        authenticated: state.authenticated
-      }
-    });
-    button.disabled = false;
-  }
-}
 
-async function handleBulkMatchClick() {
-  const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-  
-  if (!authResponse.authenticated) {
-    showNotification('Authorizing with Yoto...', 'info');
-    const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
-    
-    if (authResult && authResult.success && authResult.authenticated) {
-      if (authResult.silent) {
-        // Silent authentication succeeded
-        showNotification('✓ Ready! Continuing...', 'success');
-      } else {
-        // Interactive authentication succeeded
-        showNotification('✓ Authentication complete! Continuing...', 'success');
-      }
-      handleBulkMatchClick();
-    } else if (authResult && authResult.cancelled) {
-      showNotification('Authorization cancelled.', 'info');
-    } else {
-      showNotification('Authorization failed. Please try again.', 'error');
-    }
-    return;
-  }
-  
-  // Update button icon to show we're authenticated
-  state.authenticated = true;
-  updateButtonIcon(true);
-  showNotification('Fetching your cards...', 'info');
-
-  const cardsResponse = await chrome.runtime.sendMessage({ action: 'GET_CARDS' });
-  if (cardsResponse.error) {
-    if (cardsResponse.needsAuth) {
-      // Token might be expired, try again
-      state.authenticated = false;
-      updateButtonIcon(false);
-      showNotification('Session expired. Please authorize again.', 'error');
-      chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-        if (authResult && authResult.success && authResult.authenticated) {
-          if (authResult.silent) {
-            showNotification('✓ Session restored silently!', 'success');
-          } else {
-            showNotification('✓ Session restored!', 'success');
-          }
-          updateButtonIcon(true);
-          // Retry the bulk match operation
-          setTimeout(() => {
-            handleBulkMatchClick();
-          }, 500);
-        } else if (authResult && authResult.cancelled) {
-          showNotification('Authorization cancelled.', 'info');
-        } else {
-          showNotification('Failed to restore session. Please try again.', 'error');
-        }
-      });
-    } else {
-      showNotification('Error fetching cards: ' + cardsResponse.error, 'error');
-    }
-    return;
-  }
-  
-  if (cardsResponse.cards && cardsResponse.cards.length > 0) {
-    showNotification(`Found ${cardsResponse.cards.length} cards! Feature coming soon...`, 'success');
-    // Card selection UI would go here
-  } else {
-    showNotification('No cards found. Create a card first to use this feature.', 'info');
-  }
-}
 
 async function handleImportClick() {
   try {
@@ -481,6 +368,53 @@ async function handleImportClick() {
 
 function openFolderSelector() {
   showImportOptionsModal();
+}
+
+async function handleBulkImportClick() {
+  try {
+    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+
+    if (!authResponse || !authResponse.authenticated) {
+      showNotification('Please authenticate first. Click the extension icon.', 'info');
+      // Try to start auth
+      chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
+        if (authResult && authResult.success && authResult.authenticated) {
+          if (authResult.silent) {
+            showNotification('✓ Ready! You can now bulk import playlists.', 'success');
+          } else {
+            showNotification('✓ Authentication complete!', 'success');
+          }
+          // Refresh auth state and try import again
+          setTimeout(() => {
+            handleBulkImportClick();
+          }, 500);
+        } else if (authResult && authResult.cancelled) {
+          showNotification('Authorization cancelled.', 'info');
+        } else {
+          showNotification('Failed to start authentication. Please try again.', 'error');
+        }
+      });
+      return;
+    }
+    
+    // Show bulk import options
+    showBulkImportOptionsModal();
+  } catch (error) {
+    showNotification('Error occurred. Please try again.', 'error');
+    // Track import errors
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'Bulk import initialization failed',
+      context: {
+        action: 'bulk_import_init',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
+    // If auth check fails, still show the import options
+    showNotification('Proceeding without auth check...', 'warning');
+    showBulkImportOptionsModal();
+  }
 }
 
 function showImportOptionsModal() {
@@ -592,6 +526,126 @@ function showImportOptionsModal() {
   });
   
   document.getElementById('import-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+  
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function showBulkImportOptionsModal() {
+  const existingModal = document.getElementById('yoto-bulk-import-options-modal');
+  if (existingModal) existingModal.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'yoto-bulk-import-options-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background-color: white;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      margin: 0 16px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    ">
+      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">Bulk Import Playlists</h2>
+      <p style="color: #6b7280; margin-bottom: 24px;">Select a ZIP file containing multiple playlists. Each playlist should be in its own ZIP file or folder within the main ZIP.</p>
+      
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="bulk-import-zip-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #10b981;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span>Select ZIP File</span>
+        </button>
+        
+        <button id="bulk-import-folder-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+          </svg>
+          <span>Select Folder</span>
+        </button>
+      </div>
+      
+      <button id="bulk-import-cancel-btn" style="
+        width: 100%;
+        margin-top: 16px;
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 14px;
+        transition: color 0.2s;
+      " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
+        Cancel
+      </button>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Add event listeners
+  document.getElementById('bulk-import-zip-btn').addEventListener('click', () => {
+    modal.remove();
+    selectBulkZipFile();
+  });
+  
+  document.getElementById('bulk-import-folder-btn').addEventListener('click', () => {
+    modal.remove();
+    selectBulkFolder();
+  });
+  
+  document.getElementById('bulk-import-cancel-btn').addEventListener('click', () => {
     modal.remove();
   });
   
@@ -1019,6 +1073,573 @@ async function processZipFile(file) {
   }
 }
 
+function selectBulkZipFile() {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.zip,application/zip,application/x-zip-compressed';
+  fileInput.style.display = 'none';
+  
+  document.body.appendChild(fileInput);
+  
+  fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    fileInput.remove();
+    
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
+      // Don't show notification here, the loading modal will handle it
+      await processBulkZipFile(files[0]);
+    } else if (files.length > 0) {
+      showNotification('Please select a valid ZIP file', 'error');
+    }
+  });
+  
+  fileInput.click();
+}
+
+function selectBulkFolder() {
+  const folderInput = document.createElement('input');
+  folderInput.type = 'file';
+  folderInput.webkitdirectory = true;
+  folderInput.directory = true;
+  folderInput.multiple = true;
+  folderInput.style.display = 'none';
+  
+  document.body.appendChild(folderInput);
+  
+  folderInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    folderInput.remove();
+    
+    if (files.length > 0) {
+      showNotification('Processing bulk folder...', 'info');
+      await processBulkFolderFiles(files);
+    }
+  });
+  
+  folderInput.click();
+}
+
+async function processBulkZipFile(file) {
+  // Create extraction loading modal
+  const loadingModal = document.createElement('div');
+  loadingModal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    z-index: 10001;
+  `;
+  
+  const loadingContent = document.createElement('div');
+  loadingContent.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    min-width: 320px;
+  `;
+  
+  loadingContent.innerHTML = `
+    <div style="margin-bottom: 20px;">
+      <div style="
+        width: 50px;
+        height: 50px;
+        border: 4px solid #e5e7eb;
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        margin: 0 auto;
+        animation: spin 1s linear infinite;
+      "></div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
+    <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600; color: #1f2937;">Extracting Files...</h3>
+    <p id="extraction-status" style="margin: 0 0 8px 0; color: #6b7280; font-size: 14px;">Opening ZIP archive...</p>
+    <p id="extraction-details" style="margin: 0; color: #9ca3af; font-size: 13px;"></p>
+  `;
+  
+  loadingModal.appendChild(loadingContent);
+  document.body.appendChild(loadingModal);
+  
+  try {
+    const statusElement = document.getElementById('extraction-status');
+    const detailsElement = document.getElementById('extraction-details');
+    
+    statusElement.textContent = 'Loading ZIP file...';
+    detailsElement.textContent = `File: ${file.name}`;
+    
+    const zip = new JSZip();
+    const contents = await zip.loadAsync(file, {
+      async: true
+    });
+    
+    statusElement.textContent = 'Analyzing folder structure...';
+    detailsElement.textContent = `Found ${Object.keys(contents.files).length} items`;
+    
+    const playlists = [];
+    const processedPaths = new Set();
+    
+    // First pass: identify playlist structures (nested ZIPs or folders)
+    const nestedZips = [];
+    const folders = new Map(); // folder name -> files in folder
+    
+    for (const [path, zipEntry] of Object.entries(contents.files)) {
+      // Skip Mac metadata
+      if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
+        continue;
+      }
+      
+      // Check for nested ZIP files
+      if (!zipEntry.dir && path.toLowerCase().endsWith('.zip')) {
+        nestedZips.push({ path, zipEntry });
+        processedPaths.add(path);
+      }
+      // Group files by their parent folder
+      else if (!zipEntry.dir) {
+        const pathParts = path.split('/');
+        if (pathParts.length > 1) {
+          const folderName = pathParts[0];
+          if (!folders.has(folderName)) {
+            folders.set(folderName, []);
+          }
+          folders.get(folderName).push({ path, zipEntry });
+          processedPaths.add(path);
+        }
+      }
+    }
+    
+    // Update extraction status
+    if (nestedZips.length > 0) {
+      statusElement.textContent = 'Extracting playlists...';
+      detailsElement.textContent = `Found ${nestedZips.length} playlist${nestedZips.length > 1 ? 's' : ''}`;
+    }
+    
+    // Process nested ZIP files
+    for (let i = 0; i < nestedZips.length; i++) {
+      const { path, zipEntry } = nestedZips[i];
+      
+      if (statusElement) {
+        statusElement.textContent = `Extracting playlist ${i + 1} of ${nestedZips.length}...`;
+        const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
+        detailsElement.textContent = playlistName;
+      }
+      
+      try {
+        const nestedZipBlob = await zipEntry.async('blob');
+        const nestedZip = new JSZip();
+        const nestedContents = await nestedZip.loadAsync(nestedZipBlob);
+        
+        const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
+        
+        const playlist = await extractPlaylistFromZip(nestedContents, playlistName);
+        
+        if (playlist && playlist.audioFiles.length > 0) {
+          playlists.push(playlist);
+        } else {
+          console.warn(`No audio files found in nested ZIP: ${playlistName}`);
+        }
+      } catch (error) {
+        console.error('Error processing nested ZIP:', path, error);
+      }
+    }
+    
+    // Process folders as individual playlists
+    if (folders.size > 0 && statusElement) {
+      statusElement.textContent = 'Processing folders...';
+      detailsElement.textContent = `Found ${folders.size} folder${folders.size > 1 ? 's' : ''}`;
+    }
+    
+    let folderIndex = 0;
+    for (const [folderName, files] of folders) {
+      folderIndex++;
+      if (statusElement) {
+        statusElement.textContent = `Processing folder ${folderIndex} of ${folders.size}...`;
+        detailsElement.textContent = folderName;
+      }
+      const playlist = await extractPlaylistFromFiles(files, folderName, contents);
+      if (playlist && playlist.audioFiles.length > 0) {
+        playlists.push(playlist);
+      }
+    }
+    
+    // If no nested structure found, treat the entire ZIP as a single playlist
+    if (playlists.length === 0) {
+      const allFiles = [];
+      for (const [path, zipEntry] of Object.entries(contents.files)) {
+        if (!zipEntry.dir && !path.includes('__MACOSX/') && !path.includes('._')) {
+          allFiles.push({ path, zipEntry });
+        }
+      }
+      
+      const playlist = await extractPlaylistFromFiles(allFiles, file.name.replace(/\.zip$/i, ''), contents);
+      if (playlist && playlist.audioFiles.length > 0) {
+        playlists.push(playlist);
+      }
+    }
+    
+    // Remove loading modal
+    loadingModal.remove();
+    
+    if (playlists.length === 0) {
+      showNotification('No valid playlists found in the ZIP file', 'error');
+      return;
+    }
+    
+    showNotification(`Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''}. Preparing import...`, 'success');
+    showBulkImportModal(playlists);
+    
+  } catch (error) {
+    // Remove loading modal if it exists
+    if (loadingModal && loadingModal.parentNode) {
+      loadingModal.remove();
+    }
+    showNotification('Error processing bulk ZIP file: ' + error.message, 'error');
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'Bulk ZIP processing failed',
+      context: {
+        action: 'process_bulk_zip',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
+  }
+}
+
+async function processBulkFolderFiles(files) {
+  try {
+    const playlists = [];
+    
+    // Group files by their immediate parent folder
+    const folderMap = new Map();
+    
+    for (const file of files) {
+      if (file.webkitRelativePath) {
+        const pathParts = file.webkitRelativePath.split('/');
+        
+        // The first part is the root folder selected, subsequent parts are subfolders
+        // We want to group by the immediate subfolder (second level)
+        if (pathParts.length < 2) continue;
+        
+        // If there's only one level (files directly in selected folder), use root as playlist
+        const playlistFolder = pathParts.length === 2 ? pathParts[0] : pathParts[1];
+        
+        if (!folderMap.has(playlistFolder)) {
+          folderMap.set(playlistFolder, []);
+        }
+        folderMap.get(playlistFolder).push(file);
+      }
+    }
+    
+    // Process each folder as a playlist
+    for (const [folderName, folderFiles] of folderMap) {
+      const playlist = await extractPlaylistFromFolderFiles(folderFiles, folderName);
+      if (playlist && playlist.audioFiles.length > 0) {
+        playlists.push(playlist);
+      }
+    }
+    
+    if (playlists.length === 0) {
+      showNotification('No valid playlists found in the selected folder', 'error');
+      return;
+    }
+    
+    showNotification(`Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''}. Preparing import...`, 'success');
+    showBulkImportModal(playlists);
+    
+  } catch (error) {
+    showNotification('Error processing bulk folder: ' + error.message, 'error');
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'Bulk folder processing failed',
+      context: {
+        action: 'process_bulk_folder',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
+  }
+}
+
+async function extractPlaylistFromZip(zipContents, playlistName) {
+  
+  const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
+  const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+  
+  const allAudioFiles = [];
+  const allImageFiles = [];
+  let skippedFiles = 0;
+  
+  // Extract all files first
+  for (const [path, zipEntry] of Object.entries(zipContents.files)) {
+    if (zipEntry.dir) {
+      continue;
+    }
+    
+    // Skip Mac metadata files
+    if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
+      skippedFiles++;
+      continue;
+    }
+    
+    const fileName = path.split('/').pop();
+    const ext = fileName.split('.').pop().toLowerCase();
+    
+    // Skip non-media files
+    if (!audioExtensions.includes(ext) && !imageExtensions.includes(ext)) {
+      skippedFiles++;
+      continue;
+    }
+    
+    if (audioExtensions.includes(ext)) {
+      try {
+        const blob = await zipEntry.async('blob');
+        const file = new File([blob], fileName, { type: `audio/${ext}` });
+        file.webkitRelativePath = path;
+        file.fileSize = blob.size;
+        file.size = blob.size; // Ensure both size properties are set
+        allAudioFiles.push(file);
+      } catch (err) {
+        console.error(`[Extract ZIP] Failed to extract audio file ${path}:`, err);
+      }
+    } else if (imageExtensions.includes(ext)) {
+      try {
+        const blob = await zipEntry.async('blob');
+        const file = new File([blob], fileName, { type: `image/${ext}` });
+        file.webkitRelativePath = path;
+        file.fileSize = blob.size;
+        file.size = blob.size; // Ensure both size properties are set
+        allImageFiles.push(file);
+      } catch (err) {
+        console.error(`[Extract ZIP] Failed to extract image file ${path}:`, err);
+      }
+    }
+  }
+  
+  // Smart audio folder detection (same as processZipFile)
+  let audioFiles = [];
+  
+  // 1. First, look for folders containing 'audio' in the name
+  const audioFolderFiles = allAudioFiles.filter(f => 
+    f.webkitRelativePath.toLowerCase().includes('/audio')
+  );
+  
+  if (audioFolderFiles.length > 0) {
+    audioFiles = audioFolderFiles;
+  } 
+  // 2. If not found, use all audio files found
+  else if (allAudioFiles.length > 0) {
+    audioFiles = allAudioFiles;
+  }
+  
+  // Smart image folder detection
+  let imageFiles = [];
+  
+  // 1. First, look for folders containing 'images' or 'icons' in the name
+  const imageFolderFiles = allImageFiles.filter(f => {
+    const path = f.webkitRelativePath.toLowerCase();
+    return path.includes('/image') || path.includes('/icon');
+  });
+  
+  if (imageFolderFiles.length > 0) {
+    imageFiles = imageFolderFiles;
+  } else if (allImageFiles.length > 0) {
+    imageFiles = allImageFiles;
+  }
+  
+  // Sort audio files naturally
+  audioFiles.sort((a, b) => {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  });
+  
+  // Separate track icons from cover image
+  const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
+
+  return {
+    name: playlistName,
+    audioFiles,
+    trackIcons,
+    coverImage
+  };
+}
+
+async function extractPlaylistFromFiles(files, playlistName, zipContents) {
+  const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
+  const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+  
+  const audioFiles = [];
+  const imageFiles = [];
+  
+  for (const { path, zipEntry } of files) {
+    const fileName = path.split('/').pop();
+    const ext = fileName.split('.').pop().toLowerCase();
+    
+    if (audioExtensions.includes(ext)) {
+      const blob = await zipEntry.async('blob');
+      const file = new File([blob], fileName, { type: `audio/${ext}` });
+      file.webkitRelativePath = path;
+      file.fileSize = blob.size;
+      audioFiles.push(file);
+    } else if (imageExtensions.includes(ext)) {
+      const blob = await zipEntry.async('blob');
+      const file = new File([blob], fileName, { type: `image/${ext}` });
+      file.webkitRelativePath = path;
+      file.fileSize = blob.size;
+      imageFiles.push(file);
+    }
+  }
+  
+  // Sort audio files naturally
+  audioFiles.sort((a, b) => {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  });
+  
+  // Separate track icons from cover image
+  const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
+  
+  return {
+    name: playlistName,
+    audioFiles,
+    trackIcons,
+    coverImage
+  };
+}
+
+async function extractPlaylistFromFolderFiles(files, playlistName) {
+  const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
+  const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+  
+  const audioFiles = [];
+  const imageFiles = [];
+  
+  for (const file of files) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    
+    // Skip metadata files
+    if (file.name.startsWith('._') || file.name === '.DS_Store' || file.name === 'Thumbs.db') {
+      continue;
+    }
+    
+    if (audioExtensions.includes(ext)) {
+      file.fileSize = file.size;
+      audioFiles.push(file);
+    } else if (imageExtensions.includes(ext)) {
+      file.fileSize = file.size;
+      imageFiles.push(file);
+    }
+  }
+  
+  // Sort audio files naturally
+  audioFiles.sort((a, b) => {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  });
+  
+  // Separate track icons from cover image
+  const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
+  
+  return {
+    name: playlistName,
+    audioFiles,
+    trackIcons,
+    coverImage
+  };
+}
+
+function separateImagesIntelligently(imageFiles) {
+  
+  const trackIcons = [];
+  let coverImage = null;
+  
+  // First, separate by naming pattern
+  const numericImages = [];
+  const nonNumericImages = [];
+  
+  imageFiles.forEach(f => {
+    const fileName = f.name.split('/').pop();
+    // Check if filename contains a number pattern - more flexible pattern
+    // Matches: "01.png", "Icon 01.png", "icon_01.png", "icn3.png", etc.
+    const numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
+    
+    // Check for common cover image names (including cover_image.png style)
+    const lowerFileName = fileName.toLowerCase();
+    const isCoverName = lowerFileName.includes('cover') || 
+                        lowerFileName.includes('album') || 
+                        lowerFileName.includes('art') ||
+                        lowerFileName === 'folder.jpg' ||
+                        lowerFileName === 'folder.png';
+    
+    if (isCoverName) {
+      nonNumericImages.push(f);
+    } else if (numberMatch) {
+      f.extractedNumber = parseInt(numberMatch[1]);
+      numericImages.push(f);
+    } else {
+      nonNumericImages.push(f);
+    }
+  });
+  
+  // Sort numeric images by their extracted number
+  numericImages.sort((a, b) => {
+    return (a.extractedNumber || 0) - (b.extractedNumber || 0);
+  });
+  
+  // Use numeric images as track icons
+  if (numericImages.length > 0) {
+    trackIcons.push(...numericImages);
+  }
+  
+  // Find cover image from non-numeric images (typically the largest one)
+  if (nonNumericImages.length > 0) {
+    const namedCovers = nonNumericImages.filter(f => {
+      const name = f.name.toLowerCase();
+      return name.includes('cover') || name.includes('album') || name.includes('artwork') || name.includes('front');
+    });
+    
+    if (namedCovers.length > 0) {
+      coverImage = namedCovers.reduce((largest, current) => {
+        return (current.fileSize > largest.fileSize) ? current : largest;
+      });
+    } else {
+      // Otherwise use the largest non-numeric image
+      coverImage = nonNumericImages.reduce((largest, current) => {
+        return (current.fileSize > largest.fileSize) ? current : largest;
+      });
+    }
+  }
+  
+  // If no non-numeric cover found, check for significantly larger image among all images
+  if (!coverImage && imageFiles.length > 0) {
+    const avgSize = imageFiles.reduce((sum, f) => sum + f.fileSize, 0) / imageFiles.length;
+    const largeImages = imageFiles.filter(f => f.fileSize > avgSize * 2.5); // Lowered threshold from 3x to 2.5x
+    if (largeImages.length > 0) {
+      // Sort by size and take the largest
+      largeImages.sort((a, b) => b.fileSize - a.fileSize);
+      coverImage = largeImages[0];
+      
+      // Remove cover from track icons if it was included
+      const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
+      if (coverIndex !== -1) {
+        trackIcons.splice(coverIndex, 1);
+      }
+    }
+  }
+  
+  
+  return { trackIcons, coverImage };
+}
+
 function showNotification(message, type = 'info') {
   // Remove existing notification
   const existing = document.querySelector('.yoto-magic-notification');
@@ -1037,46 +1658,6 @@ function showNotification(message, type = 'info') {
   setTimeout(() => {
     notification.remove();
   }, 5000);
-}
-
-// Hide overlay
-function hideOverlay() {
-  const overlay = document.getElementById('yoto-magic-overlay');
-  overlay.style.display = 'none';
-}
-
-// Apply icon changes
-async function applyIconChanges() {
-  
-  
-  const overlay = document.getElementById('yoto-magic-overlay');
-  const matches = JSON.parse(overlay.dataset.matches || '[]');
-  
-  // Update icons via API
-  // This would involve calling the Yoto API through the background script
-  
-  alert('Icon changes would be applied here (implementation pending)');
-  
-  hideOverlay();
-  
-  // Update stats
-  chrome.runtime.sendMessage({
-    action: 'UPDATE_STATS',
-    stats: {
-      iconsMatched: matches.length,
-      cardsUpdated: 1
-    }
-  });
-  
-  // Track icon matching
-  chrome.runtime.sendMessage({
-    action: 'TRACK_EVENT',
-    eventName: 'icon_match',
-    parameters: {
-      matchCount: matches.length,
-      automated: false
-    }
-  });
 }
 
 function setupNavigationListener() {
@@ -1169,16 +1750,39 @@ function injectStyles() {
 }
 
 function cleanTrackTitle(filename) {
-  // Remove file extension
-  let title = filename.replace(/\.[^/.]+$/, '');
-  // Remove leading numbers with various separators (01., 01-, 01_, 01 )
-  title = title.replace(/^\d+[\s._-]+/, '');
-  // Trim any remaining whitespace
-  title = title.trim();
-  // If title is empty after cleaning, use original without extension
-  if (!title) {
-    title = filename.replace(/\.[^/.]+$/, '');
+  
+  let title = filename;
+  
+  const audioExtensions = /\.(mp3|m4a|m4b|wav|ogg|aac|flac|mp4)$/i;
+  if (audioExtensions.test(title)) {
+    title = title.replace(audioExtensions, '');
+  } else {
   }
+  
+  // Replace all underscores with empty string
+  // "Mrs Longleg_s Class" -> "Mrs Longlegs Class"
+  title = title.replace(/_/g, '');
+  
+  // Remove leading digits and any following separators (period, dash, space)
+  // This regex matches: one or more digits at the start, followed by any combination of . - or spaces
+  // Examples:
+  // "1. Chapter 1" -> "Chapter 1"
+  // "001 Chapter 1" -> "Chapter 1"
+  // "2 I Eat Poop" -> "I Eat Poop"  
+  title = title.replace(/^\d+[\.\-\s]*/g, '');
+  
+  // Clean up any multiple spaces that might have been created
+  title = title.replace(/\s+/g, ' ');
+  
+  // Trim whitespace from start and end
+  title = title.trim();
+  
+  // If title is empty after all cleaning, keep the original (without audio extension if present)
+  if (!title || title.length === 0) {
+    title = filename.replace(audioExtensions, '');
+  }
+  
+  
   return title;
 }
 
@@ -1215,20 +1819,768 @@ async function uploadInChunks(items, uploadFn, chunkSize = 8, onProgress) {
 }
 
 // Utility function for parallel uploads with retry
-async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000) {
+async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000, timeoutMs = 60000) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const result = await uploadFn();
+      
+      // Increased timeout to 60 seconds by default, can be overridden
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Upload timeout after ${timeoutMs/1000} seconds`)), timeoutMs)
+      );
+      
+      const result = await Promise.race([uploadFn(), timeoutPromise]);
       return { status: 'fulfilled', value: result };
     } catch (error) {
+      console.error(`[Upload Retry] Attempt ${attempt + 1} failed:`, error.message);
       if (attempt === maxRetries - 1) {
+        console.error(`[Upload Retry] All ${maxRetries} attempts failed`);
         return { status: 'rejected', reason: error };
       }
       // Exponential backoff
-      await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)));
+      const delay = retryDelay * Math.pow(2, attempt);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 }
+
+// Show bulk import modal
+function showBulkImportModal(playlists) {
+  // Remove existing modal if any
+  const existing = document.querySelector('#yoto-bulk-import-modal');
+  if (existing) existing.remove();
+  
+  const modal = document.createElement('div');
+  modal.id = 'yoto-bulk-import-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10vh;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 900px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+  
+  // Generate playlist previews
+  const playlistPreviews = playlists.map((playlist, index) => `
+    <div style="
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: #f9fafb;
+    ">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <input type="checkbox" id="playlist-${index}" checked style="width: 18px; height: 18px;">
+        <input type="text" id="playlist-name-${index}" value="${playlist.name}" style="
+          flex: 1;
+          padding: 6px 10px;
+          border: 1px solid #d1d5db;
+          border-radius: 4px;
+          font-size: 14px;
+          font-weight: 500;
+        ">
+      </div>
+      <div style="color: #6b7280; font-size: 13px; padding-left: 30px;">
+        ${playlist.audioFiles.length} tracks${playlist.trackIcons.length > 0 ? `, ${playlist.trackIcons.length} icons` : ''}${playlist.coverImage ? ', cover image' : ''}
+      </div>
+    </div>
+  `).join('');
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Bulk Import Playlists</h2>
+    <div style="margin-bottom: 20px; color: #666;">
+      <p>Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''} ready to import:</p>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <label style="font-weight: 500; margin-right: 16px;">Select playlists to import:</label>
+        <div style="display: flex; gap: 8px;">
+          <button id="select-all" style="
+            padding: 4px 12px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+          ">Select All</button>
+          <button id="deselect-all" style="
+            padding: 4px 12px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+          ">Deselect All</button>
+        </div>
+      </div>
+      <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
+        ${playlistPreviews}
+      </div>
+    </div>
+    
+    <div id="bulk-import-progress" style="display: none; margin: 20px 0;">
+      <div style="margin-bottom: 12px;">
+        <p id="overall-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">Overall Progress:</p>
+        <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
+          <div id="overall-progress-bar" style="background: #10b981; height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+      </div>
+      <div style="margin-top: 16px;">
+        <p id="current-playlist-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">Current Playlist:</p>
+        <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
+          <div id="current-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+      </div>
+      <div id="import-log" style="
+        margin-top: 16px;
+        padding: 12px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        max-height: 150px;
+        overflow-y: auto;
+        font-size: 13px;
+        font-family: monospace;
+        color: #4b5563;
+      "></div>
+    </div>
+    
+    <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 30px;">
+      <button id="cancel-bulk-import" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Cancel</button>
+      <button id="start-bulk-import" style="
+        padding: 10px 20px;
+        background: #10b981;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Start Bulk Import</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // Event handlers for select/deselect all
+  document.querySelector('#select-all').onclick = () => {
+    playlists.forEach((_, index) => {
+      const checkbox = document.querySelector(`#playlist-${index}`);
+      if (checkbox) checkbox.checked = true;
+    });
+  };
+  
+  document.querySelector('#deselect-all').onclick = () => {
+    playlists.forEach((_, index) => {
+      const checkbox = document.querySelector(`#playlist-${index}`);
+      if (checkbox) checkbox.checked = false;
+    });
+  };
+  
+  // Prevent input clicks from bubbling
+  playlists.forEach((_, index) => {
+    const nameInput = document.querySelector(`#playlist-name-${index}`);
+    if (nameInput) {
+      nameInput.onclick = (e) => e.stopPropagation();
+      nameInput.onkeydown = (e) => e.stopPropagation();
+    }
+  });
+  
+  // Cancel button
+  document.querySelector('#cancel-bulk-import').onclick = () => modal.remove();
+  
+  // Start bulk import
+  document.querySelector('#start-bulk-import').onclick = async () => {
+    // Get selected playlists
+    const selectedPlaylists = [];
+    playlists.forEach((playlist, index) => {
+      const checkbox = document.querySelector(`#playlist-${index}`);
+      const nameInput = document.querySelector(`#playlist-name-${index}`);
+      if (checkbox && checkbox.checked) {
+        selectedPlaylists.push({
+          ...playlist,
+          name: nameInput ? nameInput.value : playlist.name
+        });
+      }
+    });
+    
+    if (selectedPlaylists.length === 0) {
+      showNotification('Please select at least one playlist to import', 'error');
+      return;
+    }
+    
+    // Start the bulk import process
+    await processBulkImport(selectedPlaylists, modal);
+  };
+}
+
+async function processBulkImport(playlists, modal) {
+  // Check if extension context is valid before starting
+  if (!chrome.runtime?.id) {
+    showNotification('Extension connection lost. Please refresh the page and try again.', 'error');
+    modal.remove();
+    return;
+  }
+  
+  const progressDiv = document.querySelector('#bulk-import-progress');
+  const overallProgressBar = document.querySelector('#overall-progress-bar');
+  const currentProgressBar = document.querySelector('#current-progress-bar');
+  const overallStatus = document.querySelector('#overall-status');
+  const currentStatus = document.querySelector('#current-playlist-status');
+  const importLog = document.querySelector('#import-log');
+  const startButton = document.querySelector('#start-bulk-import');
+  const cancelButton = document.querySelector('#cancel-bulk-import');
+  
+  const playlistSelectionArea = document.querySelector('#bulk-import-progress').previousElementSibling;
+  if (playlistSelectionArea) {
+    playlistSelectionArea.style.display = 'none';
+  }
+  
+  const foundPlaylistsText = document.querySelector('#bulk-import-progress').parentElement.querySelector('div[style*="margin-bottom: 20px; color: #666;"]');
+  if (foundPlaylistsText) {
+    foundPlaylistsText.style.display = 'none';
+  }
+  
+  progressDiv.style.display = 'block';
+  startButton.disabled = true;
+  startButton.style.opacity = '0.5';
+  startButton.style.cursor = 'not-allowed';
+  cancelButton.textContent = 'Close';
+  
+  const totalPlaylists = playlists.length;
+  let completedPlaylists = 0;
+  let successfulImports = 0;
+  let failedImports = 0;
+  
+  // Add log entry
+  function addLogEntry(message, type = 'info') {
+    const entry = document.createElement('div');
+    const timestamp = new Date().toLocaleTimeString();
+    const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6b7280';
+    entry.style.cssText = `color: ${color}; margin-bottom: 4px;`;
+    entry.textContent = `[${timestamp}] ${message}`;
+    importLog.appendChild(entry);
+    importLog.scrollTop = importLog.scrollHeight;
+  }
+  
+  addLogEntry(`Starting bulk import of ${totalPlaylists} playlist${totalPlaylists > 1 ? 's' : ''}...`);
+  
+  // Process each playlist
+  for (const playlist of playlists) {
+    const playlistNumber = completedPlaylists + 1;
+    overallStatus.textContent = `Overall Progress: ${playlistNumber}/${totalPlaylists} playlists`;
+    currentStatus.textContent = `Importing: ${playlist.name}`;
+    currentProgressBar.style.width = '0%';
+    
+    addLogEntry(`Starting import of "${playlist.name}"...`);
+    
+    try {
+      // Import the playlist using the same logic as single import
+      await importSinglePlaylist(
+        playlist.audioFiles,
+        playlist.trackIcons,
+        playlist.coverImage,
+        playlist.name,
+        (progress, status) => {
+          currentProgressBar.style.width = `${progress}%`;
+          if (status) {
+            currentStatus.textContent = `${playlist.name}: ${status}`;
+          }
+        }
+      );
+      
+      successfulImports++;
+      addLogEntry(`✓ Successfully imported "${playlist.name}"`, 'success');
+      
+    } catch (error) {
+      failedImports++;
+      const errorMessage = error.message || 'Unknown error';
+      addLogEntry(`✗ Failed to import "${playlist.name}": ${errorMessage}`, 'error');
+      
+      // Track error (wrapped in try-catch in case extension context is lost)
+      try {
+        if (chrome.runtime?.id) {
+          chrome.runtime.sendMessage({
+            action: 'TRACK_ERROR',
+            error: errorMessage,
+            context: {
+              action: 'bulk_import_playlist',
+              playlistName: playlist.name,
+              component: 'content'
+            }
+          });
+        }
+      } catch (trackError) {
+        console.error('Failed to track error:', trackError);
+      }
+      
+      // If extension context is lost, stop processing
+      if (errorMessage.includes('Extension context') || errorMessage.includes('chrome.runtime')) {
+        addLogEntry('⚠️ Extension connection lost. Please refresh the page and try again.', 'error');
+        break;
+      }
+    }
+    
+    completedPlaylists++;
+    const overallProgress = (completedPlaylists / totalPlaylists) * 100;
+    overallProgressBar.style.width = `${overallProgress}%`;
+  }
+  
+  // Final status
+  overallStatus.textContent = `Import Complete: ${successfulImports} successful, ${failedImports} failed`;
+  currentStatus.textContent = '';
+  currentProgressBar.style.width = '0%';
+  
+  if (successfulImports > 0 && failedImports === 0) {
+    addLogEntry(`✓ All ${successfulImports} playlist${successfulImports > 1 ? 's' : ''} imported successfully!`, 'success');
+    showNotification(`Successfully imported ${successfulImports} playlist${successfulImports > 1 ? 's' : ''}!`, 'success');
+  } else if (successfulImports > 0) {
+    addLogEntry(`Import completed with ${successfulImports} success${successfulImports > 1 ? 'es' : ''} and ${failedImports} failure${failedImports > 1 ? 's' : ''}`, 'info');
+    showNotification(`Imported ${successfulImports} playlist${successfulImports > 1 ? 's' : ''}, ${failedImports} failed`, 'warning');
+  } else {
+    addLogEntry(`✗ All imports failed`, 'error');
+    showNotification(`Failed to import all playlists`, 'error');
+  }
+  
+  // Track bulk import analytics (wrapped in try-catch)
+  try {
+    if (chrome.runtime?.id) {
+      chrome.runtime.sendMessage({
+        action: 'TRACK_EVENT',
+        eventName: 'bulk_import_complete',
+        parameters: {
+          category: 'import',
+          label: 'bulk',
+          value: successfulImports,
+          totalAttempted: totalPlaylists,
+          failed: failedImports
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Failed to track analytics:', error);
+  }
+  
+  // Show success modal and auto-refresh if successful
+  if (successfulImports > 0) {
+    const successModal = document.createElement('div');
+    successModal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 20vh;
+      z-index: 10002;
+    `;
+    
+    const successContent = document.createElement('div');
+    successContent.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      min-width: 300px;
+    `;
+    
+    successContent.innerHTML = `
+      <div style="margin-bottom: 16px;">
+        <svg style="width: 48px; height: 48px; color: #10b981; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">Import Successful!</h3>
+      <p style="margin: 0; color: #6b7280; font-size: 14px;">Refreshing page to show new playlists...</p>
+    `;
+    
+    successModal.appendChild(successContent);
+    
+    // Remove the bulk import modal
+    modal.remove();
+    
+    // Show success modal
+    document.body.appendChild(successModal);
+    
+    // Auto-refresh after brief delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  } else {
+    // Enable close button for failure case
+    cancelButton.style.opacity = '1';
+    cancelButton.onclick = () => {
+      modal.remove();
+    };
+  }
+}
+
+async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlistName, progressCallback) {
+  
+  
+  // Check if extension context is still valid
+  if (!chrome.runtime?.id) {
+    throw new Error('Extension context lost. Please refresh the page and try again.');
+  }
+  
+  // Log file details for debugging
+  if (audioFiles.length === 0) {
+    console.error(`[Bulk Import] No audio files for "${playlistName}"`);
+    throw new Error('No audio files to upload');
+  }
+  
+  // Calculate total size and determine upload strategy
+  const totalSize = audioFiles.reduce((sum, f) => sum + (f.size || f.fileSize || 0), 0);
+  const avgFileSize = totalSize / audioFiles.length;
+  const totalSizeMB = totalSize / (1024 * 1024);
+  
+  
+  // Determine parallel upload count based on file characteristics
+  let parallelCount = 1;
+  let delayBetweenBatches = 500;
+  
+  if (avgFileSize < 5 * 1024 * 1024) { // Average < 5MB
+    if (audioFiles.length <= 10) {
+      parallelCount = 3; // Small playlist, small files - more parallel
+      delayBetweenBatches = 200;
+    } else {
+      parallelCount = 2; // Many small files - moderate parallel
+      delayBetweenBatches = 300;
+    }
+  } else if (avgFileSize < 15 * 1024 * 1024) { // Average < 15MB
+    parallelCount = 2; // Medium files - moderate parallel
+    delayBetweenBatches = 400;
+  } else {
+    parallelCount = 1; // Large files - sequential
+    delayBetweenBatches = 500;
+  }
+  
+  
+  progressCallback(10, 'Uploading audio files...');
+  
+  // Process audio files with controlled parallelism
+  const uploadedTracks = [];
+  const audioResults = [];
+  
+  for (let batchStart = 0; batchStart < audioFiles.length; batchStart += parallelCount) {
+    const batch = audioFiles.slice(batchStart, Math.min(batchStart + parallelCount, audioFiles.length));
+    const batchPromises = [];
+    
+    for (let i = 0; i < batch.length; i++) {
+      const file = batch[i];
+      const globalIndex = batchStart + i;
+      const progress = 10 + (globalIndex / audioFiles.length) * 30; // Progress from 10% to 40%
+      progressCallback(Math.round(progress), `Uploading audio ${globalIndex + 1}/${audioFiles.length}...`);
+      
+      
+      // Upload with retry and longer timeout for larger files
+      const fileSize = file.size || file.fileSize || 0;
+      const timeoutMs = fileSize > 10 * 1024 * 1024 ? 120000 : 60000; // 2 min for files > 10MB, else 1 min
+      
+      const uploadPromise = uploadWithRetry(async () => {
+        // Check context before each upload
+        if (!chrome.runtime?.id) {
+          throw new Error('Extension context lost during upload.');
+        }
+        
+        // Convert file to base64 format expected by service worker
+        let base64Data;
+        try {
+          base64Data = await convertFileToBase64(file);
+        } catch (convError) {
+          console.error(`[Bulk Import] Failed to convert ${file.name} to base64:`, convError);
+          throw new Error(`Failed to convert ${file.name}: ${convError.message}`);
+        }
+        
+        const uploadResult = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_AUDIO',
+          file: base64Data
+        });
+        
+        if (!uploadResult) {
+          console.error(`[Bulk Import] No response for ${file.name}`);
+          throw new Error('No response from extension. Please refresh and try again.');
+        }
+        
+        if (uploadResult.error) {
+          console.error(`[Bulk Import] Upload failed for ${file.name}:`, uploadResult.error);
+          throw new Error(`Audio upload failed: ${uploadResult.error}`);
+        }
+        
+        
+        // Clean track title
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+        const cleanedTitle = cleanTrackTitle(nameWithoutExt);
+        
+        return {
+          title: cleanedTitle,
+          originalIndex: globalIndex,
+          transcodedAudio: uploadResult.transcodedAudio
+        };
+      }, 3, 1000, timeoutMs);
+      
+      batchPromises.push(uploadPromise);
+    }
+    
+    // Wait for all uploads in this batch to complete
+    const batchResults = await Promise.all(batchPromises);
+    
+    // Process results
+    for (const result of batchResults) {
+      audioResults.push(result);
+      if (result.status === 'fulfilled') {
+        uploadedTracks[result.value.originalIndex] = result.value;
+      } else {
+        console.error(`[Bulk Import] Batch upload failed:`, result.reason);
+      }
+    }
+    
+    // Delay between batches if not the last batch
+    if (batchStart + parallelCount < audioFiles.length) {
+      await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+    }
+  }
+  
+  const successfulUploads = uploadedTracks.filter(t => t).length;
+  
+  if (successfulUploads === 0) {
+    throw new Error('Failed to upload any audio files');
+  }
+  
+  const audioProgress = 40;
+  progressCallback(audioProgress, 'Uploading icons...');
+  
+  // Upload track icons with optimized parallelism
+  const uploadedIconIds = [];
+  if (trackIcons.length > 0) {
+    
+    // Icons are usually small, so we can be more aggressive with parallelism
+    const iconParallelCount = Math.min(4, trackIcons.length); // Up to 4 parallel icon uploads
+    const iconDelayBetweenBatches = 100; // Short delay for icons
+    
+    for (let batchStart = 0; batchStart < trackIcons.length; batchStart += iconParallelCount) {
+      const batch = trackIcons.slice(batchStart, Math.min(batchStart + iconParallelCount, trackIcons.length));
+      const batchPromises = [];
+      
+      for (let i = 0; i < batch.length; i++) {
+        const file = batch[i];
+        const globalIndex = batchStart + i;
+        const iconProgress = 40 + (globalIndex / trackIcons.length) * 20; // Progress from 40% to 60%
+        progressCallback(Math.round(iconProgress), `Uploading icons ${globalIndex + 1}/${trackIcons.length}...`);
+        
+        const iconPromise = uploadWithRetry(async () => {
+          // Check context before upload
+          if (!chrome.runtime?.id) {
+            throw new Error('Extension context lost during icon upload.');
+          }
+          
+          // Convert file to base64 format expected by service worker
+          const base64Data = await convertFileToBase64(file);
+          
+          const result = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_ICON',
+            file: base64Data
+          });
+          
+          if (!result) {
+            throw new Error('No response from extension during icon upload.');
+          }
+          
+          if (result.error) {
+            throw new Error(`Icon upload failed: ${result.error}`);
+          }
+          
+          return {
+            index: file.extractedNumber ? file.extractedNumber - 1 : globalIndex,
+            iconId: result.iconId
+          };
+        }, 2, 1000, 30000); // 30 second timeout for icons
+        
+        batchPromises.push(iconPromise);
+      }
+      
+      // Wait for batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      
+      for (const result of batchResults) {
+        if (result.status === 'fulfilled') {
+          uploadedIconIds[result.value.index] = result.value.iconId;
+        } else {
+          console.error(`[Bulk Import] Icon batch upload failed:`, result.reason);
+        }
+      }
+      
+      // Small delay between icon batches
+      if (batchStart + iconParallelCount < trackIcons.length) {
+        await new Promise(resolve => setTimeout(resolve, iconDelayBetweenBatches));
+      }
+    }
+    
+  }
+  
+  const iconProgress = 70;
+  progressCallback(iconProgress, 'Uploading cover image...');
+  
+  // Upload cover image
+  let uploadedCoverUrl = null;
+  if (coverImage) {
+    try {
+      // Check context before upload
+      if (!chrome.runtime?.id) {
+        throw new Error('Extension context lost during cover upload.');
+      }
+      
+      // Convert file to base64 format expected by service worker
+      const base64Data = await convertFileToBase64(coverImage);
+      
+      const coverResult = await chrome.runtime.sendMessage({
+        action: 'UPLOAD_COVER',
+        file: base64Data
+      });
+      
+      
+      if (coverResult && !coverResult.error) {
+        // Check for different possible response formats
+        uploadedCoverUrl = coverResult.url || coverResult.coverUrl || coverResult.imageUrl;
+        if (uploadedCoverUrl) {
+        } else {
+          console.error(`[Bulk Import] Cover upload succeeded but no URL returned:`, coverResult);
+        }
+      } else if (coverResult && coverResult.error) {
+        console.error(`[Bulk Import] Cover upload error: ${coverResult.error}`);
+      }
+    } catch (error) {
+      console.error('[Bulk Import] Cover upload failed:', error);
+      // Continue without cover image
+    }
+  } else {
+  }
+  
+  progressCallback(90, 'Creating playlist...');
+  
+  // Check context before creating playlist
+  if (!chrome.runtime?.id) {
+    throw new Error('Extension context lost. Please refresh the page and try again.');
+  }
+  
+  // Create the playlist
+  const createResponse = await chrome.runtime.sendMessage({
+    action: 'CREATE_PLAYLIST',
+    title: playlistName,
+    audioTracks: uploadedTracks.filter(t => t),
+    iconIds: uploadedIconIds,
+    coverUrl: uploadedCoverUrl
+  });
+  
+  if (!createResponse) {
+    throw new Error('No response from extension. Please refresh and try again.');
+  }
+  
+  if (createResponse.error) {
+    throw new Error(`Failed to create playlist: ${createResponse.error}`);
+  }
+  
+  progressCallback(100, 'Complete');
+  
+  return createResponse;
+}
+
+// Helper function to convert file to base64 (for compatibility)
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Helper function to convert file to base64 format expected by service worker
+async function convertFileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    // Verify the file is valid
+    if (!file || !(file instanceof Blob)) {
+      console.error('[convertFileToBase64] Invalid file object:', file);
+      reject(new Error('Invalid file object provided'));
+      return;
+    }
+    
+    
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const arrayBuffer = reader.result;
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        const base64 = btoa(binary);
+      
+      // Ensure proper MIME type
+      let mimeType = file.type;
+      if (!mimeType && file.name) {
+        // Guess MIME type from extension if not provided
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'mp3') mimeType = 'audio/mpeg';
+        else if (ext === 'm4a') mimeType = 'audio/mp4';
+        else if (ext === 'm4b') mimeType = 'audio/mp4';
+        else if (ext === 'wav') mimeType = 'audio/wav';
+        else if (ext === 'ogg') mimeType = 'audio/ogg';
+        else if (ext === 'aac') mimeType = 'audio/aac';
+        else if (ext === 'flac') mimeType = 'audio/flac';
+        else if (ext === 'png') mimeType = 'image/png';
+        else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+        else if (ext === 'gif') mimeType = 'image/gif';
+      }
+      
+      resolve({
+        data: base64,
+        type: mimeType || 'application/octet-stream',
+        name: file.name
+      });
+      } catch (error) {
+        console.error('[convertFileToBase64] Error during conversion:', error);
+        reject(error);
+      }
+    };
+    reader.onerror = (error) => {
+      console.error('[convertFileToBase64] FileReader error:', error);
+      reject(error);
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 
 // Show import modal
 function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist', sourceType = 'unknown') {
@@ -1316,16 +2668,29 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
   modal.appendChild(content);
   document.body.appendChild(modal);
   
-  // Prevent input from causing modal to close
+  // Prevent any click on the content area from bubbling up
+  content.onclick = (e) => e.stopPropagation();
+  
+  // Prevent text selection from closing modal
+  content.onmousedown = (e) => e.stopPropagation();
+  content.onmouseup = (e) => e.stopPropagation();
+  content.onmousemove = (e) => e.stopPropagation();
+  
+  // Prevent input from causing issues
   const nameInput = document.querySelector('#import-playlist-name');
   if (nameInput) {
     nameInput.onclick = (e) => e.stopPropagation();
     nameInput.onkeydown = (e) => e.stopPropagation();
     nameInput.onkeyup = (e) => e.stopPropagation();
     nameInput.onfocus = (e) => e.stopPropagation();
+    nameInput.onselect = (e) => e.stopPropagation();
+    
+    // Focus the input for convenience
+    nameInput.focus();
+    nameInput.select();
   }
   
-  // Event handlers
+  // Event handlers - only Cancel button closes the modal
   document.querySelector('#cancel-import').onclick = () => modal.remove();
   
   document.querySelector('#start-import').onclick = async () => {
@@ -1750,13 +3115,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       reader.readAsArrayBuffer(file);
     });
   }
-  
-  // Close on background click only
-  modal.onclick = (e) => {
-    if (e.target === modal) {
-      modal.remove();
-    }
-  };
   
   // Prevent content area clicks from bubbling up
   content.onclick = (e) => {
