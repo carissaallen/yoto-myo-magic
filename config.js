@@ -5,7 +5,7 @@
 if (typeof ExtensionConfig === 'undefined') {
     var ExtensionConfig = {
     // Google Analytics 4
-    GA_MEASUREMENT_ID: 'G-LRJ60JW11S',
+    GA_MEASUREMENT_ID: 'G-2V0YLJ70QW',
     GA_API_SECRET: 'E9Ejkde3TKWnu2-yW-IPZg',
     
     // Yoto OAuth Configuration
