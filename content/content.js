@@ -2146,6 +2146,165 @@ async function processZipFile(file) {
     const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
     const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
     
+    // First, check if this ZIP contains other ZIP files
+    let containsZipFiles = false;
+    let zipFileCount = 0;
+    const zipFiles = [];
+    
+    for (const [path, zipEntry] of Object.entries(contents.files)) {
+      if (zipEntry.dir) continue;
+      
+      // Skip Mac metadata files
+      if (path.includes('__MACOSX/') || path.includes('._')) {
+        continue;
+      }
+      
+      const fileName = path.split('/').pop();
+      const ext = fileName.split('.').pop().toLowerCase();
+      
+      if (ext === 'zip') {
+        containsZipFiles = true;
+        zipFileCount++;
+        zipFiles.push(fileName);
+      }
+    }
+    
+    // If this is a ZIP of ZIPs, show an informative message and redirect to bulk import
+    if (containsZipFiles) {
+      
+      // Close any existing modals first
+      const existingModal = document.querySelector('#yoto-import-modal');
+      if (existingModal) existingModal.remove();
+      
+      // Create redirect notification modal
+      const redirectModal = document.createElement('div');
+      redirectModal.id = 'yoto-redirect-modal';
+      redirectModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+      
+      redirectModal.innerHTML = `
+        <div style="
+          background: white;
+          border-radius: 12px;
+          padding: 32px;
+          max-width: 450px;
+          text-align: center;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+          animation: slideIn 0.3s ease-out;
+        ">
+          <div style="
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            background: #fbbf24;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <svg width="32" height="32" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 style="
+            margin: 0 0 16px;
+            font-size: 24px;
+            font-weight: 600;
+            color: #1f2937;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          ">Collection Detected!</h2>
+          <p style="
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: #4b5563;
+            line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          ">
+            This ZIP contains <strong>${zipFileCount} playlist${zipFileCount > 1 ? 's' : ''}</strong> (nested ZIP files).
+          </p>
+          <p style="
+            margin: 0 0 24px;
+            font-size: 16px;
+            color: #4b5563;
+            line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          ">
+            Please use <strong>Bulk Import</strong> to import multiple playlists at once.
+          </p>
+          <div style="
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+          ">
+            <button id="redirect-now" style="
+              padding: 10px 24px;
+              background: #10b981;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 500;
+              cursor: pointer;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">Proceed to Bulk Import</button>
+            <button id="redirect-cancel" style="
+              padding: 10px 24px;
+              background: #f3f4f6;
+              color: #4b5563;
+              border: none;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: 500;
+              cursor: pointer;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            ">Cancel</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(redirectModal);
+      
+      // Add CSS animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // No auto-redirect - user must click Proceed
+      // Handle proceed button
+      document.getElementById('redirect-now').addEventListener('click', () => {
+        redirectModal.remove();
+        showBulkImportOptionsModal();
+      });
+      
+      // Handle cancel button
+      document.getElementById('redirect-cancel').addEventListener('click', () => {
+        redirectModal.remove();
+      });
+      
+      return; // Exit early, don't process as single playlist
+    }
+    
     const allAudioFiles = [];
     const allImageFiles = [];
     const filesByPath = {};
