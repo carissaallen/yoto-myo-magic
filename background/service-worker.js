@@ -1471,25 +1471,16 @@ const staticPodcastData = {
 
 async function searchPodcasts(query) {
     try {
-        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
-            return { error: 'Listen Notes API key not configured. Please add your API key to config.js' };
-        }
-
-        // Check cache first (2 hour TTL for search results)
         const cached = apiCache.get('search', { q: query });
         if (cached) {
             return cached;
         }
 
-        const response = await fetch(`https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(query)}&type=podcast&only_in=title,description&language=English&safe_mode=0`, {
-            headers: {
-                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
-            }
-        });
+        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(query)}&type=podcast&only_in=title,description&language=English&safe_mode=0`);
 
         if (!response.ok) {
             if (response.status === 401) {
-                return { error: 'Invalid Listen Notes API key. Please check your configuration.' };
+                return { error: 'API authentication failed. Please check the proxy server configuration.' };
             }
             if (response.status === 429) {
                 // Rate limited - return static fallback data
@@ -1535,65 +1526,25 @@ async function searchPodcasts(query) {
 
 async function getGenres() {
     try {
-        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
-            return { error: 'Listen Notes API key not configured' };
-        }
-
         // Check cache first (genres rarely change - 24 hour TTL)
         const cached = apiCache.get('genres', {}, 1440); // 1440 minutes = 24 hours
         if (cached) {
             return cached;
         }
 
-        const response = await fetch('https://listen-api.listennotes.com/api/v2/genres?top_level_only=0', {
-            headers: {
-                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
-            }
-        });
-
-        if (!response.ok) {
-            if (response.status === 429) {
-                // Rate limited - return static genres
-                return { 
-                    genres: staticPodcastData.genres,
-                    kidsGenres: staticPodcastData.genres,
-                    fromCache: true,
-                    isStatic: true
-                };
-            }
-            return { error: `Failed to fetch genres: ${response.statusText}` };
-        }
-
-        const data = await response.json();
-        
-        // Find kids & family genre and its sub-genres
-        const kidsGenres = [];
-        const findKidsGenres = (genres) => {
-            for (const genre of genres) {
-                if (genre.name && genre.name.toLowerCase().includes('kids') || 
-                    genre.name && genre.name.toLowerCase().includes('family')) {
-                    kidsGenres.push({
-                        id: genre.id,
-                        name: genre.name,
-                        parent_id: genre.parent_id
-                    });
-                }
-            }
+        return {
+            genres: staticPodcastData.genres,
+            kidsGenres: staticPodcastData.genres,
+            fromCache: false,
+            isStatic: true
         };
-        
-        findKidsGenres(data.genres);
-        
-        const result = { genres: data.genres, kidsGenres };
-        
-        // Cache the result
-        apiCache.set('genres', {}, result);
-        
-        return result;
+
+        // The code below is commented out since we're using static genres for now
+        // Will be implemented when proxy server has genres endpoint
     } catch (error) {
         console.error('Genres fetch error:', error);
         
-        // Return static genres as fallback
-        return { 
+        return {
             genres: staticPodcastData.genres,
             kidsGenres: staticPodcastData.genres,
             fromCache: true,
@@ -1605,68 +1556,19 @@ async function getGenres() {
 
 async function getBestPodcasts(genreId = null, page = 1) {
     try {
-        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
-            return { error: 'Listen Notes API key not configured' };
-        }
-
-        // Check cache first (48 hour TTL for best podcasts)
-        const cacheParams = { page, ...(genreId && { genre_id: genreId }) };
-        const cached = apiCache.get('best_podcasts', cacheParams, 2880); // 2880 minutes = 48 hours
-        if (cached) {
-            return cached;
-        }
-
-        let url = `https://listen-api.listennotes.com/api/v2/best_podcasts?page=${page}&safe_mode=1`;
-        if (genreId) {
-            url += `&genre_id=${genreId}`;
-        }
-
-        const response = await fetch(url, {
-            headers: {
-                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
-            }
-        });
-
-        if (!response.ok) {
-            if (response.status === 429) {
-                // Rate limited - return static fallback data
-                return { 
-                    podcasts: staticPodcastData.popularKidsPodcasts,
-                    has_next: false,
-                    has_previous: page > 1,
-                    page_number: page,
-                    total: staticPodcastData.popularKidsPodcasts.length,
-                    fromCache: true,
-                    isStatic: true
-                };
-            }
-            return { error: `Failed to fetch best podcasts: ${response.statusText}` };
-        }
-
-        const data = await response.json();
-        
-        // Transform the results to a simpler format
-        const podcasts = data.podcasts.map(podcast => ({
-            id: podcast.id,
-            title: podcast.title,
-            publisher: podcast.publisher,
-            thumbnail: podcast.thumbnail,
-            total_episodes: podcast.total_episodes,
-            description: podcast.description
-        }));
-
-        const result = { 
-            podcasts,
-            has_next: data.has_next,
-            has_previous: data.has_previous,
-            page_number: data.page_number,
-            total: data.total
+        // For now, return static data since proxy doesn't have this endpoint yet
+        // This function is not currently used in the extension
+        return {
+            podcasts: staticPodcastData.popularKidsPodcasts,
+            has_next: false,
+            has_previous: page > 1,
+            page_number: page,
+            total: staticPodcastData.popularKidsPodcasts.length,
+            fromCache: false,
+            isStatic: true
         };
-        
-        // Cache the result
-        apiCache.set('best_podcasts', cacheParams, result);
-        
-        return result;
+
+        // The code below is commented out since we're using static data for now
     } catch (error) {
         console.error('Best podcasts fetch error:', error);
         
@@ -1686,21 +1588,12 @@ async function getBestPodcasts(genreId = null, page = 1) {
 
 async function getPodcastEpisodes(podcastId) {
     try {
-        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
-            return { error: 'Listen Notes API key not configured' };
-        }
-
-        // Check cache first (12 hour TTL for episodes)
         const cached = apiCache.get('podcast_episodes', { id: podcastId }, 720); // 720 minutes = 12 hours
         if (cached) {
             return cached;
         }
 
-        const response = await fetch(`https://listen-api.listennotes.com/api/v2/podcasts/${podcastId}?sort=recent_first`, {
-            headers: {
-                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
-            }
-        });
+        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/podcast/${podcastId}?sort=recent_first`);
 
         if (!response.ok) {
             if (response.status === 429) {
