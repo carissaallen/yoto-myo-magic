@@ -6,7 +6,6 @@ if (typeof ExtensionConfig === 'undefined') {
     var ExtensionConfig = {
     // Google Analytics 4
     GA_MEASUREMENT_ID: 'G-2V0YLJ70QW',
-    GA_API_SECRET: 'E9Ejkde3TKWnu2-yW-IPZg',
     
     // Yoto OAuth Configuration
     // Note: OAuth client IDs are designed to be public - they identify the app
@@ -23,7 +22,9 @@ if (typeof ExtensionConfig === 'undefined') {
     // Storage Keys
     TOKEN_STORAGE_KEY: 'yoto_auth_tokens',
     ICON_CACHE_KEY: 'yoto_icon_cache',
-    STATS_KEY: 'yoto_stats'
+    STATS_KEY: 'yoto_stats',
+    
+    PROXY_SERVER_URL: 'https://yoto-proxy-77274378579.us-central1.run.app'
     };
 }
 

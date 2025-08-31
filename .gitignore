@@ -47,6 +47,9 @@ temp/
 coverage/
 .nyc_output/
 
+# Feature planning and bug tracking
+features-and-bugs/
+
 # Optional: Lock files (some prefer not to commit these)
 # package-lock.json
 # yarn.lock
