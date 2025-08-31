@@ -1144,14 +1144,32 @@ function createPodcastCard(podcast, isCompact = false) {
     `;
     
     card.innerHTML = `
-      <img src="${podcast.thumbnail || ''}" alt="${podcast.title}" style="
+      ${podcast.thumbnail ? 
+        `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
+          width: 100%;
+          height: 120px;
+          object-fit: cover;
+          border-radius: 6px;
+          margin-bottom: 8px;
+          background: #f3f4f6;
+        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+        ''
+      }
+      <div style="
         width: 100%;
         height: 120px;
-        object-fit: cover;
         border-radius: 6px;
         margin-bottom: 8px;
-        background: #f3f4f6;
-      " onerror="this.style.display='none'">
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: ${podcast.thumbnail ? 'none' : 'flex'};
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: bold;
+        color: white;
+      ">
+        🎙️
+      </div>
       <h4 style="
         margin: 0 0 4px 0;
         font-size: 13px;
@@ -1197,14 +1215,32 @@ function createPodcastCard(podcast, isCompact = false) {
     `;
     
     card.innerHTML = `
-      <img src="${podcast.thumbnail || ''}" alt="${podcast.title}" style="
+      ${podcast.thumbnail ? 
+        `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
+          width: 60px;
+          height: 60px;
+          object-fit: cover;
+          border-radius: 6px;
+          flex-shrink: 0;
+          background: #f3f4f6;
+        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+        ''
+      }
+      <div style="
         width: 60px;
         height: 60px;
-        object-fit: cover;
         border-radius: 6px;
         flex-shrink: 0;
-        background: #f3f4f6;
-      " onerror="this.style.display='none'">
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: ${podcast.thumbnail ? 'none' : 'flex'};
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: bold;
+        color: white;
+      ">
+        🎙️
+      </div>
       <div style="flex: 1; min-width: 0;">
         <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1f2937;">${podcast.title}</h4>
         <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">${podcast.publisher || ''}</p>
@@ -1282,13 +1318,31 @@ async function selectPodcast(podcast) {
   content.innerHTML = `
     <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import ${podcast.title}</h2>
     <div style="display: flex; gap: 16px; margin-bottom: 20px;">
-      <img src="${podcast.thumbnail || ''}" alt="${podcast.title}" style="
+      ${podcast.thumbnail ? 
+        `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
+          width: 80px;
+          height: 80px;
+          border-radius: 8px;
+          object-fit: cover;
+          background: #f3f4f6;
+        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" />` :
+        ''
+      }
+      <div style="
         width: 80px;
         height: 80px;
         border-radius: 8px;
-        object-fit: cover;
-        background: #f3f4f6;
-      " onerror="this.style.display='none'" />
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: ${podcast.thumbnail ? 'none' : 'flex'};
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        font-weight: bold;
+        color: white;
+        flex-shrink: 0;
+      ">
+        🎙️
+      </div>
       <div>
         <h3 style="margin: 0 0 4px 0; font-size: 18px; color: #1f2937;">${podcast.title}</h3>
         <p style="margin: 0; font-size: 14px; color: #6b7280;">${podcast.publisher || ''}</p>

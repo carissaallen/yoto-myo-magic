@@ -1425,7 +1425,7 @@ const staticPodcastData = {
             title: "Wow in the World",
             publisher: "Tinkercast",
             description: "The #1 science podcast for kids and their grown-ups. Hosts Mindy Thomas and Guy Raz guide curious kids and their grown-ups on a journey into the wonders of the world around them.",
-            thumbnail: "https://production.listennotes.com/podcasts/wow-in-the-world-tinkercast-JcrU8gEDkCE-qzeQz9xHygu.300x300.jpg",
+            thumbnail: null,
             total_episodes: 500
         },
         {
@@ -1433,7 +1433,7 @@ const staticPodcastData = {
             title: "Story Pirates",
             publisher: "Gimlet Media",
             description: "The Story Pirates Podcast is a wildly fun show for kids and families. Each episode features stories written by kids brought to life by the Story Pirates' talented comedy troupe.",
-            thumbnail: "https://production.listennotes.com/podcasts/story-pirates-gimlet-media-gJN2W3c4yQ5-6AZ_tH0IrxI.300x300.jpg",
+            thumbnail: null,
             total_episodes: 200
         },
         {
@@ -1441,7 +1441,7 @@ const staticPodcastData = {
             title: "Radiolab for Kids",
             publisher: "WNYC Studios",
             description: "Radiolab for Kids is a place where children and adults investigate the world together. We ask questions and go wherever curiosity takes us.",
-            thumbnail: "https://production.listennotes.com/podcasts/radiolab-for-kids-wnyc-studios-xLH2jdUQQMa-oaXHU5IVWyz.300x300.jpg",
+            thumbnail: null,
             total_episodes: 100
         },
         {
@@ -1449,7 +1449,7 @@ const staticPodcastData = {
             title: "Work It Out Wombats!",
             publisher: "GBH & PBS Kids",
             description: "Work It Out Wombats! follows a playful trio of marsupial siblings who live with their grandmother in a fantastical treehouse apartment complex.",
-            thumbnail: "https://production.listennotes.com/podcasts/work-it-out-wombats-gbh-pbs-kids-nSHlXlxiORI-xuC_5R9qUHk.300x300.jpg",
+            thumbnail: null,
             total_episodes: 50
         },
         {
@@ -1457,7 +1457,7 @@ const staticPodcastData = {
             title: "Tumble Science Podcast for Kids",
             publisher: "Tumble Media",
             description: "Tumble is a science podcast created to be enjoyed by the entire family. Hosted by Lindsay Patterson and Marshall Escamilla.",
-            thumbnail: "https://production.listennotes.com/podcasts/tumble-science-podcast-for-kids-tumble-media-EqYT2SIIvLb-SKAko1rVlfi.300x300.jpg",
+            thumbnail: null,
             total_episodes: 200
         }
     ],
@@ -1557,19 +1557,62 @@ async function getGenres() {
 
 async function getBestPodcasts(genreId = null, page = 1) {
     try {
-        // For now, return static data since proxy doesn't have this endpoint yet
-        // This function is not currently used in the extension
-        return {
-            podcasts: staticPodcastData.popularKidsPodcasts,
-            has_next: false,
+        // Use the search API to get popular kids podcasts
+        // Search for general kids content to get a variety of popular podcasts
+        const searchTerms = [
+            'kids stories',
+            'science for kids', 
+            'educational kids',
+            'bedtime stories',
+            'kids adventure'
+        ];
+        
+        // Pick a random search term for variety
+        const searchTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
+        
+        // Check cache first
+        const cacheKey = `best_podcasts_${searchTerm}_${page}`;
+        const cached = apiCache.get('best_podcasts', { term: searchTerm, page: page }, 60); // 1 hour cache
+        if (cached) {
+            return cached;
+        }
+        
+        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(searchTerm)}&type=podcast&only_in=title,description&language=English&safe_mode=1&offset=${(page - 1) * 10}`);
+        
+        if (!response.ok) {
+            throw new Error(`API response not ok: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Transform results to match expected format
+        const podcasts = data.results ? data.results.slice(0, 10).map(podcast => ({
+            id: podcast.id,
+            title: podcast.title_original,
+            publisher: podcast.publisher_original,
+            thumbnail: podcast.thumbnail,
+            total_episodes: podcast.total_episodes,
+            description: podcast.description_original
+        })) : [];
+        
+        const result = {
+            podcasts: podcasts,
+            has_next: data.next_offset ? true : false,
             has_previous: page > 1,
             page_number: page,
-            total: staticPodcastData.popularKidsPodcasts.length,
+            total: data.total || podcasts.length,
             fromCache: false,
-            isStatic: true
+            isStatic: false
         };
+        
+        // Cache the result
+        apiCache.set('best_podcasts', { term: searchTerm, page: page }, result);
+        
+        return result;
 
     } catch (error) {
+        console.error('Error fetching best podcasts:', error);
+        // Fall back to static data if API fails
         return { 
             podcasts: staticPodcastData.popularKidsPodcasts,
             has_next: false,
