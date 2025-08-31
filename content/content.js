@@ -61,6 +61,19 @@ function init() {
       if (request.authenticated && state.isMyoPage) {
         showNotification('Authentication successful! You can now use icon matching.', 'success');
       }
+    } else if (request.action === 'PERMISSION_GRANTED') {
+      // Handle when permission is granted from the popup
+      showNotification('Permission granted! You can now retry importing the podcast.', 'success');
+      
+      // Check if we're in the podcast import modal and update the UI
+      const statusText = document.querySelector('#import-status');
+      if (statusText) {
+        statusText.innerHTML = `
+          <div style="color: #28a745;">
+            <p>Permission granted! You can now close this modal and try importing again.</p>
+          </div>
+        `;
+      }
     }
   });
 }
@@ -77,6 +90,7 @@ function checkForMyoPage() {
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
+    // Always attempt to inject buttons when detecting playlists page
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
     state.isMyoPage = true;
@@ -109,7 +123,6 @@ function waitForMyoElements() {
 }
 
 function checkAndInjectImportButton() {
-  
   const path = window.location.pathname;
   if (path.includes('/edit') || path.includes('/card/')) {
     return false;
@@ -159,8 +172,13 @@ function checkAndInjectImportButton() {
       
       const importButton = createImportButton();
       const bulkImportButton = createBulkImportButton();
+      const podcastButton = createPodcastButton();
+      
       buttonContainer.appendChild(importButton);
       buttonContainer.appendChild(bulkImportButton);
+      if (podcastButton) {
+        buttonContainer.appendChild(podcastButton);
+      }
       
       // Insert after the target element (either heading or descriptive text)
       if (targetElement.nextSibling) {
@@ -295,6 +313,244 @@ function createBulkImportButton() {
   button.addEventListener('click', handleBulkImportClick);
   
   return button;
+}
+
+// Show podcast permission request modal
+function showPodcastPermissionModal() {
+  const modal = document.createElement('div');
+  modal.id = 'podcast-permission-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease;
+  `;
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </svg>
+      Import Podcast - Permission Required
+    </h2>
+    
+    <div style="margin-bottom: 24px; color: #4b5563; line-height: 1.6;">
+      <p style="margin: 0 0 16px 0;">To import podcast episodes, we need permission to download audio files from various podcast hosting services.</p>
+      
+      <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">Why is this needed?</p>
+        <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #6b7280;">
+          <li style="margin: 4px 0;">Podcasts are hosted on many different domains</li>
+          <li style="margin: 4px 0;">We need to download and convert audio files for Yoto</li>
+          <li style="margin: 4px 0;">Chrome requires explicit permission for this access</li>
+        </ul>
+      </div>
+      
+      <p style="margin: 16px 0 0 0; font-size: 14px; color: #6b7280;">
+        <strong>Note:</strong> This permission is only used when you import podcasts. Your browsing data remains private.
+      </p>
+    </div>
+    
+    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="permission-cancel" style="
+        background: #f3f4f6;
+        color: #374151;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+        Cancel
+      </button>
+      <button id="permission-grant" style="
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      " onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 11l3 3L22 4"></path>
+          <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
+        </svg>
+        Grant Permission
+      </button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // Handle grant permission
+  document.getElementById('permission-grant').addEventListener('click', async () => {
+    try {
+      // Request permission for all URLs
+      const granted = await chrome.permissions.request({
+        origins: ['<all_urls>']
+      });
+      
+      if (granted) {
+        showNotification('Permission granted! You can now import podcasts.', 'success');
+        modal.remove();
+        // Proceed to show the podcast search modal
+        showPodcastSearchModal();
+      } else {
+        showNotification('Permission denied. You won\'t be able to import podcasts.', 'error');
+        modal.remove();
+      }
+    } catch (error) {
+      // Chrome extensions can't request permissions from content scripts directly
+      // We need to use the background script
+      await chrome.runtime.sendMessage({
+        action: 'REQUEST_ALL_URLS_PERMISSION'
+      });
+      
+      // Show waiting state
+      content.innerHTML = `
+        <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Requesting Permission...</h2>
+        <p style="color: #6b7280;">Please grant the permission in the popup window that appears.</p>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 16px;">If no popup appears, please check your browser's extension settings.</p>
+      `;
+      
+      // Wait a moment then check if permission was granted
+      setTimeout(async () => {
+        const check = await chrome.runtime.sendMessage({
+          action: 'CHECK_ALL_URLS_PERMISSION'
+        });
+        
+        if (check.granted) {
+          showNotification('Permission granted! You can now import podcasts.', 'success');
+          modal.remove();
+          showPodcastSearchModal();
+        } else {
+          modal.remove();
+        }
+      }, 1000);
+    }
+  });
+  
+  // Handle cancel
+  document.getElementById('permission-cancel').addEventListener('click', () => {
+    modal.remove();
+  });
+  
+}
+
+// Handle podcast import button click
+async function handlePodcastImportClick() {
+  // Track podcast import click
+  chrome.runtime.sendMessage({
+    action: 'TRACK_EVENT',
+    eventName: 'podcast_import_click',
+    parameters: {}
+  });
+  
+  // Check if we have permission for all URLs first
+  const permissionCheck = await chrome.runtime.sendMessage({
+    action: 'CHECK_ALL_URLS_PERMISSION'
+  });
+  
+  if (!permissionCheck.granted) {
+    // Show a modal explaining why we need permission
+    showPodcastPermissionModal();
+  } else {
+    // We have permission, proceed directly to search
+    showPodcastSearchModal();
+  }
+}
+
+function createPodcastButton() {
+  try {
+    const button = document.createElement('button');
+    button.id = 'yoto-podcast-btn';
+    
+    const podcastIcon = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </svg>
+    `;
+    
+    button.style.cssText = `
+      background-color: #ffffff;
+      color: #3b82f6;
+      border: 1px solid #3b82f6;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      line-height: 1.5;
+      height: 40px;
+    `;
+    
+    button.innerHTML = `
+      ${podcastIcon}
+      <span>Import Podcast</span>
+    `;
+    
+    button.onmouseenter = () => {
+      button.style.backgroundColor = '#ffffff';
+      button.style.color = '#9333ea';  // Purple color for podcast
+      button.style.borderColor = '#9333ea';
+      button.style.transform = 'translateY(-1px)';
+    };
+    
+    button.onmouseleave = () => {
+      button.style.backgroundColor = '#ffffff';
+      button.style.color = '#3b82f6';
+      button.style.borderColor = '#3b82f6';
+      button.style.transform = 'translateY(0)';
+    };
+    
+    button.addEventListener('click', handlePodcastImportClick);
+    
+    return button;
+  } catch (error) {
+    return null;
+  }
 }
 
 function updateButtonIcon(authenticated) {
@@ -529,12 +785,6 @@ function showImportOptionsModal() {
     modal.remove();
   });
   
-  // Close on background click
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.remove();
-    }
-  });
 }
 
 function showBulkImportOptionsModal() {
@@ -649,12 +899,6 @@ function showBulkImportOptionsModal() {
     modal.remove();
   });
   
-  // Close on background click
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.remove();
-    }
-  });
 }
 
 function selectZipFile() {
@@ -701,6 +945,921 @@ function selectFolder() {
   });
   
   folderInput.click();
+}
+
+// Load best kids' podcasts with randomization
+async function loadBestKidsPodcasts() {
+  const loadingDiv = document.getElementById('best-podcasts-loading');
+  const carouselDiv = document.getElementById('best-podcasts-carousel');
+  const listDiv = document.getElementById('best-podcasts-list');
+  
+  try {
+    // Define kids genre IDs - only kid-friendly genres
+    const kidsGenreIds = {
+      'Stories for Kids': 198,
+      'Education for Kids': 195
+    };
+    
+    // Randomly choose a strategy for variety
+    const strategies = [
+      'stories-only',     // Show only story podcasts
+      'education-only',   // Show only educational podcasts
+      'mixed-balanced',   // Equal mix of both genres
+      'stories-heavy',    // Mostly stories with some educational
+      'education-heavy'   // Mostly educational with some stories
+    ];
+    
+    const randomStrategy = strategies[Math.floor(Math.random() * strategies.length)];
+    
+    let allPodcasts = [];
+    
+    switch (randomStrategy) {
+      case 'stories-only': {
+        // Show only story podcasts from random page
+        const randomPage = Math.floor(Math.random() * 3) + 1; // Pages 1-3
+        
+        const response = await chrome.runtime.sendMessage({
+          action: 'GET_BEST_PODCASTS',
+          genreId: kidsGenreIds['Stories for Kids'],
+          page: randomPage
+        });
+        
+        if (!response.error && response.podcasts) {
+          allPodcasts = response.podcasts;
+        }
+        break;
+      }
+      
+      case 'education-only': {
+        // Show only educational podcasts from random page
+        const randomPage = Math.floor(Math.random() * 3) + 1; // Pages 1-3
+        
+        const response = await chrome.runtime.sendMessage({
+          action: 'GET_BEST_PODCASTS',
+          genreId: kidsGenreIds['Education for Kids'],
+          page: randomPage
+        });
+        
+        if (!response.error && response.podcasts) {
+          allPodcasts = response.podcasts;
+        }
+        break;
+      }
+      
+      case 'mixed-balanced': {
+        // Equal mix from both genres
+        
+        const [storiesResponse, eduResponse] = await Promise.all([
+          chrome.runtime.sendMessage({
+            action: 'GET_BEST_PODCASTS',
+            genreId: kidsGenreIds['Stories for Kids'],
+            page: 1
+          }),
+          chrome.runtime.sendMessage({
+            action: 'GET_BEST_PODCASTS',
+            genreId: kidsGenreIds['Education for Kids'],
+            page: 1
+          })
+        ]);
+        
+        const stories = storiesResponse.podcasts || [];
+        const educational = eduResponse.podcasts || [];
+        
+        // Interleave for balanced mix
+        const maxLength = Math.max(stories.length, educational.length);
+        for (let i = 0; i < maxLength; i++) {
+          if (i < stories.length) {
+            allPodcasts.push(stories[i]);
+          }
+          if (i < educational.length) {
+            allPodcasts.push(educational[i]);
+          }
+        }
+        
+        // Limit to reasonable number
+        allPodcasts = allPodcasts.slice(0, 14);
+        break;
+      }
+      
+      case 'stories-heavy': {
+        // Mostly stories with some educational
+        
+        const storiesResponse = await chrome.runtime.sendMessage({
+          action: 'GET_BEST_PODCASTS',
+          genreId: kidsGenreIds['Stories for Kids'],
+          page: 1
+        });
+        
+        const eduResponse = await chrome.runtime.sendMessage({
+          action: 'GET_BEST_PODCASTS',
+          genreId: kidsGenreIds['Education for Kids'],
+          page: 1
+        });
+        
+        if (!storiesResponse.error && storiesResponse.podcasts) {
+          // Take mostly stories
+          allPodcasts = storiesResponse.podcasts.slice(0, 9);
+          
+          // Add a few educational
+          if (!eduResponse.error && eduResponse.podcasts) {
+            allPodcasts.push(...eduResponse.podcasts.slice(0, 3));
+          }
+        }
+        break;
+      }
+      
+      case 'education-heavy':
+      default: {
+        // Mostly educational with some stories
+        
+        const eduResponse = await chrome.runtime.sendMessage({
+          action: 'GET_BEST_PODCASTS',
+          genreId: kidsGenreIds['Education for Kids'],
+          page: 1
+        });
+        
+        const storiesResponse = await chrome.runtime.sendMessage({
+          action: 'GET_BEST_PODCASTS',
+          genreId: kidsGenreIds['Stories for Kids'],
+          page: 1
+        });
+        
+        if (!eduResponse.error && eduResponse.podcasts) {
+          // Take mostly educational
+          allPodcasts = eduResponse.podcasts.slice(0, 9);
+          
+          // Add a few stories
+          if (!storiesResponse.error && storiesResponse.podcasts) {
+            allPodcasts.push(...storiesResponse.podcasts.slice(0, 3));
+          }
+        }
+        break;
+      }
+    }
+    
+    // Shuffle the final podcast list for additional randomness
+    if (allPodcasts.length > 0) {
+      // Fisher-Yates shuffle
+      for (let i = allPodcasts.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allPodcasts[i], allPodcasts[j]] = [allPodcasts[j], allPodcasts[i]];
+      }
+      
+      // Limit display to avoid overwhelming the carousel
+      const displayPodcasts = allPodcasts.slice(0, 12);
+      
+      // Display the podcasts
+      listDiv.innerHTML = '';
+      displayPodcasts.forEach(podcast => {
+        const podcastCard = createPodcastCard(podcast, true);
+        listDiv.appendChild(podcastCard);
+      });
+      
+      carouselDiv.style.display = 'block';
+    }
+    
+    loadingDiv.style.display = 'none';
+    
+  } catch (error) {
+    loadingDiv.style.display = 'none';
+  }
+}
+
+// Create a podcast card for display
+function createPodcastCard(podcast, isCompact = false) {
+  const card = document.createElement('div');
+  
+  if (isCompact) {
+    // Compact card for carousel - responsive sizing
+    card.style.cssText = `
+      flex: 0 0 auto;
+      min-width: 140px;
+      width: 140px;
+      max-width: 180px;
+      display: inline-block;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+      flex-shrink: 0;
+    `;
+    
+    card.innerHTML = `
+      <img src="${podcast.thumbnail || ''}" alt="${podcast.title}" style="
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        background: #f3f4f6;
+      " onerror="this.style.display='none'">
+      <h4 style="
+        margin: 0 0 4px 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1f2937;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      ">${podcast.title}</h4>
+      <p style="
+        margin: 0;
+        font-size: 11px;
+        color: #6b7280;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      ">${podcast.publisher || ''}</p>
+    `;
+    
+    card.onmouseenter = () => {
+      card.style.transform = 'translateY(-2px)';
+      card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+    };
+    
+    card.onmouseleave = () => {
+      card.style.transform = 'translateY(0)';
+      card.style.boxShadow = 'none';
+    };
+    
+  } else {
+    // Full card for search results
+    card.style.cssText = `
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    `;
+    
+    card.innerHTML = `
+      <img src="${podcast.thumbnail || ''}" alt="${podcast.title}" style="
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background: #f3f4f6;
+      " onerror="this.style.display='none'">
+      <div style="flex: 1; min-width: 0;">
+        <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1f2937;">${podcast.title}</h4>
+        <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">${podcast.publisher || ''}</p>
+        <p style="margin: 0; font-size: 11px; color: #9ca3af;">${podcast.total_episodes || 0} episodes</p>
+      </div>
+    `;
+    
+    card.onmouseenter = () => {
+      card.style.backgroundColor = '#f9fafb';
+      card.style.borderColor = '#3b82f6';
+    };
+    
+    card.onmouseleave = () => {
+      card.style.backgroundColor = 'transparent';
+      card.style.borderColor = '#e5e7eb';
+    };
+  }
+  
+  // Handle click to select podcast
+  card.addEventListener('click', () => selectPodcast(podcast));
+  
+  return card;
+}
+
+// Handle podcast selection
+async function selectPodcast(podcast) {
+  // Track podcast selection
+  chrome.runtime.sendMessage({
+    action: 'TRACK_EVENT',
+    eventName: 'podcast_selected',
+    parameters: {
+      podcast_title: podcast.title,
+      podcast_id: podcast.id
+    }
+  });
+  
+  // Close search modal if it exists
+  const searchModal = document.getElementById('podcast-search-modal');
+  if (searchModal) {
+    searchModal.remove();
+  }
+  
+  // Create episode selection modal
+  const modal = document.createElement('div');
+  modal.id = 'episode-selection-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease;
+  `;
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import ${podcast.title}</h2>
+    <div style="display: flex; gap: 16px; margin-bottom: 20px;">
+      <img src="${podcast.thumbnail || ''}" alt="${podcast.title}" style="
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #f3f4f6;
+      " onerror="this.style.display='none'" />
+      <div>
+        <h3 style="margin: 0 0 4px 0; font-size: 18px; color: #1f2937;">${podcast.title}</h3>
+        <p style="margin: 0; font-size: 14px; color: #6b7280;">${podcast.publisher || ''}</p>
+      </div>
+    </div>
+    <div id="episode-loading" style="text-align: center; padding: 40px;">
+      <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 10px; color: #6b7280;">Loading episodes...</p>
+    </div>
+    <div id="episode-content" style="display: none;">
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          Number of recent episodes to import:
+        </label>
+        <select id="episode-count" style="
+          padding: 8px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+        ">
+          <option value="3">3 episodes</option>
+          <option value="5" selected>5 episodes</option>
+          <option value="10">10 episodes</option>
+        </select>
+      </div>
+      <div id="episode-list" style="margin-bottom: 20px;"></div>
+      <div id="import-progress" style="display: none; margin: 20px 0;">
+        <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
+          <div id="import-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+        <p id="import-status" style="margin-top: 10px; color: #666; font-size: 14px;"></p>
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button id="episode-cancel" style="
+          padding: 10px 20px;
+          background: #f3f4f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">Cancel</button>
+        <button id="start-import" style="
+          padding: 10px 20px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">Import Episodes</button>
+      </div>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  try {
+    // Get podcast episodes
+    const response = await chrome.runtime.sendMessage({
+      action: 'GET_PODCAST_EPISODES',
+      podcastId: podcast.id
+    });
+    
+    document.getElementById('episode-loading').style.display = 'none';
+    document.getElementById('episode-content').style.display = 'block';
+    
+    if (response.error) {
+      showNotification(response.error, 'error');
+      modal.remove();
+      return;
+    }
+    
+    const episodes = response.episodes || [];
+    
+    if (episodes.length === 0) {
+      showNotification('No episodes found for this podcast', 'error');
+      modal.remove();
+      return;
+    }
+    
+    const episodeList = document.getElementById('episode-list');
+    const episodeCountSelect = document.getElementById('episode-count');
+    
+    // Update episode count selector based on available episodes
+    const maxEpisodes = Math.min(episodes.length, 10);
+    episodeCountSelect.innerHTML = '';
+    
+    [3, 5, 10].forEach(num => {
+      if (num <= maxEpisodes) {
+        const option = document.createElement('option');
+        option.value = num;
+        option.textContent = `${num} episodes`;
+        if (num === 5) option.selected = true;
+        episodeCountSelect.appendChild(option);
+      }
+    });
+    
+    if (maxEpisodes < 3) {
+      const option = document.createElement('option');
+      option.value = maxEpisodes;
+      option.textContent = `${maxEpisodes} episode${maxEpisodes > 1 ? 's' : ''}`;
+      option.selected = true;
+      episodeCountSelect.appendChild(option);
+    }
+    
+    // Display episode preview
+    const updateEpisodePreview = () => {
+      const count = parseInt(episodeCountSelect.value);
+      const hasLongEpisodes = episodes.slice(0, count).some(ep => ep.audio_length_sec > 3600);
+      
+      episodeList.innerHTML = `
+        <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
+          Will import the ${count} most recent episodes:
+        </p>
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #4b5563;">
+          ${episodes.slice(0, count).map(ep => {
+            const isOverLimit = ep.audio_length_sec > 3600;
+            const durationColor = isOverLimit ? '#ef4444' : 'inherit';
+            const warningAsterisk = isOverLimit ? '*' : '';
+            return `
+              <li style="margin-bottom: 4px;">
+                ${ep.title} 
+                <span style="color: ${durationColor};">
+                  (${formatDuration(ep.audio_length_sec)})${warningAsterisk}
+                </span>
+              </li>
+            `;
+          }).join('')}
+        </ul>
+        ${hasLongEpisodes ? `
+          <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280; font-style: italic;">
+            <span style="color: #ef4444;">*</span> Episodes over 60 minutes may exceed Yoto's official track limit.
+          </p>
+        ` : ''}
+      `;
+    };
+    
+    episodeCountSelect.addEventListener('change', updateEpisodePreview);
+    updateEpisodePreview();
+    
+    // Handle import button click
+    document.getElementById('start-import').addEventListener('click', async () => {
+      const count = parseInt(episodeCountSelect.value);
+      const selectedEpisodes = episodes.slice(0, count);
+      
+      const progressDiv = document.getElementById('import-progress');
+      const progressBar = document.getElementById('import-progress-bar');
+      const statusText = document.getElementById('import-status');
+      const importBtn = document.getElementById('start-import');
+      const cancelBtn = document.getElementById('episode-cancel');
+      
+      progressDiv.style.display = 'block';
+      importBtn.disabled = true;
+      importBtn.textContent = 'Importing...';
+      // Keep cancel button enabled so user can cancel
+      cancelBtn.textContent = 'Cancel Import';
+      
+      statusText.textContent = 'Starting import...';
+      progressBar.style.width = '5%';
+      
+      // Create a flag to track if import was cancelled
+      let importCancelled = false;
+      
+      // Update cancel button to stop the import
+      const cancelHandler = async () => {
+        importCancelled = true;
+        statusText.textContent = 'Cancelling import...';
+        progressBar.style.width = '0%';
+        
+        // Notify service worker to stop the import
+        try {
+          await chrome.runtime.sendMessage({
+            action: 'CANCEL_PODCAST_IMPORT'
+          });
+        } catch (e) {
+        }
+        
+        // Clear any stored import data
+        await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
+        
+        // Close modal after brief delay
+        setTimeout(() => {
+          modal.remove();
+        }, 500);
+      };
+      
+      // Replace the existing cancel handler
+      cancelBtn.onclick = cancelHandler;
+      
+      try {
+        // Start the import process
+        const startResponse = await chrome.runtime.sendMessage({
+          action: 'IMPORT_PODCAST_EPISODES',
+          podcast: podcast,
+          episodes: selectedEpisodes
+        });
+        
+        if (startResponse.error) {
+          throw new Error(startResponse.error);
+        }
+        
+        if (startResponse.status !== 'started') {
+          throw new Error('Failed to start import');
+        }
+        
+        // Poll for import status
+        let importComplete = false;
+        let pollAttempts = 0;
+        const maxAttempts = 120; // 2 minutes timeout
+        
+        progressBar.style.width = '10%';
+        statusText.textContent = 'Downloading and processing episodes...';
+        
+        while (!importComplete && !importCancelled && pollAttempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          
+          // Check if cancelled
+          if (importCancelled) {
+            break;
+          }
+          
+          const statusResponse = await chrome.runtime.sendMessage({
+            action: 'GET_PODCAST_IMPORT_STATUS'
+          });
+          
+          if (statusResponse) {
+            // Update progress
+            if (statusResponse.progress) {
+              const progress = statusResponse.progress;
+              if (progress.status === 'in_progress') {
+                const percent = progress.total > 0 
+                  ? Math.min(10 + (progress.current / progress.total * 80), 90)
+                  : 10;
+                progressBar.style.width = `${percent}%`;
+                statusText.textContent = progress.message || 'Processing...';
+              }
+            }
+            
+            // Check for completion
+            if (statusResponse.success) {
+              importComplete = true;
+              progressBar.style.width = '100%';
+              statusText.textContent = `Successfully imported ${statusResponse.tracksImported || selectedEpisodes.length} episodes!`;
+              importBtn.textContent = 'Completed';
+              
+              // Clear storage
+              await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
+              
+              // Close modal and reload after delay
+              setTimeout(() => {
+                modal.remove();
+                window.location.reload();
+              }, 2000);
+            } else if (statusResponse.cancelled) {
+              // Import was cancelled
+              importComplete = true;
+              importCancelled = true;
+              break;
+            } else if (statusResponse.needsPermission) {
+              // This shouldn't happen anymore since we request permission upfront
+              // But keep as fallback just in case
+              importComplete = true;
+              statusText.innerHTML = `
+                <div style="color: #dc3545;">
+                  <p>Permission required to access podcast audio files.</p>
+                  <p style="font-size: 14px; margin-top: 10px;">Please close this modal and try importing again.</p>
+                </div>
+              `;
+              progressBar.style.width = '0%';
+              importBtn.style.display = 'none';
+              cancelBtn.textContent = 'Close';
+            } else if (statusResponse.error) {
+              throw new Error(statusResponse.error);
+            }
+          }
+          
+          pollAttempts++;
+        }
+        
+        if (!importComplete) {
+          throw new Error('Import is taking longer than expected. Please refresh the page.');
+        }
+        
+      } catch (error) {
+        statusText.textContent = `Error: ${error.message}`;
+        progressBar.style.width = '0%';
+        importBtn.disabled = false;
+        importBtn.textContent = 'Import Episodes';
+        cancelBtn.textContent = 'Close';
+        cancelBtn.onclick = () => modal.remove();
+        showNotification(`Import failed: ${error.message}`, 'error');
+      }
+    });
+    
+    // Handle cancel
+    document.getElementById('episode-cancel').addEventListener('click', () => {
+      modal.remove();
+    });
+    
+  } catch (error) {
+    showNotification('Failed to load podcast episodes', 'error');
+    modal.remove();
+  }
+  
+}
+
+
+// Show podcast search modal
+function showPodcastSearchModal() {
+  const modal = document.createElement('div');
+  modal.id = 'podcast-search-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    animation: fadeIn 0.3s ease;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 750px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    overflow-x: visible;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease;
+  `;
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Podcast</h2>
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+        Enter podcast name to search:
+      </label>
+      <input type="text" id="podcast-search-input" placeholder="e.g., Radiolab for Kids" style="
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        box-sizing: border-box;
+      " />
+    </div>
+    
+    <!-- Best Kids' Podcasts Section -->
+    <div id="best-podcasts-section" style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+        Popular Kids' Podcasts:
+      </label>
+      <div id="best-podcasts-loading" style="text-align: center; padding: 20px;">
+        <div style="display: inline-block; width: 30px; height: 30px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      </div>
+      <div id="best-podcasts-carousel" style="
+        display: none;
+        overflow-x: scroll;
+        overflow-y: hidden;
+        padding: 10px 0 25px 0;
+        margin: 0;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e0 #f3f4f6;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+      ">
+        <div id="best-podcasts-list" style="
+          display: inline-flex;
+          flex-wrap: nowrap;
+          gap: 12px;
+          padding: 0 10px;
+          width: max-content;
+        "></div>
+      </div>
+      <style>
+        #best-podcasts-carousel {
+          scrollbar-width: auto !important;
+          scrollbar-color: #6b7280 #e5e7eb !important;
+        }
+        #best-podcasts-carousel::-webkit-scrollbar {
+          height: 16px !important;
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        #best-podcasts-carousel::-webkit-scrollbar-track {
+          background: #e5e7eb;
+          border-radius: 8px;
+          border: 1px solid #d1d5db;
+        }
+        #best-podcasts-carousel::-webkit-scrollbar-thumb {
+          background: #6b7280;
+          border-radius: 8px;
+          border: 2px solid #e5e7eb;
+          min-width: 40px;
+        }
+        #best-podcasts-carousel::-webkit-scrollbar-thumb:hover {
+          background: #4b5563;
+        }
+        #best-podcasts-carousel::-webkit-scrollbar-thumb:active {
+          background: #374151;
+        }
+        
+        /* Responsive adjustments for different viewports */
+        @media (max-width: 480px) {
+          #best-podcasts-carousel {
+            margin: 0 -15px;
+            padding: 10px 15px 20px 15px;
+          }
+          #best-podcasts-list {
+            padding: 0 5px !important;
+          }
+        }
+        
+        @media (min-width: 768px) and (max-width: 1024px) {
+          /* iPad and tablet optimization */
+          #best-podcasts-carousel {
+            padding-bottom: 25px;
+          }
+          #best-podcasts-carousel::-webkit-scrollbar {
+            height: 14px !important;
+          }
+        }
+        
+        @media (min-width: 1025px) {
+          /* Desktop optimization */
+          #best-podcasts-carousel::-webkit-scrollbar {
+            height: 14px !important;
+          }
+        }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
+    
+    <div id="podcast-search-results" style="display: none; margin-bottom: 20px;">
+      <div id="podcast-loading" style="display: none; text-align: center; padding: 20px;">
+        <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <p style="margin-top: 10px; color: #6b7280;">Searching podcasts...</p>
+      </div>
+      <div id="podcast-list" style="max-height: 300px; overflow-y: auto;"></div>
+      <div id="podcast-error" style="display: none; color: #ef4444; padding: 10px; background: #fee; border-radius: 6px;"></div>
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="podcast-cancel" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Cancel</button>
+      <button id="podcast-search-btn" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Search</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  // Load best kids' podcasts
+  loadBestKidsPodcasts();
+  
+  // Focus on input
+  const searchInput = document.getElementById('podcast-search-input');
+  searchInput.focus();
+  
+  // Handle search
+  const searchBtn = document.getElementById('podcast-search-btn');
+  const handleSearch = async () => {
+    const query = searchInput.value.trim();
+    if (!query) {
+      showNotification('Please enter a podcast name', 'error');
+      return;
+    }
+    
+    const resultsDiv = document.getElementById('podcast-search-results');
+    const loadingDiv = document.getElementById('podcast-loading');
+    const listDiv = document.getElementById('podcast-list');
+    const errorDiv = document.getElementById('podcast-error');
+    
+    resultsDiv.style.display = 'block';
+    loadingDiv.style.display = 'block';
+    listDiv.innerHTML = '';
+    errorDiv.style.display = 'none';
+    
+    try {
+      // Search for podcasts via service worker
+      const response = await chrome.runtime.sendMessage({
+        action: 'SEARCH_PODCASTS',
+        query: query
+      });
+      
+      loadingDiv.style.display = 'none';
+      
+      if (response.error) {
+        errorDiv.textContent = response.error;
+        errorDiv.style.display = 'block';
+        return;
+      }
+      
+      if (!response.podcasts || response.podcasts.length === 0) {
+        errorDiv.textContent = `No podcasts found for "${query}"`;
+        errorDiv.style.display = 'block';
+        return;
+      }
+      
+      // Display podcast results using the createPodcastCard function
+      response.podcasts.forEach(podcast => {
+        const podcastCard = createPodcastCard(podcast, false);
+        listDiv.appendChild(podcastCard);
+      });
+      
+    } catch (error) {
+      loadingDiv.style.display = 'none';
+      errorDiv.textContent = 'Failed to search podcasts. Please try again.';
+      errorDiv.style.display = 'block';
+    }
+  };
+  
+  searchBtn.addEventListener('click', handleSearch);
+  searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  });
+  
+  // Handle cancel
+  document.getElementById('podcast-cancel').addEventListener('click', () => {
+    modal.remove();
+  });
+  
+}
+// Format duration from seconds to readable format
+function formatDuration(seconds) {
+  if (!seconds) return 'Unknown';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins >= 60) {
+    const hours = Math.floor(mins / 60);
+    const remainingMins = mins % 60;
+    return `${hours}h ${remainingMins}m`;
+  }
+  return `${mins}m ${secs}s`;
 }
 
 async function processFolderFiles(files) {
@@ -1691,6 +2850,7 @@ function setupNavigationListener() {
   };
 }
 
+
 // Set up mutation observer
 function setupObserver() {
   if (state.observer) return;
@@ -1759,25 +2919,15 @@ function cleanTrackTitle(filename) {
   } else {
   }
   
-  // Replace all underscores with empty string
-  // "Mrs Longleg_s Class" -> "Mrs Longlegs Class"
   title = title.replace(/_/g, '');
   
-  // Remove leading digits and any following separators (period, dash, space)
-  // This regex matches: one or more digits at the start, followed by any combination of . - or spaces
-  // Examples:
-  // "1. Chapter 1" -> "Chapter 1"
-  // "001 Chapter 1" -> "Chapter 1"
-  // "2 I Eat Poop" -> "I Eat Poop"  
+  
   title = title.replace(/^\d+[\.\-\s]*/g, '');
   
-  // Clean up any multiple spaces that might have been created
   title = title.replace(/\s+/g, ' ');
   
-  // Trim whitespace from start and end
   title = title.trim();
   
-  // If title is empty after all cleaning, keep the original (without audio extension if present)
   if (!title || title.length === 0) {
     title = filename.replace(audioExtensions, '');
   }

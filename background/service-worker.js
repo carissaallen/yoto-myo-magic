@@ -17,6 +17,35 @@ function base64URLEncode(buffer) {
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
+function cleanEpisodeTitle(title) {
+    // Clean episode title similar to cleanTrackTitle in content.js
+    let cleanedTitle = title;
+    
+    // Replace underscores with spaces
+    cleanedTitle = cleanedTitle.replace(/_/g, ' ');
+    
+    // Remove leading digits and any following separators (period, dash, space, colon)
+    // This handles formats like:
+    // "1. Episode Name" -> "Episode Name"
+    // "001 - Episode Name" -> "Episode Name"
+    // "2: Episode Name" -> "Episode Name"
+    // "Episode 5: The Title" stays as is (digits not at start)
+    cleanedTitle = cleanedTitle.replace(/^\d+[\.\-\s:]+/, '');
+    
+    // Clean up any multiple spaces
+    cleanedTitle = cleanedTitle.replace(/\s+/g, ' ');
+    
+    // Trim whitespace
+    cleanedTitle = cleanedTitle.trim();
+    
+    // If title is empty after cleaning, return original
+    if (!cleanedTitle || cleanedTitle.length === 0) {
+        return title;
+    }
+    
+    return cleanedTitle;
+}
+
 class TokenManager {
     static async getTokens() {
         const result = await chrome.storage.local.get(CONFIG.TOKEN_STORAGE_KEY);
@@ -1331,6 +1360,693 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
     }
 }
 
+// Listen Notes API functions
+
+// Cache implementation for API responses
+const apiCache = {
+    cache: new Map(),
+    
+    // Generate a cache key from the request
+    getKey: (endpoint, params = {}) => {
+        const sortedParams = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join('&');
+        return `${endpoint}?${sortedParams}`;
+    },
+    
+    // Get cached data if it exists and is not expired
+    get: function(endpoint, params = {}, ttlMinutes = 60) {
+        const key = this.getKey(endpoint, params);
+        const cached = this.cache.get(key);
+        
+        if (!cached) return null;
+        
+        const now = Date.now();
+        const age = (now - cached.timestamp) / 1000 / 60; // age in minutes
+        
+        if (age > ttlMinutes) {
+            this.cache.delete(key);
+            return null;
+        }
+        
+        return cached.data;
+    },
+    
+    // Store data in cache
+    set: function(endpoint, params = {}, data) {
+        const key = this.getKey(endpoint, params);
+        this.cache.set(key, {
+            data: data,
+            timestamp: Date.now()
+        });
+    },
+    
+    // Clear all cache or specific endpoint
+    clear: function(endpoint = null) {
+        if (endpoint) {
+            // Clear specific endpoint
+            const keysToDelete = [];
+            for (const key of this.cache.keys()) {
+                if (key.startsWith(endpoint)) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => this.cache.delete(key));
+        } else {
+            // Clear all
+            this.cache.clear();
+        }
+    }
+};
+
+// Static fallback data for when API is unavailable or limit reached
+const staticPodcastData = {
+    popularKidsPodcasts: [
+        {
+            id: "static_1",
+            title: "Wow in the World",
+            publisher: "Tinkercast",
+            description: "The #1 science podcast for kids and their grown-ups. Hosts Mindy Thomas and Guy Raz guide curious kids and their grown-ups on a journey into the wonders of the world around them.",
+            thumbnail: "https://production.listennotes.com/podcasts/wow-in-the-world-tinkercast-JcrU8gEDkCE-qzeQz9xHygu.300x300.jpg",
+            total_episodes: 500
+        },
+        {
+            id: "static_2",
+            title: "Story Pirates",
+            publisher: "Gimlet Media",
+            description: "The Story Pirates Podcast is a wildly fun show for kids and families. Each episode features stories written by kids brought to life by the Story Pirates' talented comedy troupe.",
+            thumbnail: "https://production.listennotes.com/podcasts/story-pirates-gimlet-media-gJN2W3c4yQ5-6AZ_tH0IrxI.300x300.jpg",
+            total_episodes: 200
+        },
+        {
+            id: "static_3",
+            title: "Radiolab for Kids",
+            publisher: "WNYC Studios",
+            description: "Radiolab for Kids is a place where children and adults investigate the world together. We ask questions and go wherever curiosity takes us.",
+            thumbnail: "https://production.listennotes.com/podcasts/radiolab-for-kids-wnyc-studios-xLH2jdUQQMa-oaXHU5IVWyz.300x300.jpg",
+            total_episodes: 100
+        },
+        {
+            id: "static_4",
+            title: "Work It Out Wombats!",
+            publisher: "GBH & PBS Kids",
+            description: "Work It Out Wombats! follows a playful trio of marsupial siblings who live with their grandmother in a fantastical treehouse apartment complex.",
+            thumbnail: "https://production.listennotes.com/podcasts/work-it-out-wombats-gbh-pbs-kids-nSHlXlxiORI-xuC_5R9qUHk.300x300.jpg",
+            total_episodes: 50
+        },
+        {
+            id: "static_5",
+            title: "Tumble Science Podcast for Kids",
+            publisher: "Tumble Media",
+            description: "Tumble is a science podcast created to be enjoyed by the entire family. Hosted by Lindsay Patterson and Marshall Escamilla.",
+            thumbnail: "https://production.listennotes.com/podcasts/tumble-science-podcast-for-kids-tumble-media-EqYT2SIIvLb-SKAko1rVlfi.300x300.jpg",
+            total_episodes: 200
+        }
+    ],
+    
+    genres: [
+        { id: 132, name: "Kids & Family", parent_id: 0 },
+        { id: 133, name: "Stories for Kids", parent_id: 132 },
+        { id: 134, name: "Education for Kids", parent_id: 132 }
+    ]
+};
+
+async function searchPodcasts(query) {
+    try {
+        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
+            return { error: 'Listen Notes API key not configured. Please add your API key to config.js' };
+        }
+
+        // Check cache first (2 hour TTL for search results)
+        const cached = apiCache.get('search', { q: query });
+        if (cached) {
+            return cached;
+        }
+
+        const response = await fetch(`https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(query)}&type=podcast&only_in=title,description&language=English&safe_mode=0`, {
+            headers: {
+                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                return { error: 'Invalid Listen Notes API key. Please check your configuration.' };
+            }
+            if (response.status === 429) {
+                // Rate limited - return static fallback data
+                return { 
+                    podcasts: staticPodcastData.popularKidsPodcasts,
+                    fromCache: true,
+                    isStatic: true
+                };
+            }
+            return { error: `Failed to search podcasts: ${response.statusText}` };
+        }
+
+        const data = await response.json();
+        
+        // Transform the results to a simpler format
+        const podcasts = data.results.slice(0, 10).map(podcast => ({
+            id: podcast.id,
+            title: podcast.title_original,
+            publisher: podcast.publisher_original,
+            thumbnail: podcast.thumbnail,
+            total_episodes: podcast.total_episodes,
+            description: podcast.description_original
+        }));
+
+        const result = { podcasts };
+        
+        // Cache the result
+        apiCache.set('search', { q: query }, result);
+        
+        return result;
+    } catch (error) {
+        console.error('Podcast search error:', error);
+        
+        // If API fails, try to return static fallback data
+        return { 
+            podcasts: staticPodcastData.popularKidsPodcasts,
+            fromCache: true,
+            isStatic: true,
+            error: 'Using fallback data due to API error'
+        };
+    }
+}
+
+async function getGenres() {
+    try {
+        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
+            return { error: 'Listen Notes API key not configured' };
+        }
+
+        // Check cache first (genres rarely change - 24 hour TTL)
+        const cached = apiCache.get('genres', {}, 1440); // 1440 minutes = 24 hours
+        if (cached) {
+            return cached;
+        }
+
+        const response = await fetch('https://listen-api.listennotes.com/api/v2/genres?top_level_only=0', {
+            headers: {
+                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 429) {
+                // Rate limited - return static genres
+                return { 
+                    genres: staticPodcastData.genres,
+                    kidsGenres: staticPodcastData.genres,
+                    fromCache: true,
+                    isStatic: true
+                };
+            }
+            return { error: `Failed to fetch genres: ${response.statusText}` };
+        }
+
+        const data = await response.json();
+        
+        // Find kids & family genre and its sub-genres
+        const kidsGenres = [];
+        const findKidsGenres = (genres) => {
+            for (const genre of genres) {
+                if (genre.name && genre.name.toLowerCase().includes('kids') || 
+                    genre.name && genre.name.toLowerCase().includes('family')) {
+                    kidsGenres.push({
+                        id: genre.id,
+                        name: genre.name,
+                        parent_id: genre.parent_id
+                    });
+                }
+            }
+        };
+        
+        findKidsGenres(data.genres);
+        
+        const result = { genres: data.genres, kidsGenres };
+        
+        // Cache the result
+        apiCache.set('genres', {}, result);
+        
+        return result;
+    } catch (error) {
+        console.error('Genres fetch error:', error);
+        
+        // Return static genres as fallback
+        return { 
+            genres: staticPodcastData.genres,
+            kidsGenres: staticPodcastData.genres,
+            fromCache: true,
+            isStatic: true,
+            error: 'Using fallback genres due to API error'
+        };
+    }
+}
+
+async function getBestPodcasts(genreId = null, page = 1) {
+    try {
+        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
+            return { error: 'Listen Notes API key not configured' };
+        }
+
+        // Check cache first (48 hour TTL for best podcasts)
+        const cacheParams = { page, ...(genreId && { genre_id: genreId }) };
+        const cached = apiCache.get('best_podcasts', cacheParams, 2880); // 2880 minutes = 48 hours
+        if (cached) {
+            return cached;
+        }
+
+        let url = `https://listen-api.listennotes.com/api/v2/best_podcasts?page=${page}&safe_mode=1`;
+        if (genreId) {
+            url += `&genre_id=${genreId}`;
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 429) {
+                // Rate limited - return static fallback data
+                return { 
+                    podcasts: staticPodcastData.popularKidsPodcasts,
+                    has_next: false,
+                    has_previous: page > 1,
+                    page_number: page,
+                    total: staticPodcastData.popularKidsPodcasts.length,
+                    fromCache: true,
+                    isStatic: true
+                };
+            }
+            return { error: `Failed to fetch best podcasts: ${response.statusText}` };
+        }
+
+        const data = await response.json();
+        
+        // Transform the results to a simpler format
+        const podcasts = data.podcasts.map(podcast => ({
+            id: podcast.id,
+            title: podcast.title,
+            publisher: podcast.publisher,
+            thumbnail: podcast.thumbnail,
+            total_episodes: podcast.total_episodes,
+            description: podcast.description
+        }));
+
+        const result = { 
+            podcasts,
+            has_next: data.has_next,
+            has_previous: data.has_previous,
+            page_number: data.page_number,
+            total: data.total
+        };
+        
+        // Cache the result
+        apiCache.set('best_podcasts', cacheParams, result);
+        
+        return result;
+    } catch (error) {
+        console.error('Best podcasts fetch error:', error);
+        
+        // Return static fallback data
+        return { 
+            podcasts: staticPodcastData.popularKidsPodcasts,
+            has_next: false,
+            has_previous: page > 1,
+            page_number: page,
+            total: staticPodcastData.popularKidsPodcasts.length,
+            fromCache: true,
+            isStatic: true,
+            error: 'Using fallback data due to API error'
+        };
+    }
+}
+
+async function getPodcastEpisodes(podcastId) {
+    try {
+        if (!CONFIG.LISTEN_NOTES_API_KEY || CONFIG.LISTEN_NOTES_API_KEY === 'YOUR_LISTEN_NOTES_API_KEY') {
+            return { error: 'Listen Notes API key not configured' };
+        }
+
+        // Check cache first (12 hour TTL for episodes)
+        const cached = apiCache.get('podcast_episodes', { id: podcastId }, 720); // 720 minutes = 12 hours
+        if (cached) {
+            return cached;
+        }
+
+        const response = await fetch(`https://listen-api.listennotes.com/api/v2/podcasts/${podcastId}?sort=recent_first`, {
+            headers: {
+                'X-ListenAPI-Key': CONFIG.LISTEN_NOTES_API_KEY
+            }
+        });
+
+        if (!response.ok) {
+            if (response.status === 429) {
+                // Rate limited - return error suggesting to try later
+                return { 
+                    error: 'API rate limit reached. Please try again later.',
+                    rateLimited: true
+                };
+            }
+            return { error: `Failed to get podcast episodes: ${response.statusText}` };
+        }
+
+        const data = await response.json();
+        
+        // Get the most recent episodes (max 10)
+        const episodes = data.episodes.slice(0, 10).map(episode => ({
+            id: episode.id,
+            title: cleanEpisodeTitle(episode.title), // Use comprehensive title cleaning
+            description: episode.description,
+            audio: episode.audio,
+            audio_length_sec: episode.audio_length_sec,
+            thumbnail: episode.thumbnail || data.thumbnail,
+            pub_date_ms: episode.pub_date_ms
+        }));
+
+        const result = { episodes };
+        
+        // Cache the result
+        apiCache.set('podcast_episodes', { id: podcastId }, result);
+        
+        return result;
+    } catch (error) {
+        console.error('Get episodes error:', error);
+        return { error: 'Failed to get podcast episodes' };
+    }
+}
+
+async function importPodcastEpisodes(podcast, episodes) {
+    try {
+        // Clear any previous import status
+        await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp']);
+        
+        // Set initial progress
+        await chrome.storage.local.set({
+            podcastImportProgress: {
+                status: 'in_progress',
+                current: 0,
+                total: episodes.length,
+                message: 'Starting import...'
+            }
+        });
+        
+        // Check if authenticated
+        const isValid = await TokenManager.isTokenValid();
+        if (!isValid) {
+            return { error: 'Not authenticated. Please log in first.' };
+        }
+        
+        // Track domains we've encountered for debugging
+        const encounteredDomains = new Set();
+
+        // Create a new playlist for the podcast
+        const playlistName = `${podcast.title} - Podcast`;
+        
+        // Process episodes in parallel with controlled concurrency
+        const CONCURRENT_LIMIT = 3; // Process up to 3 episodes at once
+        const audioTracks = [];
+        let processedCount = 0;
+        let failedCount = 0;
+        
+        // Helper function to process a single episode
+        const processEpisode = async (episode, index) => {
+            // Check episode duration (Yoto limit is 60 minutes = 3600 seconds)
+            if (episode.audio_length_sec > 3600) {
+                console.warn(`Episode "${episode.title}" exceeds 60 minutes, it may be truncated by Yoto`);
+            }
+            
+            try {
+                let audioBlob = null;
+                let audioUrl = episode.audio;
+                
+                
+                // Listen Notes URLs often redirect to the actual podcast host
+                if (!audioUrl.includes('listennotes.com')) {
+                    console.warn(`Non-Listen Notes URL detected: ${audioUrl}. This may fail due to CORS.`);
+                }
+                
+                // Download the audio
+                try {
+                    // Log the original URL
+                    
+                    // First, try a HEAD request to see where it redirects without downloading
+                    try {
+                        const headResponse = await fetch(audioUrl, {
+                            method: 'HEAD',
+                            redirect: 'follow'
+                        });
+                        
+                        if (headResponse.url !== audioUrl) {
+                            const finalUrl = new URL(headResponse.url);
+                            
+                            // Check if we have permission for this domain
+                            const hasPermission = await chrome.permissions.contains({
+                                origins: [`${finalUrl.protocol}//${finalUrl.hostname}/*`]
+                            });
+                            
+                            if (!hasPermission) {
+                                encounteredDomains.add(`${finalUrl.protocol}//${finalUrl.hostname}/*`);
+                            }
+                        }
+                    } catch (headError) {
+                        // HEAD request failed, continue with GET
+                    }
+                    
+                    const audioResponse = await fetch(audioUrl, {
+                        method: 'GET',
+                        redirect: 'follow'
+                    });
+                    
+                    // Log the final URL after redirects
+                    
+                    // Parse and log the domain for analysis
+                    try {
+                        const finalUrl = new URL(audioResponse.url);
+                    } catch (e) {
+                    }
+                    
+                    if (!audioResponse.ok) {
+                        throw new Error(`HTTP ${audioResponse.status}`);
+                    }
+                    
+                    audioBlob = await audioResponse.blob();
+                    
+                    if (!audioBlob || audioBlob.size === 0) {
+                        throw new Error('Empty audio file');
+                    }
+                } catch (fetchError) {
+                    console.error(`Failed to download episode: ${episode.title}`, fetchError);
+                    
+                    // Log detailed error information
+                    
+                    // Try to extract the domain that caused the failure
+                    // The error message in Chrome often contains the blocked URL
+                    if (fetchError.message && fetchError.message.includes('Failed to fetch')) {
+                        // If we already know the domain from HEAD request, it's in encounteredDomains
+                        if (encounteredDomains.size === 0) {
+                            // Try to extract from the original URL
+                            try {
+                                const url = new URL(audioUrl);
+                                // For Listen Notes, we know it redirects, so we need the actual domain
+                                // This will be captured by the HEAD request above
+                                console.log(`[URL LOG] Original domain when failed: ${url.hostname}`);
+                            } catch (e) {
+                                // Ignore URL parse errors
+                            }
+                        }
+                    }
+                    
+                    failedCount++;
+                    return null;
+                }
+                
+                
+                // Upload audio to Yoto
+                const uploadResult = await uploadAudioFile({
+                    blob: audioBlob,
+                    name: `${episode.title}.mp3`,
+                    type: 'audio/mpeg'
+                });
+                
+                if (uploadResult.error) {
+                    console.error(`Failed to upload episode: ${episode.title}`, uploadResult.error);
+                    failedCount++;
+                    return null;
+                }
+                
+                return {
+                    title: episode.title,
+                    transcodedAudio: uploadResult.transcodedAudio,
+                    originalIndex: index
+                };
+                
+            } catch (error) {
+                console.error(`Error processing episode: ${episode.title}`, error);
+                failedCount++;
+                return null;
+            } finally {
+                processedCount++;
+                // Update progress
+                await chrome.storage.local.set({
+                    podcastImportProgress: {
+                        status: 'in_progress',
+                        current: processedCount,
+                        total: episodes.length,
+                        message: `Processing episodes: ${processedCount} of ${episodes.length} complete${failedCount > 0 ? ` (${failedCount} failed)` : ''}`
+                    }
+                });
+            }
+        };
+        
+        // Process episodes in batches with concurrency control
+        const results = [];
+        for (let i = 0; i < episodes.length; i += CONCURRENT_LIMIT) {
+            const batch = episodes.slice(i, Math.min(i + CONCURRENT_LIMIT, episodes.length));
+            const batchPromises = batch.map((episode, batchIndex) => 
+                processEpisode(episode, i + batchIndex)
+            );
+            
+            // Wait for current batch to complete before starting next batch
+            const batchResults = await Promise.all(batchPromises);
+            results.push(...batchResults);
+        }
+        
+        // Filter out failed episodes and sort by original order
+        const successfulTracks = results
+            .filter(track => track !== null)
+            .sort((a, b) => a.originalIndex - b.originalIndex)
+            .map(track => ({
+                title: track.title,
+                transcodedAudio: track.transcodedAudio
+            }));
+        
+        audioTracks.push(...successfulTracks);
+        
+        
+        
+        if (audioTracks.length === 0) {
+            // Check if we encountered domains we don't have permission for
+            if (encounteredDomains.size > 0 && failedCount > 0) {
+                const domainsArray = Array.from(encounteredDomains);
+                
+                return { 
+                    error: 'Failed to import episodes. The podcast audio is hosted on external domains that require additional permissions.',
+                    needsPermission: true,
+                    requiredDomains: domainsArray
+                };
+            }
+            
+            return { error: 'Failed to import episodes. The podcast audio may be hosted on a domain that requires additional permissions.' };
+        }
+        
+        // Upload podcast cover image as playlist cover
+        let coverImageUrl = null;
+        if (podcast.thumbnail) {
+            try {
+                const imageResponse = await fetch(podcast.thumbnail, {
+                    method: 'GET'
+                });
+                
+                if (imageResponse.ok) {
+                    const imageBlob = await imageResponse.blob();
+                    const reader = new FileReader();
+                    const imageData = await new Promise((resolve) => {
+                        reader.onloadend = () => {
+                            const base64 = reader.result.split(',')[1];
+                            resolve(base64);
+                        };
+                        reader.readAsDataURL(imageBlob);
+                    });
+                    
+                    const coverResult = await uploadCoverImage({
+                        data: imageData,
+                        name: 'podcast_cover.jpg',
+                        type: imageBlob.type
+                    });
+                    
+                    if (coverResult.url) {
+                        coverImageUrl = coverResult.url;
+                    }
+                } else {
+                    console.error(`Failed to download podcast cover - Status: ${imageResponse.status}`);
+                }
+            } catch (error) {
+                console.error('Failed to upload podcast cover:', error);
+                // Continue without cover image
+            }
+        }
+        
+        // Update progress for playlist creation
+        await chrome.storage.local.set({
+            podcastImportProgress: {
+                status: 'in_progress',
+                current: audioTracks.length,
+                total: episodes.length,
+                message: 'Creating MYO card playlist...'
+            }
+        });
+        
+        // Use the existing createPlaylistContent function which has the correct API structure
+        const result = await createPlaylistContent(
+            playlistName,
+            audioTracks,
+            [], // No custom icons for now
+            coverImageUrl
+        );
+        
+        if (result.error) {
+            const errorResult = { error: `Failed to create MYO card: ${result.error}` };
+            // Store the error result
+            await chrome.storage.local.set({
+                podcastImportResult: errorResult,
+                podcastImportTimestamp: Date.now(),
+                podcastImportProgress: {
+                    status: 'error',
+                    message: errorResult.error
+                }
+            });
+            return errorResult;
+        }
+        
+        const successResult = { 
+            success: true, 
+            contentId: result.contentId,
+            tracksImported: audioTracks.length
+        };
+        
+        // Store the successful result
+        await chrome.storage.local.set({
+            podcastImportResult: successResult,
+            podcastImportTimestamp: Date.now(),
+            podcastImportProgress: {
+                status: 'complete',
+                message: `Successfully imported ${audioTracks.length} episodes`
+            }
+        });
+        
+        return successResult;
+        
+    } catch (error) {
+        console.error('Import podcast error:', error);
+        const errorResult = { error: error.message || 'Failed to import podcast episodes' };
+        
+        // Store the error result
+        await chrome.storage.local.set({
+            podcastImportResult: errorResult,
+            podcastImportTimestamp: Date.now(),
+            podcastImportProgress: {
+                status: 'error',
+                message: errorResult.error
+            }
+        });
+        
+        return errorResult;
+    }
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
         try {
@@ -1549,6 +2265,136 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         }
                     }
                     sendResponse({success: true});
+                    break;
+
+                case 'SEARCH_PODCASTS':
+                    const searchResults = await searchPodcasts(request.query);
+                    sendResponse(searchResults);
+                    break;
+
+                case 'GET_PODCAST_EPISODES':
+                    const episodesResult = await getPodcastEpisodes(request.podcastId);
+                    sendResponse(episodesResult);
+                    break;
+
+                case 'GET_GENRES':
+                    const genresResult = await getGenres();
+                    sendResponse(genresResult);
+                    break;
+
+                case 'GET_BEST_PODCASTS':
+                    const bestPodcastsResult = await getBestPodcasts(request.genreId, request.page);
+                    sendResponse(bestPodcastsResult);
+                    break;
+
+                case 'OPEN_EXTENSION_PAGE':
+                    // Open an extension page in a new tab
+                    chrome.tabs.create({
+                        url: chrome.runtime.getURL(request.page)
+                    });
+                    sendResponse({opened: true});
+                    break;
+                    
+                case 'CHECK_ALL_URLS_PERMISSION':
+                    // Check if we have permission for all URLs
+                    const hasPerm = await chrome.permissions.contains({
+                        origins: ['<all_urls>']
+                    });
+                    sendResponse({granted: hasPerm});
+                    break;
+                    
+                case 'REQUEST_ALL_URLS_PERMISSION':
+                    // Request permission for all URLs
+                    try {
+                        const granted = await chrome.permissions.request({
+                            origins: ['<all_urls>']
+                        });
+                        
+                        if (granted) {
+                            // Notify content script that permission was granted
+                            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                                if (tabs[0]) {
+                                    chrome.tabs.sendMessage(tabs[0].id, {
+                                        action: 'PERMISSION_GRANTED',
+                                        permission: 'all_urls'
+                                    });
+                                }
+                            });
+                        }
+                        
+                        sendResponse({granted: granted});
+                    } catch (error) {
+                        console.error('Error requesting all_urls permission:', error);
+                        sendResponse({granted: false, error: error.message});
+                    }
+                    break;
+                    
+                case 'REQUEST_SPECIFIC_PERMISSIONS':
+                    // Request permission for specific domains
+                    const domains = request.domains;
+                    
+                    // Store the domains for the permission page to use
+                    await chrome.storage.local.set({
+                        pendingPermissionDomains: domains
+                    });
+                    
+                    sendResponse({stored: true});
+                    break;
+                    
+                case 'CHECK_SPECIFIC_PERMISSIONS':
+                    // Check if we have permission for specific domains
+                    const checkDomains = request.domains;
+                    const hasSpecificPerms = await chrome.permissions.contains({
+                        origins: checkDomains
+                    });
+                    sendResponse({granted: hasSpecificPerms});
+                    break;
+                    
+                case 'IMPORT_PODCAST_EPISODES':
+                    // Don't check permissions upfront - try first and see if it works
+                    // Start the import process asynchronously
+                    // Return immediately to avoid timeout
+                    sendResponse({status: 'started', message: 'Import process started'});
+                    
+                    // Run the actual import in the background
+                    importPodcastEpisodes(request.podcast, request.episodes).then(result => {
+                        // Store the result for later retrieval
+                        chrome.storage.local.set({
+                            podcastImportResult: result,
+                            podcastImportTimestamp: Date.now()
+                        });
+                    }).catch(error => {
+                        chrome.storage.local.set({
+                            podcastImportResult: {error: error.message || 'Import failed'},
+                            podcastImportTimestamp: Date.now()
+                        });
+                    });
+                    break;
+                    
+                case 'GET_PODCAST_IMPORT_STATUS':
+                    // Allow checking the import status
+                    const storage = await chrome.storage.local.get(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
+                    if (storage.podcastImportResult) {
+                        sendResponse(storage.podcastImportResult);
+                    } else if (storage.podcastImportProgress) {
+                        sendResponse({status: 'pending', progress: storage.podcastImportProgress});
+                    } else {
+                        sendResponse({status: 'pending'});
+                    }
+                    break;
+
+                case 'CANCEL_PODCAST_IMPORT':
+                    // Cancel the podcast import
+                    // Clear any stored import data
+                    await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
+                    
+                    // Set a cancelled status
+                    await chrome.storage.local.set({
+                        podcastImportResult: {cancelled: true, message: 'Import cancelled by user'},
+                        podcastImportTimestamp: Date.now()
+                    });
+                    
+                    sendResponse({success: true, message: 'Import cancelled'});
                     break;
 
                 default:
