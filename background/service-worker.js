@@ -1483,8 +1483,11 @@ async function searchPodcasts(query) {
                 return { error: 'API authentication failed. Please check the proxy server configuration.' };
             }
             if (response.status === 429) {
-                // Rate limited - return static fallback data
+                // Rate limited - return rate limit error with user-friendly message
                 return { 
+                    error: 'rate_limited',
+                    rateLimited: true,
+                    message: "We've reached the maximum allowed use of the podcast search service for now. To keep this extension free for all users, we have usage limits that reset periodically. Please try again later, or browse the popular podcasts below.",
                     podcasts: staticPodcastData.popularKidsPodcasts,
                     fromCache: true,
                     isStatic: true
@@ -1512,7 +1515,6 @@ async function searchPodcasts(query) {
         
         return result;
     } catch (error) {
-        console.error('Podcast search error:', error);
         
         // If API fails, try to return static fallback data
         return { 
@@ -1542,7 +1544,6 @@ async function getGenres() {
         // The code below is commented out since we're using static genres for now
         // Will be implemented when proxy server has genres endpoint
     } catch (error) {
-        console.error('Genres fetch error:', error);
         
         return {
             genres: staticPodcastData.genres,
@@ -1568,11 +1569,7 @@ async function getBestPodcasts(genreId = null, page = 1) {
             isStatic: true
         };
 
-        // The code below is commented out since we're using static data for now
     } catch (error) {
-        console.error('Best podcasts fetch error:', error);
-        
-        // Return static fallback data
         return { 
             podcasts: staticPodcastData.popularKidsPodcasts,
             has_next: false,
@@ -1597,10 +1594,11 @@ async function getPodcastEpisodes(podcastId) {
 
         if (!response.ok) {
             if (response.status === 429) {
-                // Rate limited - return error suggesting to try later
+                // Rate limited - return error with user-friendly message
                 return { 
-                    error: 'API rate limit reached. Please try again later.',
-                    rateLimited: true
+                    error: 'rate_limited',
+                    rateLimited: true,
+                    message: "We've reached the maximum allowed use of the podcast service for now. To keep this extension free for all users, we have usage limits that reset periodically. Please try again later. We appreciate your patience and hope to expand the allowed usage in the future."
                 };
             }
             return { error: `Failed to get podcast episodes: ${response.statusText}` };
@@ -1626,7 +1624,6 @@ async function getPodcastEpisodes(podcastId) {
         
         return result;
     } catch (error) {
-        console.error('Get episodes error:', error);
         return { error: 'Failed to get podcast episodes' };
     }
 }
@@ -1731,7 +1728,6 @@ async function importPodcastEpisodes(podcast, episodes) {
                         throw new Error('Empty audio file');
                     }
                 } catch (fetchError) {
-                    console.error(`Failed to download episode: ${episode.title}`, fetchError);
                     
                     // Log detailed error information
                     
@@ -1745,7 +1741,6 @@ async function importPodcastEpisodes(podcast, episodes) {
                                 const url = new URL(audioUrl);
                                 // For Listen Notes, we know it redirects, so we need the actual domain
                                 // This will be captured by the HEAD request above
-                                console.log(`[URL LOG] Original domain when failed: ${url.hostname}`);
                             } catch (e) {
                                 // Ignore URL parse errors
                             }
@@ -1765,7 +1760,6 @@ async function importPodcastEpisodes(podcast, episodes) {
                 });
                 
                 if (uploadResult.error) {
-                    console.error(`Failed to upload episode: ${episode.title}`, uploadResult.error);
                     failedCount++;
                     return null;
                 }
@@ -1777,7 +1771,6 @@ async function importPodcastEpisodes(podcast, episodes) {
                 };
                 
             } catch (error) {
-                console.error(`Error processing episode: ${episode.title}`, error);
                 failedCount++;
                 return null;
             } finally {
@@ -1864,10 +1857,8 @@ async function importPodcastEpisodes(podcast, episodes) {
                         coverImageUrl = coverResult.url;
                     }
                 } else {
-                    console.error(`Failed to download podcast cover - Status: ${imageResponse.status}`);
                 }
             } catch (error) {
-                console.error('Failed to upload podcast cover:', error);
                 // Continue without cover image
             }
         }
@@ -1923,7 +1914,6 @@ async function importPodcastEpisodes(podcast, episodes) {
         return successResult;
         
     } catch (error) {
-        console.error('Import podcast error:', error);
         const errorResult = { error: error.message || 'Failed to import podcast episodes' };
         
         // Store the error result
@@ -2217,7 +2207,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         
                         sendResponse({granted: granted});
                     } catch (error) {
-                        console.error('Error requesting all_urls permission:', error);
                         sendResponse({granted: false, error: error.message});
                     }
                     break;

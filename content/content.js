@@ -198,7 +198,6 @@ function createImportButton() {
   const button = document.createElement('button');
   button.id = 'yoto-import-btn';
   
-  // Import icon SVG
   const importIcon = `
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <g id="Import">
@@ -432,8 +431,6 @@ function showPodcastPermissionModal() {
         modal.remove();
       }
     } catch (error) {
-      // Chrome extensions can't request permissions from content scripts directly
-      // We need to use the background script
       await chrome.runtime.sendMessage({
         action: 'REQUEST_ALL_URLS_PERMISSION'
       });
@@ -1361,6 +1358,24 @@ async function selectPodcast(podcast) {
     document.getElementById('episode-loading').style.display = 'none';
     document.getElementById('episode-content').style.display = 'block';
     
+    if (response.error === 'rate_limited' && response.rateLimited) {
+      // Show rate limit message in the modal instead of removing it
+      document.getElementById('episode-content').innerHTML = `
+        <div style="padding: 20px;">
+          <div style="background: #fff8e1; border: 1px solid #ffcc00; border-radius: 8px; padding: 20px;">
+            <div style="display: flex; align-items: start; gap: 12px;">
+              <span style="font-size: 24px;">⚠️</span>
+              <div>
+                <h3 style="margin: 0 0 10px; color: #f57c00;">Usage Limit Reached</h3>
+                <p style="margin: 0; color: #666; line-height: 1.6;">${response.message}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+    
     if (response.error) {
       showNotification(response.error, 'error');
       modal.remove();
@@ -1810,6 +1825,35 @@ function showPodcastSearchModal() {
       });
       
       loadingDiv.style.display = 'none';
+      
+      if (response.error === 'rate_limited' && response.rateLimited) {
+        // Show the rate limit message
+        errorDiv.innerHTML = `
+          <div style="padding: 15px; background: #fff8e1; border: 1px solid #ffcc00; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: start; gap: 10px;">
+              <span style="font-size: 20px;">⚠️</span>
+              <div>
+                <strong style="color: #f57c00;">Usage Limit Reached</strong>
+                <p style="margin: 8px 0 0 0; color: #666; line-height: 1.5;">${response.message}</p>
+              </div>
+            </div>
+          </div>
+        `;
+        errorDiv.style.display = 'block';
+        
+        // If we have fallback podcasts, still show them
+        if (response.podcasts && response.podcasts.length > 0) {
+          const suggestionDiv = document.createElement('div');
+          suggestionDiv.innerHTML = '<h3 style="margin: 20px 0 10px;">Popular Kids Podcasts:</h3>';
+          listDiv.appendChild(suggestionDiv);
+          
+          response.podcasts.forEach(podcast => {
+            const podcastCard = createPodcastCard(podcast, false);
+            listDiv.appendChild(podcastCard);
+          });
+        }
+        return;
+      }
       
       if (response.error) {
         errorDiv.textContent = response.error;
