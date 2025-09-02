@@ -1634,12 +1634,8 @@ function showCategorySelectionModal(cardId, trackCount) {
   `;
   
   // Common categories for icons
-  const categories = [
-    'Animals', 'Music', 'Nature', 'Food', 'Sports', 'Space',
-    'School', 'Transportation', 'Weather', 'Holiday', 'Fantasy',
-    'Science', 'Art', 'Games', 'Tools', 'Buildings', 'Emotions', 'Chapters'
-  ];
-  
+  const categories = [ 'Animals', 'Art', 'Buildings', 'Chapters', 'Emotions', 'Fantasy', 'Food', 'Games', 'Holiday', 'Music', 'Nature', 'School', 'Space', 'Science', 'Sports', 'Tools', 'Transportation', 'Weather'];
+
   content.innerHTML = `
     <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Category Icon Match</h2>
     <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">

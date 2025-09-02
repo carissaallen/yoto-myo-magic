@@ -677,28 +677,43 @@ async function searchIcons(query) {
             }
         } catch (error) {}
 
+        const matchesWholeWord = (text, word) => {
+            // For numbers, do exact matching or look for the number in common formats
+            if (/^\d+$/.test(word)) {
+                const patterns = [
+                    `\\b${word}\\b`,  // exact number
+                    `#${word}\\b`,     // hashtag format like #1
+                    `number ${word}\\b`, // "number 1" format
+                    `no\\.?\\s*${word}\\b` // "no. 1" or "no 1" format
+                ];
+                const regex = new RegExp(patterns.join('|'), 'i');
+                return regex.test(text);
+            }
+            // For text, use word boundaries
+            const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+            return regex.test(text);
+        };
+
         let yotoMatches = allIcons.filter(icon => {
             const allText = [
                 icon.title,
                 icon.mediaId,
                 ...(icon.publicTags || [])
-            ].filter(Boolean).join(' ').toLowerCase();
-            return allText.includes(lowerQuery);
+            ].filter(Boolean).join(' ');
+            return matchesWholeWord(allText, query);
         });
 
         // If no matches and word appears plural, try singular form
         if (yotoMatches.length === 0 && Utils.isPlural(query)) {
             const singular = Utils.singularize(query);
             if (singular !== query) {
-                const singularLower = singular.toLowerCase();
-                
                 yotoMatches = allIcons.filter(icon => {
                     const allText = [
                         icon.title,
                         icon.mediaId,
                         ...(icon.publicTags || [])
-                    ].filter(Boolean).join(' ').toLowerCase();
-                    return allText.includes(singularLower);
+                    ].filter(Boolean).join(' ');
+                    return matchesWholeWord(allText, singular);
                 });
             }
         }
@@ -774,10 +789,10 @@ async function searchIcons(query) {
                 icon.title,
                 icon.mediaId,
                 ...(icon.publicTags || [])
-            ].filter(Boolean).join(' ').toLowerCase();
+            ].filter(Boolean).join(' ');
             
-            // Check if text matches any of our search terms
-            return searchTerms.some(term => allText.includes(term));
+            // Check if text matches any of our search terms using whole word matching
+            return searchTerms.some(term => matchesWholeWord(allText, term));
         });
 
         filteredIcons.sort((a, b) => {
@@ -846,7 +861,7 @@ function getRelatedTerms(category) {
         'animals': ['animal', 'pet', 'zoo', 'farm', 'wildlife', 'dog', 'cat', 'bird'],
         'art': ['paint', 'draw', 'color', 'brush', 'canvas', 'creative', 'craft'],
         'buildings': ['house', 'home', 'office', 'city', 'architecture', 'building', 'tower'],
-        'chapters': ['number', 'book', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'chapter', 'introduction', 'credits', 'prologue', 'epilogue'],
+        'chapters': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'number', 'numbers', 'book'],
         'emotions': ['happy', 'sad', 'love', 'angry', 'smile', 'heart', 'feeling'],
         'fantasy': ['magic', 'fairy', 'dragon', 'unicorn', 'wizard', 'castle', 'princess'],
         'food': ['fruit', 'vegetable', 'meal', 'snack', 'drink', 'cooking', 'kitchen'],
@@ -977,13 +992,46 @@ async function applyCategoryIcons(cardId, selectedIcons) {
 
 async function matchIcons(tracks) {
     const matches = [];
+    
+    // Common words to exclude from searches (stop words)
+    const stopWords = new Set([
+        'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+        'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
+        'before', 'after', 'above', 'below', 'between', 'under', 'how', 'what',
+        'when', 'where', 'why', 'who', 'which', 'i', 'me', 'my', 'we', 'our',
+        'you', 'your', 'he', 'she', 'it', 'they', 'them', 'their', 'this',
+        'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been',
+        'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+        'could', 'should', 'may', 'might', 'must', 'can', 'shall'
+    ]);
+    
+    const extractKeywords = (title) => {
+        // Remove punctuation and possessives, split into words
+        const words = title
+            .toLowerCase()
+            .replace(/['']s\b/gi, '') // Remove possessives
+            .replace(/[^\w\s]/g, ' ') // Remove punctuation
+            .split(/\s+/)
+            .filter(word => {
+                // Keep words that are:
+                // - At least 2 characters long
+                // - Not in the stop words list
+                // - Not just numbers
+                return word.length >= 2 && 
+                       !stopWords.has(word) && 
+                       !/^\d+$/.test(word);
+            });
+        
+        // Remove duplicates while preserving order
+        return [...new Set(words)];
+    };
 
     for (const track of tracks) {
         let iconOptions = [];
 
         try {
-            // Also try with possessives removed for better matching
-            const cleanedTitle = track.title.replace(/'s\b/gi, '');
+            // First try with the full cleaned title
+            const cleanedTitle = track.title.replace(/['']s\b/gi, '');
             const fullResults = await searchIcons(cleanedTitle);
             if (fullResults.icons && fullResults.icons.length > 0) {
                 const validIcons = fullResults.icons.filter(icon => {
@@ -1014,11 +1062,9 @@ async function matchIcons(tracks) {
             }
         } catch (error) {}
 
+        // If we don't have enough icons, search by individual keywords
         if (iconOptions.length < 5) {
-            const keywords = track.title.toLowerCase()
-                .split(' ')
-                .map(word => word.replace(/'s$/i, ''))  // Remove possessive 's
-                .filter(word => word.length >= 3);
+            const keywords = extractKeywords(track.title);
 
             for (const keyword of keywords) {
                 if (iconOptions.length >= 10) break;

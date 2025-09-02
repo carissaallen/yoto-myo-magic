@@ -29,6 +29,7 @@ Buttons will auto-magically appear on the Yoto MYO playlist page!
 ### v1.3.0
 
 - **🏷️ Category Icon Matching**: Apply themed icons to multiple tracks at once
+- **🎯 Smarter Icon Matching**: Improved search accuracy with whole-word matching and intelligent keyword extraction
 
 ### v1.2.0
 - **🎙️ Import Podcasts**: Search and import podcast episodes directly from ListenNotes
