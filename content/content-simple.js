@@ -526,6 +526,13 @@ function createImportButton() {
 }
 
 function createButton() {
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = `
+    position: relative;
+    display: inline-flex;
+    margin-left: 8px;
+  `;
+  
   const button = document.createElement('button');
   button.id = 'yoto-magic-btn';
   
@@ -536,12 +543,18 @@ function createButton() {
     </svg>
   `;
   
+  const dropdownIcon = `
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+    </svg>
+  `;
+  
   button.style.cssText = `
     background-color: #ffffff;
     color: #3b82f6;
     border: 1px solid #3b82f6;
     padding: 8px 16px;
-    border-radius: 6px;
+    border-radius: 6px 0 0 6px;
     font-size: 13px;
     font-weight: 500;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -551,11 +564,85 @@ function createButton() {
     justify-content: center;
     gap: 8px;
     transition: all 0.2s ease;
-    margin-left: 8px;
     white-space: nowrap;
     line-height: 1.5;
     height: 40px;
+    border-right: none;
   `;
+  
+  const dropdownButton = document.createElement('button');
+  dropdownButton.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    height: 40px;
+    border-left: 1px solid #e5e7eb;
+  `;
+  
+  dropdownButton.innerHTML = dropdownIcon;
+  
+  const dropdownMenu = document.createElement('div');
+  dropdownMenu.style.cssText = `
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: none;
+    z-index: 1000;
+    min-width: 180px;
+  `;
+  
+  const generalOption = document.createElement('button');
+  generalOption.style.cssText = `
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+  generalOption.textContent = 'Track Title';
+  generalOption.onmouseenter = () => generalOption.style.backgroundColor = '#f3f4f6';
+  generalOption.onmouseleave = () => generalOption.style.backgroundColor = 'transparent';
+  
+  const categoryOption = document.createElement('button');
+  categoryOption.style.cssText = `
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-top: 1px solid #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+  categoryOption.textContent = 'Category';
+  categoryOption.onmouseenter = () => categoryOption.style.backgroundColor = '#f3f4f6';
+  categoryOption.onmouseleave = () => categoryOption.style.backgroundColor = 'transparent';
+  
+  dropdownMenu.appendChild(generalOption);
+  dropdownMenu.appendChild(categoryOption);
   
   button.innerHTML = `
     ${puzzlePieceIcon}
@@ -576,7 +663,52 @@ function createButton() {
     button.style.transform = 'translateY(0)';
   };
   
+  dropdownButton.onmouseenter = () => {
+    dropdownButton.style.backgroundColor = '#f3f4f6';
+  };
+  
+  dropdownButton.onmouseleave = () => {
+    dropdownButton.style.backgroundColor = '#ffffff';
+  };
+  
+  dropdownButton.onclick = (e) => {
+    e.stopPropagation();
+    const isVisible = dropdownMenu.style.display === 'block';
+    dropdownMenu.style.display = isVisible ? 'none' : 'block';
+  };
+  
+  document.addEventListener('click', (e) => {
+    if (!buttonContainer.contains(e.target)) {
+      dropdownMenu.style.display = 'none';
+    }
+  });
+  
+  generalOption.onclick = async () => {
+    dropdownMenu.style.display = 'none';
+    await handleIconMatch('general');
+  };
+  
+  categoryOption.onclick = async () => {
+    dropdownMenu.style.display = 'none';
+    await handleIconMatch('category');
+  };
+  
   button.onclick = async () => {
+    await handleIconMatch('general');
+  };
+  
+  buttonContainer.appendChild(button);
+  buttonContainer.appendChild(dropdownButton);
+  buttonContainer.appendChild(dropdownMenu);
+  
+  return buttonContainer;
+}
+
+async function handleIconMatch(matchType) {
+  const button = document.getElementById('yoto-magic-btn');
+  const puzzlePieceIcon = button.querySelector('svg').outerHTML;
+  
+  if (matchType === 'general') {
     // Check cached auth status first
     const now = Date.now();
     if (!authCached || now - authCacheTime > AUTH_CACHE_DURATION) {
@@ -834,9 +966,10 @@ function createButton() {
       `;
       button.style.opacity = '1';
     }
-  };
-  
-  return button;
+  } else if (matchType === 'category') {
+    // Handle category match
+    await handleCategoryIconMatch();
+  }
 }
 
 function checkAndInjectButton() {
@@ -1430,6 +1563,430 @@ function showRefreshIndicator() {
   }
   
   document.body.appendChild(indicator);
+}
+
+async function handleCategoryIconMatch() {
+  const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+  if (!authResponse.authenticated) {
+    chrome.runtime.sendMessage({ action: 'START_AUTH' });
+    return;
+  }
+  
+  const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
+  const cardId = urlMatch ? urlMatch[1] : null;
+  
+  if (!cardId) {
+    alert('Could not identify card ID from URL');
+    return;
+  }
+  
+  const contentResponse = await chrome.runtime.sendMessage({
+    action: 'GET_CARD_CONTENT',
+    cardId: cardId
+  });
+  
+  let trackCount = 0;
+  if (contentResponse.card && contentResponse.card.content && contentResponse.card.content.chapters) {
+    // Count the number of chapters (each chapter is typically one track in MYO cards)
+    trackCount = contentResponse.card.content.chapters.length;
+  }
+  
+  if (trackCount === 0) {
+    // Try to get tracks from DOM as fallback
+    const trackElements = document.querySelectorAll('[data-testid^="track-"]');
+    trackCount = trackElements.length;
+  }
+  
+  if (trackCount === 0) {
+    alert('No tracks found in this card. Please add some tracks first.');
+    return;
+  }
+  
+  showCategorySelectionModal(cardId, trackCount);
+}
+
+function showCategorySelectionModal(cardId, trackCount) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+  
+  // Common categories for icons
+  const categories = [
+    'Animals', 'Music', 'Nature', 'Food', 'Sports', 'Space',
+    'School', 'Transportation', 'Weather', 'Holiday', 'Fantasy',
+    'Science', 'Art', 'Games', 'Tools', 'Buildings', 'Emotions'
+  ];
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Category Icon Match</h2>
+    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+      Select a category to find icons for your ${trackCount} track${trackCount !== 1 ? 's' : ''}
+    </p>
+    
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+        Choose a category:
+      </label>
+      <select id="category-select" style="
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+      ">
+        <option value="">Select a category...</option>
+        ${categories.map(cat => `<option value="${cat.toLowerCase()}">${cat}</option>`).join('')}
+      </select>
+    </div>
+    
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+        Or enter a custom category:
+      </label>
+      <input type="text" id="custom-category" placeholder="e.g., dinosaurs, robots, fairy tales" style="
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+      ">
+    </div>
+    
+    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="category-cancel" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Cancel</button>
+      <button id="category-search" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Search Icons</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  const categorySelect = document.getElementById('category-select');
+  const customCategory = document.getElementById('custom-category');
+  
+  categorySelect.addEventListener('change', () => {
+    if (categorySelect.value) {
+      customCategory.value = '';
+    }
+  });
+  
+  customCategory.addEventListener('input', () => {
+    if (customCategory.value) {
+      categorySelect.value = '';
+    }
+  });
+  
+  document.getElementById('category-cancel').addEventListener('click', () => {
+    modal.remove();
+  });
+  
+  document.getElementById('category-search').addEventListener('click', async () => {
+    const category = customCategory.value || categorySelect.value;
+    
+    if (!category) {
+      alert('Please select or enter a category');
+      return;
+    }
+    
+    const searchBtn = document.getElementById('category-search');
+    searchBtn.textContent = 'Searching...';
+    searchBtn.disabled = true;
+    
+    const searchResponse = await chrome.runtime.sendMessage({
+      action: 'SEARCH_ICONS_BY_CATEGORY',
+      category: category
+    });
+    
+    if (searchResponse.error) {
+      alert('Error searching for icons: ' + searchResponse.error);
+      modal.remove();
+      return;
+    }
+    
+    if (!searchResponse.icons || searchResponse.icons.length === 0) {
+      alert(`No icons found for category "${category}". Please try another category.`);
+      searchBtn.textContent = 'Search Icons';
+      searchBtn.disabled = false;
+      return;
+    }
+    
+    modal.remove();
+    showIconSelectionModal(cardId, trackCount, searchResponse.icons, category);
+  });
+}
+
+function showIconSelectionModal(cardId, trackCount, icons, category) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+  
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 800px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+  
+  content.innerHTML = `
+    <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Select Icons for "${category}"</h2>
+    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
+      Choose icons to apply to your ${trackCount} tracks. Selected icons will be applied in order and repeated if needed.
+    </p>
+    
+    <div id="icon-grid" style="
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    "></div>
+    
+    <div style="margin-bottom: 20px; padding: 10px; background: #f9fafb; border-radius: 6px;">
+      <p style="margin: 0; font-size: 13px; color: #6b7280;">
+        <strong>Selected:</strong> <span id="selected-count">0</span> icon(s)
+      </p>
+      <p style="margin: 4px 0 0 0; font-size: 12px; color: #9ca3af;">
+        Icons will be applied to tracks in the order selected
+      </p>
+    </div>
+    
+    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="icon-cancel" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Cancel</button>
+      <button id="icon-apply" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      " disabled>Apply Icons</button>
+    </div>
+  `;
+  
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+  
+  const iconGrid = document.getElementById('icon-grid');
+  const selectedIcons = [];
+  const selectedIconElements = new Map();
+  
+  icons.forEach((icon, index) => {
+    const iconDiv = document.createElement('div');
+    iconDiv.style.cssText = `
+      position: relative;
+      cursor: pointer;
+      border: 2px solid transparent;
+      border-radius: 8px;
+      padding: 8px;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: white;
+    `;
+    
+    const img = document.createElement('img');
+    img.src = icon.url || icon.mediaUrl || `https://api.yotoplay.com/media/${icon.mediaId}`;
+    img.style.cssText = `
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 4px;
+    `;
+    
+    const orderBadge = document.createElement('div');
+    orderBadge.style.cssText = `
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: #3b82f6;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+    `;
+    
+    iconDiv.appendChild(img);
+    iconDiv.appendChild(orderBadge);
+    
+    iconDiv.addEventListener('click', () => {
+      const iconIndex = selectedIcons.findIndex(i => i.mediaId === icon.mediaId);
+      
+      if (iconIndex >= 0) {
+        selectedIcons.splice(iconIndex, 1);
+        iconDiv.style.borderColor = 'transparent';
+        iconDiv.style.backgroundColor = 'white';
+        orderBadge.style.display = 'none';
+        selectedIconElements.delete(icon.mediaId);
+        
+        updateOrderBadges();
+      } else {
+        selectedIcons.push(icon);
+        iconDiv.style.borderColor = '#3b82f6';
+        iconDiv.style.backgroundColor = '#eff6ff';
+        orderBadge.style.display = 'flex';
+        orderBadge.textContent = selectedIcons.length;
+        selectedIconElements.set(icon.mediaId, orderBadge);
+      }
+      
+      document.getElementById('selected-count').textContent = selectedIcons.length;
+      document.getElementById('icon-apply').disabled = selectedIcons.length === 0;
+    });
+    
+    iconGrid.appendChild(iconDiv);
+  });
+  
+  function updateOrderBadges() {
+    selectedIcons.forEach((icon, index) => {
+      const badge = selectedIconElements.get(icon.mediaId);
+      if (badge) {
+        badge.textContent = index + 1;
+      }
+    });
+  }
+  
+  document.getElementById('icon-cancel').addEventListener('click', () => {
+    modal.remove();
+  });
+  
+  document.getElementById('icon-apply').addEventListener('click', async () => {
+    if (selectedIcons.length === 0) return;
+    
+    const applyBtn = document.getElementById('icon-apply');
+    applyBtn.textContent = 'Applying...';
+    applyBtn.disabled = true;
+    
+    const result = await chrome.runtime.sendMessage({
+      action: 'APPLY_CATEGORY_ICONS',
+      cardId: cardId,
+      icons: selectedIcons
+    });
+    
+    if (result.error) {
+      alert('Error applying icons: ' + result.error);
+    } else {
+      // Calculate the actual number of unique icons applied (capped at track count)
+      const iconsApplied = Math.min(selectedIcons.length, trackCount);
+      
+      modal.innerHTML = `
+        <div style="
+          background: white;
+          border-radius: 12px;
+          padding: 40px;
+          text-align: center;
+          max-width: 400px;
+        ">
+          <div style="
+            width: 60px;
+            height: 60px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+          ">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
+              <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Success!</h3>
+          <p style="margin: 0 0 20px 0; color: #666;">
+            Applied ${iconsApplied} icon${iconsApplied !== 1 ? 's' : ''} to ${trackCount} track${trackCount !== 1 ? 's' : ''}
+          </p>
+          <button onclick="window.location.reload()" style="
+            padding: 10px 20px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+          ">Reload Page</button>
+        </div>
+      `;
+      
+      setTimeout(() => {
+        window.location.reload();
+      }, 3000);
+    }
+  });
 }
 
 })(); // End of IIFE

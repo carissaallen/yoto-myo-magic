@@ -809,6 +809,171 @@ async function searchIcons(query) {
     }
 }
 
+async function searchIconsByCategory(category) {
+    try {
+        // Search for icons using the category as a query
+        const searchResult = await searchIcons(category);
+        
+        // If we have enough icons from the initial search, return them
+        if (searchResult.icons && searchResult.icons.length >= 20) {
+            return { icons: searchResult.icons.slice(0, 50) };
+        }
+        
+        // If not enough icons, try related terms
+        const relatedTerms = getRelatedTerms(category);
+        let allIcons = searchResult.icons || [];
+        
+        for (const term of relatedTerms) {
+            if (allIcons.length >= 50) break;
+            
+            const additionalResults = await searchIcons(term);
+            if (additionalResults.icons) {
+                // Filter out duplicates based on mediaId
+                const existingIds = new Set(allIcons.map(i => i.mediaId));
+                const newIcons = additionalResults.icons.filter(i => !existingIds.has(i.mediaId));
+                allIcons = allIcons.concat(newIcons);
+            }
+        }
+        
+        return { icons: allIcons.slice(0, 50) };
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
+function getRelatedTerms(category) {
+    const categoryMap = {
+        'animals': ['animal', 'pet', 'zoo', 'farm', 'wildlife', 'dog', 'cat', 'bird'],
+        'music': ['musical', 'instrument', 'song', 'note', 'piano', 'guitar', 'drum'],
+        'nature': ['tree', 'flower', 'plant', 'forest', 'mountain', 'sun', 'cloud'],
+        'food': ['fruit', 'vegetable', 'meal', 'snack', 'drink', 'cooking', 'kitchen'],
+        'sports': ['sport', 'ball', 'game', 'team', 'football', 'basketball', 'soccer'],
+        'space': ['star', 'planet', 'moon', 'rocket', 'astronaut', 'galaxy', 'universe'],
+        'school': ['education', 'learning', 'book', 'pencil', 'classroom', 'teacher', 'student'],
+        'transportation': ['car', 'train', 'plane', 'boat', 'bike', 'bus', 'vehicle'],
+        'weather': ['rain', 'snow', 'sun', 'cloud', 'storm', 'wind', 'temperature'],
+        'holiday': ['christmas', 'easter', 'halloween', 'birthday', 'celebration', 'party'],
+        'fantasy': ['magic', 'fairy', 'dragon', 'unicorn', 'wizard', 'castle', 'princess'],
+        'science': ['experiment', 'chemistry', 'physics', 'biology', 'lab', 'research'],
+        'art': ['paint', 'draw', 'color', 'brush', 'canvas', 'creative', 'craft'],
+        'games': ['play', 'toy', 'puzzle', 'board', 'video', 'fun', 'entertainment'],
+        'tools': ['hammer', 'wrench', 'screwdriver', 'build', 'fix', 'repair', 'construction'],
+        'buildings': ['house', 'home', 'office', 'city', 'architecture', 'building', 'tower'],
+        'emotions': ['happy', 'sad', 'love', 'angry', 'smile', 'heart', 'feeling']
+    };
+    
+    const lowerCategory = category.toLowerCase();
+    return categoryMap[lowerCategory] || [category];
+}
+
+async function applyCategoryIcons(cardId, selectedIcons) {
+    try {
+        // Get card content
+        const cardContent = await getCardContent(cardId);
+        if (cardContent.error) {
+            return { error: cardContent.error };
+        }
+        
+        if (!cardContent.card?.content?.chapters || !Array.isArray(cardContent.card.content.chapters)) {
+            return { error: 'No chapters found in card' };
+        }
+        
+        // Process icons - upload yotoicons.com icons if needed
+        const processedIcons = [];
+        for (const icon of selectedIcons) {
+            let processedIcon = icon;
+            
+            // Upload icon if it's from yotoicons.com
+            if (icon.source === 'yotoicons-uploaded' || (icon.url && icon.url.includes('yotoicons.com'))) {
+                const uploadResult = await downloadAndUploadIcon({
+                    id: icon.originalIconId || icon.id,
+                    url: icon.url,
+                    title: icon.title,
+                    author: icon.author,
+                    searchQuery: icon.searchQuery || ''
+                });
+                
+                if (uploadResult) {
+                    processedIcon = uploadResult;
+                }
+            }
+            
+            // Get the proper icon ID format
+            let iconId = processedIcon.iconId || processedIcon.mediaId || processedIcon.displayIconId;
+            if (iconId && !iconId.startsWith('yoto:#')) {
+                iconId = `yoto:#${iconId}`;
+            }
+            
+            processedIcons.push(iconId);
+        }
+        
+        // Apply icons to chapters in a repeating pattern
+        let iconIndex = 0;
+        let iconsUpdated = 0;
+        
+        cardContent.card.content.chapters.forEach((chapter) => {
+            const iconId = processedIcons[iconIndex];
+            
+            // Update chapter display icon
+            if (!chapter.display) {
+                chapter.display = {};
+            }
+            chapter.display.icon16x16 = iconId;
+            
+            // Update all tracks in the chapter with the same icon
+            if (chapter.tracks && chapter.tracks.length > 0) {
+                chapter.tracks.forEach((track) => {
+                    if (!track.display) {
+                        track.display = {};
+                    }
+                    track.display.icon16x16 = iconId;
+                });
+            }
+            
+            iconsUpdated++;
+            
+            // Move to next icon (wrap around if necessary)
+            iconIndex = (iconIndex + 1) % processedIcons.length;
+        });
+        
+        if (iconsUpdated === 0) {
+            return { error: 'No chapters found to update' };
+        }
+        
+        const requestBody = {
+            createdByClientId: cardContent.card.createdByClientId,
+            cardId: cardId,
+            userId: cardContent.card.userId,
+            createdAt: cardContent.card.createdAt,
+            updatedAt: cardContent.card.updatedAt,
+            content: cardContent.card.content,
+            metadata: cardContent.card.metadata || {},
+            title: cardContent.card.title || "Untitled"
+        };
+        
+        const updateResult = await makeAuthenticatedRequest(
+            '/content',
+            {
+                method: 'POST',
+                body: JSON.stringify(requestBody)
+            }
+        );
+        
+        if (updateResult.error) {
+            return { error: updateResult.error };
+        }
+        
+        return { 
+            success: true, 
+            appliedCount: iconsUpdated,
+            totalTracks: cardContent.card.content.chapters.length 
+        };
+        
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
 async function matchIcons(tracks) {
     const matches = [];
 
@@ -2058,6 +2223,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 case 'SEARCH_ICONS':
                     const icons = await searchIcons(request.query);
                     sendResponse(icons);
+                    break;
+                
+                case 'SEARCH_ICONS_BY_CATEGORY':
+                    const categoryIcons = await searchIconsByCategory(request.category);
+                    sendResponse(categoryIcons);
+                    break;
+                
+                case 'APPLY_CATEGORY_ICONS':
+                    const applyResult = await applyCategoryIcons(request.cardId, request.icons);
+                    sendResponse(applyResult);
                     break;
 
                 case 'CLEAR_YOTOICONS_CACHE':

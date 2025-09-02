@@ -55,6 +55,13 @@
       ],
       "js": ["jszip.min.js", "content/content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://my.yotoplay.com/card/*/edit"
+      ],
+      "js": ["content/content-simple.js"],
+      "run_at": "document_idle"
     }
   ],
   
