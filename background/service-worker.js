@@ -844,22 +844,23 @@ async function searchIconsByCategory(category) {
 function getRelatedTerms(category) {
     const categoryMap = {
         'animals': ['animal', 'pet', 'zoo', 'farm', 'wildlife', 'dog', 'cat', 'bird'],
+        'art': ['paint', 'draw', 'color', 'brush', 'canvas', 'creative', 'craft'],
+        'buildings': ['house', 'home', 'office', 'city', 'architecture', 'building', 'tower'],
+        'chapters': ['number', 'book', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'chapter', 'introduction', 'credits', 'prologue', 'epilogue'],
+        'emotions': ['happy', 'sad', 'love', 'angry', 'smile', 'heart', 'feeling'],
+        'fantasy': ['magic', 'fairy', 'dragon', 'unicorn', 'wizard', 'castle', 'princess'],
+        'food': ['fruit', 'vegetable', 'meal', 'snack', 'drink', 'cooking', 'kitchen'],
+        'games': ['play', 'toy', 'puzzle', 'board', 'video', 'fun', 'entertainment'],
+        'holiday': ['christmas', 'easter', 'halloween', 'birthday', 'celebration', 'party'],
         'music': ['musical', 'instrument', 'song', 'note', 'piano', 'guitar', 'drum'],
         'nature': ['tree', 'flower', 'plant', 'forest', 'mountain', 'sun', 'cloud'],
-        'food': ['fruit', 'vegetable', 'meal', 'snack', 'drink', 'cooking', 'kitchen'],
-        'sports': ['sport', 'ball', 'game', 'team', 'football', 'basketball', 'soccer'],
-        'space': ['star', 'planet', 'moon', 'rocket', 'astronaut', 'galaxy', 'universe'],
         'school': ['education', 'learning', 'book', 'pencil', 'classroom', 'teacher', 'student'],
-        'transportation': ['car', 'train', 'plane', 'boat', 'bike', 'bus', 'vehicle'],
-        'weather': ['rain', 'snow', 'sun', 'cloud', 'storm', 'wind', 'temperature'],
-        'holiday': ['christmas', 'easter', 'halloween', 'birthday', 'celebration', 'party'],
-        'fantasy': ['magic', 'fairy', 'dragon', 'unicorn', 'wizard', 'castle', 'princess'],
         'science': ['experiment', 'chemistry', 'physics', 'biology', 'lab', 'research'],
-        'art': ['paint', 'draw', 'color', 'brush', 'canvas', 'creative', 'craft'],
-        'games': ['play', 'toy', 'puzzle', 'board', 'video', 'fun', 'entertainment'],
+        'space': ['star', 'planet', 'moon', 'rocket', 'astronaut', 'galaxy', 'universe'],
+        'sports': ['sport', 'ball', 'game', 'team', 'football', 'basketball', 'soccer'],
         'tools': ['hammer', 'wrench', 'screwdriver', 'build', 'fix', 'repair', 'construction'],
-        'buildings': ['house', 'home', 'office', 'city', 'architecture', 'building', 'tower'],
-        'emotions': ['happy', 'sad', 'love', 'angry', 'smile', 'heart', 'feeling']
+        'transportation': ['car', 'train', 'plane', 'boat', 'bike', 'bus', 'vehicle'],
+        'weather': ['rain', 'snow', 'sun', 'cloud', 'storm', 'wind', 'temperature']
     };
     
     const lowerCategory = category.toLowerCase();

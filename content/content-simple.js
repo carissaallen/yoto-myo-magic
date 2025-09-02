@@ -1637,7 +1637,7 @@ function showCategorySelectionModal(cardId, trackCount) {
   const categories = [
     'Animals', 'Music', 'Nature', 'Food', 'Sports', 'Space',
     'School', 'Transportation', 'Weather', 'Holiday', 'Fantasy',
-    'Science', 'Art', 'Games', 'Tools', 'Buildings', 'Emotions'
+    'Science', 'Art', 'Games', 'Tools', 'Buildings', 'Emotions', 'Chapters'
   ];
   
   content.innerHTML = `
