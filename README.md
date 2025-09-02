@@ -128,7 +128,7 @@ See [PRIVACY.md](PRIVACY.md) for full details.
 
 ### Import button not appearing? Stuck on the login request?
 - Ensure you're on the "Add a playlist" page
-- Refresh the page (the extension loads after page is ready)
+- Refresh the page (the extension loads after the page is ready)
 - Check that the extension is enabled in Chrome
 - Ensure third-party cookies are enabled for [*.]yotoplay.com 
 
@@ -195,7 +195,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 - The amazing Yoto community for inspiration and feedback
 - Yoto's delightful pixel art icon library
 - ListenNotes for podcast data
-- Every parent who's stayed up late making playlists
+- Every parent who has stayed up late making playlists
 
 ---
 
