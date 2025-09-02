@@ -1,115 +1,190 @@
+<div align="center">
+  <img src="assets/images/myo_popup_transparent.png" alt="Yoto MYO Magic" width="600">
+</div>
+
 # Yoto MYO Magic
 
-> _Import playlists from ZIP files or folders to Yoto MYO cards with automatic icon matching._
+> _Transform how you create Yoto MYO cards with smart imports, automatic icon matching, and more delightful shortcuts._
 
-Transform how you create Yoto cards! Yoto MYO Magic is a Chrome Extension that lets you import entire playlists from ZIP files or folders directly to your Make Your Own (MYO) cards, complete with automatic icon matching for each track.
+Your MYO cards, ready to play as soon as you are. Drop in a ZIP file, point to a folder, or import your favorite podcasts — Yoto MYO Magic turns your raw audio into polished playlists with charming pixel art icons. It's like magic, without the manual fiddling.
 
-## ✨ Features
+## Perfect For
 
-Skip the tedious manual upload process! Import complete playlists with audio files, artwork, and icons in one click, then let the extension automatically match perfect icons to each track.
+- **Parents** creating custom story collections and educational content
+- **Teachers** building curriculum-aligned playlists
+- **Podcast Lovers** who want their favorite shows on Yoto
+- **Families** preserving audiobooks and music collections
+- **Anyone** tired of manual, repetitive playlist creation
 
-#### 📂 Bulk Import from ZIP or Folder
-- **ZIP File Import**: Upload a complete playlist from a single ZIP file
-- **Folder Import**: Select a folder containing your audio files
-- **Smart File Detection**: Automatically identifies audio files, cover art, and track icons
-- **Supported Formats**: MP3, M4A, WAV, OGG, FLAC, AAC, OPUS, WMA
-- **Automatic Transcoding**: Files are automatically converted to Yoto-compatible format
-
-![Demo](./demo/import-playlist-demo.gif)
-
-#### 🐙 Automatic Icon Management
-- **Smart Icon Matching**: AI-powered matching based on track titles
-- **Bulk Icon Import**: Include custom icons in your ZIP/folder (1.png, 2.png, etc.)
-- **Yoto Icon Library**: Access and search Yoto's entire icon collection
-- **Confidence Scoring**: See how certain the matches are
-- **Manual Override**: Easily change any suggestion
-
-![Demo](./demo/icon-match-demo.gif)
-
-#### 📤 Smart Upload Strategies
-- **Parallel Upload**: Fast upload for small playlists (< 20 tracks)
-- **Chunked Upload**: Reliable upload for large playlists (20+ tracks)
-- **Progress Tracking**: Real-time upload progress with percentage complete
-- **Error Recovery**: Automatic retry on failed uploads
-
-#### 🔒 Secure Authentication
-- **OAuth 2.0**: Secure login through Yoto's official authentication
-- **No Password Storage**: We never store your Yoto credentials
-- **Token Management**: Automatic token refresh for seamless experience
-
-## 🚀 Installation
+## Installation
 
 ### From Chrome Web Store
-1. Visit the [Chrome Web Store](https://chromewebstore.google.com/detail/iehnjhgdgfepcjlbfkpngibijmffcmpp?utm_source=item-share-cb)
+1. Search for [Yoto MYO Magic](https://chromewebstore.google.com/detail/iehnjhgdgfepcjlbfkpngibijmffcmpp?utm_source=item-share-cb) on the Chrome Web Store
 2. Click "Add to Chrome"
-3. Voila! The extension is installed
 
-## 📖 How to Use
+Buttons will auto-magically appear on the Yoto MYO playlist page!
 
-#### Import a Playlist
+## What's New
 
-1. **Prepare Your Files**:
-   - Create a folder with your audio files
-   - Optional: Add `cover.jpg/png` for album art
-   - Optional: Add numbered icons (`1.png`, `2.png`, etc.) for custom track icons
-   - Optional: Create a ZIP file of the folder
+### v1.3.0
 
-2. **Go to Yoto**:
-   - Navigate to [Yoto Make Your Own](https://us.yotoplay.com/make-your-own)
-   - Click "Vist Library / Make Playlist" → Log in
+- **🏷️ Category Icon Matching**: Apply themed icons to multiple tracks at once
 
-3. **Import Your Playlist**:
-   - Click the "Import Playlist" button (added by the extension)
-   - Choose either ZIP file or folder import
-   - Enter a playlist name
-   - Click "Start Import"
+### v1.2.0
+- **🎙️ Import Podcasts**: Search and import podcast episodes directly from ListenNotes
+- **⚡ Performance Boost**: Faster uploads with improved chunking strategy
+- **🔧 Better Error Recovery**: Automatic retry and extension context recovery
 
-4. **Watch the Magic**:
-   - Files are uploaded automatically
-   - Progress bar shows upload status
-   - Icons are matched to track titles
-   - Playlist is created on your MYO card
+## How to Use
 
-#### File Structure Example
+### 📂 Import Playlist from Files
 
+Transform your audio collection into a Yoto playlist in seconds:
+
+1. **Prepare Your Files** (any folder structure works!):
+   ```
+   my-playlist/
+   ├── cover.jpg          # Album artwork (optional)
+   ├── 01 - Track One.mp3
+   ├── 02 - Track Two.mp3
+   ├── 03 - Track Three.mp3
+   ├── 1.png             # Custom icon for track 1 (optional)
+   ├── 2.png             # Custom icon for track 2 (optional)
+   └── 3.png             # Custom icon for track 3 (optional)
+   ```
+
+2. **Navigate to Yoto**:
+   - Go to [Make Your Own](https://my.yotoplay.com/library/make-your-own)
+   - Click on your MYO card
+   - Click "Add a playlist"
+
+3. **Import Your Content**:
+   - Click the **"Import Playlist"** button (added by the extension)
+   - Choose ZIP file or folder
+   - Name your playlist
+   - You audio, icons, and cover art upload automatically!
+
+![Import Playlist Demo](./demo/import-playlist-demo.gif)
+
+### 🎙️ Import Podcasts
+
+Bring your favorite podcasts to Yoto:
+
+1. **Find Your Podcast**:
+   - Click **"Import Podcast"** on the playlist page
+   - Browse "Best Kids Podcasts" or search by name
+   - Select episodes you want
+
+2. **Automatic Import**:
+   - Episodes download automatically
+   - Metadata and thumbnails included
+
+![Import Podcast Demo](./demo/import-podcast-demo.gif)
+
+### 🎨 Automatic Icon Matching
+
+Let AI find the perfect icons for your tracks:
+
+#### Single Track Icons
+- Click the icon button next to any track
+- AI suggests matching icons based on the title
+- See confidence scores for each match
+- Search manually if needed
+
+#### Category-Based Matching
+- Select multiple tracks
+- Click **"Match by Category"**
+- Choose a theme (Animals, Nature, Music, etc.)
+- Apply themed icons to all selected tracks at once
+
+![Icon Match Demo](./demo/icon-match-demo.gif)
+
+## Features in Detail
+
+### Supported Formats
+
+- **Audio**: MP3, M4A, WAV, OGG, FLAC, AAC, OPUS, WMA
+- **Images**: JPG, PNG (for cover art and custom icons)
+- **Archives**: ZIP files for bundled content
+
+### Upload Strategies
+
+The extension intelligently chooses the best upload strategy:
+- **Parallel Upload** (< 20 tracks): Fast concurrent uploads
+- **Chunked Upload** (20+ tracks): Reliable sequential processing
+- **Adaptive Chunking**: Adjusts based on file sizes and network conditions
+
+## 🔒 Privacy & Security
+
+- **OAuth 2.0 Authentication**: Secure login through Yoto's official auth
+- **No Password Storage**: We never store your credentials
+- **Local Storage Only**: Settings saved in your browser
+- **No Server Storage**: Your content never touches our servers
+- **Analytics**: Anonymous usage tracking (no personal data)
+
+See [PRIVACY.md](PRIVACY.md) for full details.
+
+## 🐛 Troubleshooting
+
+### Import button not appearing? Stuck on the login request?
+- Ensure you're on the "Add a playlist" page
+- Refresh the page (the extension loads after page is ready)
+- Check that the extension is enabled in Chrome
+- Ensure third-party cookies are enabled for [*.]yotoplay.com 
+
+### Upload failing?
+- Verify file formats are supported
+- Check individual files are under 100MB
+- For podcasts, grant permission when prompted
+- Try refreshing and re-authenticating
+
+### Icons not matching well?
+- Use simple, clear track titles
+- Try the category-based matching for themed content
+
+### Extension lost connection?
+- This can happen with long uploads
+- The extension automatically recovers
+- Your upload will continue in the background
+
+## 👩‍💻 For Developers
+
+### Technical Stack
+
+- **Architecture**: Chrome Extension Manifest V3
+- **Content Scripts**: Inject functionality into Yoto pages
+- **Service Worker**: Handle API calls and authentication
+- **APIs**: Yoto Play API, Yoto Icons, ListenNotes Podcasts
+- **Libraries**: JSZip for file handling
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/carissaallen/yoto-myo-magic.git
+
+# Install dependencies (if any)
+npm install
+
+# Build for production
+./build.sh
+
+# The extension is ready to load in Chrome
 ```
-my-playlist/
-├── cover.jpg          # Album artwork (optional)
-├── 01 - Track One.mp3
-├── 02 - Track Two.mp3
-├── 03 - Track Three.mp3
-├── 1.png             # Icon for track 1 (optional)
-├── 2.png             # Icon for track 2 (optional)
-└── 3.png             # Icon for track 3 (optional)
-```
 
-## 📈 Privacy & Analytics
+### API Endpoints
 
-See [PRIVACY](PRIVACY.md) file for details
-
-- **Google Analytics 4**: Used to track feature usage (no personal data)
-- **Local Storage Only**: All settings stored locally in your browser
-- **No Server Storage**: We don't store any of your content or data
+The extension integrates with:
+- Yoto Play API (`api.yotoplay.com`)
+- Yoto Icons (`www.yotoicons.com`)
+- ListenNotes API (podcast search and metadata)
+- Google Analytics 4 (usage tracking)
 
 ## 🆘 Support
 
-### Getting Help
-- **Issues**: [Report bugs or request features](https://chromewebstore.google.com/detail/iehnjhgdgfepcjlbfkpngibijmffcmpp/support)
-
-### Common Issues
-
-**Import button not appearing?**
-- Make sure you're on the "Add a playlist" page
-- Try refreshing the page
-- Check that the extension is enabled
-
-**Upload failing?**
-- Check file formats (MP3, M4A, WAV, etc.)
-- Ensure files are under 100MB each
-
-**Icons not matching?**
-- Make sure track titles are descriptive
-- Use the manual search feature
+- **Bug Reports**: [Submit an issue](https://chromewebstore.google.com/detail/iehnjhgdgfepcjlbfkpngibijmffcmpp/support)
+- **Feature Requests**: Use the support link above
+- **Questions**: Check the troubleshooting section first
 
 ## 📝 License
 
@@ -117,9 +192,10 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ## 🙏 Acknowledgments
 
-- Thanks to the Yoto community for inspiration
-- Icon matching powered by Yoto's icon library
-- Built with love for busy parents and creative kids
+- The amazing Yoto community for inspiration and feedback
+- Yoto's delightful pixel art icon library
+- ListenNotes for podcast data
+- Every parent who's stayed up late making playlists
 
 ---
 
