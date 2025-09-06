@@ -2236,15 +2236,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'START_AUTH':
-                    // Try silent authentication first (like MYO Studio)
-                    let authResult = await startOAuthFlow(false); // Silent attempt
+                    // Only try silent authentication - never automatically open interactive
+                    let authResult = await startOAuthFlow(false); // Silent attempt only
+                    sendResponse(authResult);
+                    break;
                     
-                    if (!authResult.success && authResult.needsInteractive) {
-                        // Silent auth failed, try interactive
-                        authResult = await startOAuthFlow(true); // Interactive fallback
+                case 'START_AUTH_INTERACTIVE':
+                    // Explicitly requested interactive authentication (from popup or user action)
+                    const interactiveResult = await startOAuthFlow(true);
+                    
+                    // Broadcast auth status change to all tabs if successful
+                    if (interactiveResult.success) {
+                        const tabs = await chrome.tabs.query({});
+                        for (const tab of tabs) {
+                            try {
+                                await chrome.tabs.sendMessage(tab.id, {
+                                    action: 'AUTH_STATUS',
+                                    authenticated: true
+                                });
+                            } catch (e) {
+                                // Tab might not have content script
+                            }
+                        }
                     }
                     
-                    sendResponse(authResult);
+                    sendResponse(interactiveResult);
                     break;
 
                 case 'EXCHANGE_CODE':

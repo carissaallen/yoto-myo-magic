@@ -19,14 +19,19 @@ function init() {
       if (response.authenticated) {
         state.authenticated = true;
         state.authCacheTime = now;
+        removeAuthBanner();
       } else {
         try {
           const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
           if (authResult && authResult.success && authResult.authenticated && authResult.silent) {
             state.authenticated = true;
             state.authCacheTime = now;
+            removeAuthBanner();
           } else {
             state.authenticated = false;
+            if (state.isMyoPage) {
+              showAuthBanner();
+            }
           }
         } catch (error) {
           state.authenticated = false;
@@ -40,6 +45,9 @@ function init() {
               authenticated: false
             }
           });
+          if (state.isMyoPage) {
+            showAuthBanner();
+          }
         }
       }
     });
@@ -56,10 +64,14 @@ function init() {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTH_STATUS') {
       state.authenticated = request.authenticated;
+      state.authCacheTime = Date.now();
       updateButtonIcon(request.authenticated);
       
-      if (request.authenticated && state.isMyoPage) {
-        showNotification('Authentication successful! You can now use icon matching.', 'success');
+      if (request.authenticated) {
+        removeAuthBanner();
+        if (state.isMyoPage) {
+          showNotification('Authentication successful! You can now use icon matching.', 'success');
+        }
       }
     } else if (request.action === 'PERMISSION_GRANTED') {
       // Handle when permission is granted from the popup
@@ -98,6 +110,115 @@ function checkForMyoPage() {
   } else {
     state.isMyoPage = false;
     state.pageType = null;
+  }
+}
+
+function showAuthBanner() {
+  if (document.querySelector('#yoto-auth-banner')) {
+    return;
+  }
+  
+  if (sessionStorage.getItem('yoto-auth-banner-dismissed') === 'true') {
+    return;
+  }
+  
+  const banner = document.createElement('div');
+  banner.id = 'yoto-auth-banner';
+  banner.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+  `;
+  
+  banner.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+      </svg>
+      <span>MYO Magic needs authentication to enable icon matching features</span>
+    </div>
+    <button id="auth-banner-btn" style="
+      background: white;
+      color: #667eea;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    ">
+      Authenticate Now
+    </button>
+    <button id="auth-banner-close" style="
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 4px;
+      margin-left: 10px;
+    ">
+      <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  `;
+  
+  document.body.appendChild(banner);
+  
+  document.body.style.marginTop = '60px';
+  
+  document.getElementById('auth-banner-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('auth-banner-btn');
+    btn.textContent = 'Authenticating...';
+    btn.disabled = true;
+    
+    try {
+      const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH_INTERACTIVE' });
+      
+      if (authResult && authResult.success) {
+        state.authenticated = true;
+        state.authCacheTime = Date.now();
+        removeAuthBanner();
+        showNotification('✓ Authentication successful! Icon matching enabled.', 'success');
+        updateButtonIcon(true);
+      } else if (authResult && authResult.cancelled) {
+        btn.textContent = 'Authenticate Now';
+        btn.disabled = false;
+      } else {
+        btn.textContent = 'Try Again';
+        btn.disabled = false;
+        showNotification('Authentication failed. Please try again.', 'error');
+      }
+    } catch (error) {
+      btn.textContent = 'Try Again';
+      btn.disabled = false;
+      showNotification('Authentication error. Please try again.', 'error');
+    }
+  });
+  
+  document.getElementById('auth-banner-close').addEventListener('click', () => {
+    removeAuthBanner();
+    sessionStorage.setItem('yoto-auth-banner-dismissed', 'true');
+  });
+}
+
+function removeAuthBanner() {
+  const banner = document.querySelector('#yoto-auth-banner');
+  if (banner) {
+    banner.remove();
+    document.body.style.marginTop = '';
   }
 }
 
@@ -577,25 +698,8 @@ async function handleImportClick() {
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
 
     if (!authResponse || !authResponse.authenticated) {
-      showNotification('Please authenticate first. Click the extension icon.', 'info');
-      // Try to start auth
-      chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-        if (authResult && authResult.success && authResult.authenticated) {
-          if (authResult.silent) {
-            showNotification('✓ Ready! You can now import playlists.', 'success');
-          } else {
-            showNotification('✓ Authentication complete!', 'success');
-          }
-          // Refresh auth state and try import again
-          setTimeout(() => {
-            handleImportClick();
-          }, 500);
-        } else if (authResult && authResult.cancelled) {
-          showNotification('Authorization cancelled.', 'info');
-        } else {
-          showNotification('Failed to start authentication. Please try again.', 'error');
-        }
-      });
+      showNotification('Please authenticate to use import features', 'info');
+      showAuthBanner();
       return;
     }
     
@@ -628,29 +732,12 @@ async function handleBulkImportClick() {
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
 
     if (!authResponse || !authResponse.authenticated) {
-      showNotification('Please authenticate first. Click the extension icon.', 'info');
-      // Try to start auth
-      chrome.runtime.sendMessage({ action: 'START_AUTH' }, (authResult) => {
-        if (authResult && authResult.success && authResult.authenticated) {
-          if (authResult.silent) {
-            showNotification('✓ Ready! You can now bulk import playlists.', 'success');
-          } else {
-            showNotification('✓ Authentication complete!', 'success');
-          }
-          // Refresh auth state and try import again
-          setTimeout(() => {
-            handleBulkImportClick();
-          }, 500);
-        } else if (authResult && authResult.cancelled) {
-          showNotification('Authorization cancelled.', 'info');
-        } else {
-          showNotification('Failed to start authentication. Please try again.', 'error');
-        }
-      });
+      showNotification('Please authenticate to use bulk import', 'info');
+      showAuthBanner();
       return;
     }
     
-    // Show bulk import options
+    // User is authenticated, show bulk import modal
     showBulkImportOptionsModal();
   } catch (error) {
     showNotification('Error occurred. Please try again.', 'error');
