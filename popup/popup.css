@@ -98,6 +98,43 @@ body {
   line-height: 1.4;
 }
 
+/* Auth Status Styles */
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.auth-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6c757d;
+}
+
+.auth-status.authenticated .auth-indicator {
+  background: #28a745;
+}
+
+.auth-status.not-authenticated .auth-indicator {
+  background: #ffc107;
+}
+
+.auth-button {
+  background: #5865F2;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.auth-button:hover {
+  background: #4752C4;
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background: #1f2937;
