@@ -129,37 +129,72 @@ function showAuthBanner() {
     top: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(90deg, 
+      rgba(21, 88, 209, 0.95) 0%, 
+      rgba(21, 88, 209, 0.85) 20%, 
+      rgba(102, 126, 234, 0.85) 50%, 
+      rgba(21, 88, 209, 0.85) 80%, 
+      rgba(21, 88, 209, 0.95) 100%),
+      radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
     color: white;
-    padding: 12px 20px;
+    padding: 14px 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 15px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     z-index: 10000;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
+    overflow: hidden;
   `;
   
   banner.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+    <div style="
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      background-image: 
+        radial-gradient(circle at 10% 50%, rgba(255, 255, 255, 0.15) 0%, transparent 30%),
+        radial-gradient(circle at 90% 50%, rgba(255, 255, 255, 0.15) 0%, transparent 30%),
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 40%);
+      opacity: 0.6;
+      pointer-events: none;
+    "></div>
+    <svg style="position: absolute; left: 5%; top: 30%; opacity: 0.3;" width="16" height="16" viewBox="0 0 24 24" fill="white">
+      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.9-6.3 4.9 2.3-7.4-6-4.6h7.6z"/>
+    </svg>
+    <svg style="position: absolute; right: 8%; top: 40%; opacity: 0.2;" width="12" height="12" viewBox="0 0 24 24" fill="white">
+      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.9-6.3 4.9 2.3-7.4-6-4.6h7.6z"/>
+    </svg>
+    <svg style="position: absolute; left: 15%; bottom: 35%; opacity: 0.15;" width="10" height="10" viewBox="0 0 24 24" fill="white">
+      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.9-6.3 4.9 2.3-7.4-6-4.6h7.6z"/>
+    </svg>
+    <div style="display: flex; align-items: center; gap: 10px; position: relative;">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <rect x="5" y="11" width="14" height="10" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0110 0v4"></path>
       </svg>
-      <span>MYO Magic needs authentication to enable icon matching features</span>
+      <span style="font-weight: 500;">Unlock the magic! Please sign in to enable MYO Magic features.</span>
     </div>
     <button id="auth-banner-btn" style="
-      background: white;
-      color: #667eea;
-      border: none;
-      padding: 8px 16px;
+      background-color: #ffffff;
+      color: #3b82f6;
+      border: 1px solid #3b82f6;
+      padding: 8px 20px;
       border-radius: 6px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 500;
       cursor: pointer;
-      transition: transform 0.2s;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative;
+      white-space: nowrap;
     ">
-      Authenticate Now
+      Authenticate
     </button>
     <button id="auth-banner-close" style="
       background: transparent;
@@ -178,6 +213,24 @@ function showAuthBanner() {
   document.body.appendChild(banner);
   
   document.body.style.marginTop = '60px';
+  
+  // Add hover effects for the authenticate button
+  const authBtn = document.getElementById('auth-banner-btn');
+  authBtn.addEventListener('mouseenter', () => {
+    authBtn.style.backgroundColor = '#ffffff';
+    authBtn.style.color = '#F85D41';
+    authBtn.style.borderColor = '#F85D41';
+    authBtn.style.transform = 'translateY(-1px)';
+    authBtn.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+  });
+  
+  authBtn.addEventListener('mouseleave', () => {
+    authBtn.style.backgroundColor = '#ffffff';
+    authBtn.style.color = '#3b82f6';
+    authBtn.style.borderColor = '#3b82f6';
+    authBtn.style.transform = 'translateY(0)';
+    authBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+  });
   
   document.getElementById('auth-banner-btn').addEventListener('click', async () => {
     const btn = document.getElementById('auth-banner-btn');
@@ -1247,7 +1300,7 @@ function createPodcastCard(podcast, isCompact = false) {
         height: 120px;
         border-radius: 6px;
         margin-bottom: 8px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%);
         display: ${podcast.thumbnail ? 'none' : 'flex'};
         align-items: center;
         justify-content: center;
@@ -1318,7 +1371,7 @@ function createPodcastCard(podcast, isCompact = false) {
         height: 60px;
         border-radius: 6px;
         flex-shrink: 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%);
         display: ${podcast.thumbnail ? 'none' : 'flex'};
         align-items: center;
         justify-content: center;
@@ -1419,7 +1472,7 @@ async function selectPodcast(podcast) {
         width: 80px;
         height: 80px;
         border-radius: 8px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%);
         display: ${podcast.thumbnail ? 'none' : 'flex'};
         align-items: center;
         justify-content: center;
