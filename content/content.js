@@ -2607,22 +2607,20 @@ async function processBulkZipFile(file) {
     const playlists = [];
     const processedPaths = new Set();
     
-    // First pass: identify playlist structures (nested ZIPs or folders)
+    // Identify playlist structures (nested ZIPs or folders)
     const nestedZips = [];
-    const folders = new Map(); // folder name -> files in folder
+    const folders = new Map();
+    const rootFiles = [];
     
     for (const [path, zipEntry] of Object.entries(contents.files)) {
-      // Skip Mac metadata
       if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
         continue;
       }
       
-      // Check for nested ZIP files
       if (!zipEntry.dir && path.toLowerCase().endsWith('.zip')) {
         nestedZips.push({ path, zipEntry });
         processedPaths.add(path);
       }
-      // Group files by their parent folder
       else if (!zipEntry.dir) {
         const pathParts = path.split('/');
         if (pathParts.length > 1) {
@@ -2632,17 +2630,21 @@ async function processBulkZipFile(file) {
           }
           folders.get(folderName).push({ path, zipEntry });
           processedPaths.add(path);
+        } else {
+          rootFiles.push({ path, zipEntry });
         }
       }
     }
     
-    // Update extraction status
+    console.log(`Bulk import analysis: ${nestedZips.length} nested ZIPs, ${folders.size} folders, ${rootFiles.length} root files`);
+    
     if (nestedZips.length > 0) {
       statusElement.textContent = 'Extracting playlists...';
       detailsElement.textContent = `Found ${nestedZips.length} playlist${nestedZips.length > 1 ? 's' : ''}`;
     }
     
     // Process nested ZIP files
+    const failedZips = [];
     for (let i = 0; i < nestedZips.length; i++) {
       const { path, zipEntry } = nestedZips[i];
       
@@ -2654,20 +2656,45 @@ async function processBulkZipFile(file) {
       
       try {
         const nestedZipBlob = await zipEntry.async('blob');
+        console.log(`Processing nested ZIP: ${path}, size: ${nestedZipBlob.size} bytes`);
+        
         const nestedZip = new JSZip();
         const nestedContents = await nestedZip.loadAsync(nestedZipBlob);
+        
+        // Log the contents of the nested ZIP for debugging
+        const nestedFileCount = Object.keys(nestedContents.files).length;
+        console.log(`Nested ZIP ${path} contains ${nestedFileCount} entries`);
         
         const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
         
         const playlist = await extractPlaylistFromZip(nestedContents, playlistName);
         
         if (playlist && playlist.audioFiles.length > 0) {
+          console.log(`Successfully extracted ${playlist.audioFiles.length} audio files from ${playlistName}`);
           playlists.push(playlist);
         } else {
-          console.warn(`No audio files found in nested ZIP: ${playlistName}`);
+          // Log detailed info about what was in the ZIP to help diagnose issues
+          const fileList = Object.keys(nestedContents.files).filter(f => !nestedContents.files[f].dir);
+          console.warn(`No audio files found in nested ZIP: ${playlistName}. Files in ZIP: ${fileList.join(', ')}`);
+          failedZips.push({ name: playlistName, reason: 'No audio files found' });
         }
       } catch (error) {
         console.error('Error processing nested ZIP:', path, error);
+        const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
+        failedZips.push({ name: playlistName, reason: error.message || 'Failed to extract' });
+      }
+    }
+    
+    if (failedZips.length > 0) {
+      const failedNames = failedZips.map(f => `${f.name} (${f.reason})`).join(', ');
+      
+      if (nestedZips.length > 0 && failedZips.length === nestedZips.length) {
+        showNotification(`Failed to extract playlists from ZIP files. ${failedNames}. Please ensure each nested ZIP contains audio files.`, 'error');
+        
+        loadingModal.remove();
+        return;
+      } else if (failedZips.length > 0) {
+        showNotification(`Warning: Failed to process ${failedZips.length} ZIP file(s): ${failedNames}`, 'warning');
       }
     }
     
@@ -2690,34 +2717,39 @@ async function processBulkZipFile(file) {
       }
     }
     
-    // If no nested structure found, treat the entire ZIP as a single playlist
-    if (playlists.length === 0) {
-      const allFiles = [];
-      for (const [path, zipEntry] of Object.entries(contents.files)) {
-        if (!zipEntry.dir && !path.includes('__MACOSX/') && !path.includes('._')) {
-          allFiles.push({ path, zipEntry });
-        }
-      }
+    // For bulk import, only create a single playlist if:
+    // 1. There were NO nested ZIPs (the expected bulk structure)
+    // 2. There were NO folders (another expected bulk structure)
+    // 3. There ARE root-level audio files (edge case: flat ZIP with audio files)
+    if (playlists.length === 0 && nestedZips.length === 0 && folders.size === 0 && rootFiles.length > 0) {
+      console.log('No nested structure found (no ZIPs or folders), processing root files as single playlist');
       
-      const playlist = await extractPlaylistFromFiles(allFiles, file.name.replace(/\.zip$/i, ''), contents);
+      const playlist = await extractPlaylistFromFiles(rootFiles, file.name.replace(/\.zip$/i, ''), contents);
       if (playlist && playlist.audioFiles.length > 0) {
+        showNotification('Note: Found audio files at root level. Processing as single playlist. For bulk import, organize files into folders or separate ZIPs.', 'warning');
         playlists.push(playlist);
       }
     }
     
-    // Remove loading modal
     loadingModal.remove();
     
     if (playlists.length === 0) {
-      showNotification('No valid playlists found in the ZIP file', 'error');
+      if (nestedZips.length > 0) {
+        showNotification('No valid playlists could be extracted from the nested ZIP files. Please ensure each ZIP contains audio files.', 'error');
+      } else if (folders.size > 0) {
+        showNotification('No valid audio files found in the folders. Please ensure folders contain audio files.', 'error');
+      } else {
+        showNotification('No valid playlists found. For bulk import, upload a ZIP containing multiple playlist ZIPs or folders.', 'error');
+      }
       return;
     }
     
-    showNotification(`Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''}. Preparing import...`, 'success');
+    const sourceType = nestedZips.length > 0 ? 'ZIP file' : 'folder';
+    const sourcePlural = playlists.length > 1 ? 's' : '';
+    showNotification(`Successfully extracted ${playlists.length} playlist${sourcePlural} from ${sourceType}${sourcePlural}. Preparing import...`, 'success');
     showBulkImportModal(playlists);
     
   } catch (error) {
-    // Remove loading modal if it exists
     if (loadingModal && loadingModal.parentNode) {
       loadingModal.remove();
     }
@@ -2797,12 +2829,15 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
   const allAudioFiles = [];
   const allImageFiles = [];
   let skippedFiles = 0;
+  let totalFiles = 0;
   
   // Extract all files first
   for (const [path, zipEntry] of Object.entries(zipContents.files)) {
     if (zipEntry.dir) {
       continue;
     }
+    
+    totalFiles++;
     
     // Skip Mac metadata files
     if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
@@ -2816,6 +2851,7 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
     // Skip non-media files
     if (!audioExtensions.includes(ext) && !imageExtensions.includes(ext)) {
       skippedFiles++;
+      console.log(`Skipping non-media file in ${playlistName}: ${fileName} (extension: ${ext})`);
       continue;
     }
     
@@ -2882,6 +2918,8 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
   
   // Separate track icons from cover image
   const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
+
+  console.log(`Playlist ${playlistName} summary: ${totalFiles} total files, ${audioFiles.length} audio, ${imageFiles.length} images, ${skippedFiles} skipped`);
 
   return {
     name: playlistName,
