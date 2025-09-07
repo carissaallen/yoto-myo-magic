@@ -2612,6 +2612,26 @@ async function processBulkZipFile(file) {
     const folders = new Map();
     const rootFiles = [];
     
+    let maxDepth = 0;
+    let hasMultipleTopLevelFolders = false;
+    const topLevelFolders = new Set();
+    
+    for (const [path] of Object.entries(contents.files)) {
+      if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
+        continue;
+      }
+      const pathParts = path.split('/').filter(p => p);
+      if (pathParts.length > 0) {
+        topLevelFolders.add(pathParts[0]);
+        maxDepth = Math.max(maxDepth, pathParts.length);
+      }
+    }
+    
+    hasMultipleTopLevelFolders = topLevelFolders.size > 1;
+    const singleRootFolder = topLevelFolders.size === 1 ? Array.from(topLevelFolders)[0] : null;
+    
+    console.log(`Structure analysis: ${topLevelFolders.size} top-level folder(s), max depth: ${maxDepth}, single root: ${singleRootFolder}`);
+    
     for (const [path, zipEntry] of Object.entries(contents.files)) {
       if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
         continue;
@@ -2622,9 +2642,24 @@ async function processBulkZipFile(file) {
         processedPaths.add(path);
       }
       else if (!zipEntry.dir) {
-        const pathParts = path.split('/');
+        const pathParts = path.split('/').filter(p => p);
+        
         if (pathParts.length > 1) {
-          const folderName = pathParts[0];
+          let folderName;
+          
+          // If there's only one top-level folder and it contains subfolders,
+          // treat the subfolders as individual playlists
+          if (singleRootFolder && pathParts.length > 2) {
+            // Use the second-level folder (e.g., MAIN/Folder1/file.mp3 -> Folder1)
+            folderName = pathParts[1];
+          } else if (hasMultipleTopLevelFolders) {
+            // Multiple top-level folders - each is a playlist
+            folderName = pathParts[0];
+          } else {
+            // Single folder with files directly in it
+            folderName = pathParts[0];
+          }
+          
           if (!folders.has(folderName)) {
             folders.set(folderName, []);
           }
