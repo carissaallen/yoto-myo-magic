@@ -129,57 +129,27 @@ function showAuthBanner() {
     top: 0;
     left: 0;
     right: 0;
-    background: linear-gradient(90deg, 
-      rgba(21, 88, 209, 0.95) 0%, 
-      rgba(21, 88, 209, 0.85) 20%, 
-      rgba(102, 126, 234, 0.85) 50%, 
-      rgba(21, 88, 209, 0.85) 80%, 
-      rgba(21, 88, 209, 0.95) 100%),
-      radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 80% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
-    color: white;
-    padding: 14px 20px;
+    background: white;
+    padding: 10px 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 15px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     z-index: 10000;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
     overflow: hidden;
+    height: 60px;
   `;
   
   banner.innerHTML = `
-    <div style="
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      top: 0;
-      left: 0;
-      background-image: 
-        radial-gradient(circle at 10% 50%, rgba(255, 255, 255, 0.15) 0%, transparent 30%),
-        radial-gradient(circle at 90% 50%, rgba(255, 255, 255, 0.15) 0%, transparent 30%),
-        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 40%);
-      opacity: 0.6;
-      pointer-events: none;
-    "></div>
-    <svg style="position: absolute; left: 5%; top: 30%; opacity: 0.3;" width="16" height="16" viewBox="0 0 24 24" fill="white">
-      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.9-6.3 4.9 2.3-7.4-6-4.6h7.6z"/>
-    </svg>
-    <svg style="position: absolute; right: 8%; top: 40%; opacity: 0.2;" width="12" height="12" viewBox="0 0 24 24" fill="white">
-      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.9-6.3 4.9 2.3-7.4-6-4.6h7.6z"/>
-    </svg>
-    <svg style="position: absolute; left: 15%; bottom: 35%; opacity: 0.15;" width="10" height="10" viewBox="0 0 24 24" fill="white">
-      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.9-6.3 4.9 2.3-7.4-6-4.6h7.6z"/>
-    </svg>
-    <div style="display: flex; align-items: center; gap: 10px; position: relative;">
-      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <rect x="5" y="11" width="14" height="10" rx="2" ry="2"></rect>
-        <path d="M7 11V7a5 5 0 0110 0v4"></path>
-      </svg>
-      <span style="font-weight: 500;">Unlock the magic! Please sign in to enable MYO Magic features.</span>
-    </div>
+    <img src="${chrome.runtime.getURL('assets/images/myo-magic-banner.png')}" style="
+      height: 40px;
+      width: auto;
+      max-width: 100%;
+      object-fit: contain;
+    " alt="MYO Magic - Please sign in to enable features">
     <button id="auth-banner-btn" style="
       background-color: #ffffff;
       color: #3b82f6;
@@ -199,13 +169,15 @@ function showAuthBanner() {
     <button id="auth-banner-close" style="
       background: transparent;
       border: none;
-      color: white;
+      color: #1558d1;
       cursor: pointer;
       padding: 4px;
       margin-left: 10px;
-    ">
-      <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+      <svg width="20" height="20" fill="none" viewBox="0 0 24 24">
+        <path d="M6 18L18 6M6 6l12 12" stroke="#1558d1" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </button>
   `;

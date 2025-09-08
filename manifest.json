@@ -70,6 +70,7 @@
       "resources": [
         "assets/styles/*.css",
         "assets/icons/*.png",
+        "assets/images/*.png",
         "lib/*.js",
         "callback.html",
         "callback.js"
