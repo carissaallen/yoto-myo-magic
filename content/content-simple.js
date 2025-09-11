@@ -1637,6 +1637,12 @@ function showCategorySelectionModal(cardId, trackCount) {
   const categories = [ 'Animals', 'Art', 'Buildings', 'Chapters', 'Emotions', 'Fantasy', 'Food', 'Games', 'Holiday', 'Music', 'Nature', 'School', 'Space', 'Science', 'Sports', 'Tools', 'Transportation', 'Weather'];
 
   content.innerHTML = `
+    <style>
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
     <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Category Icon Match</h2>
     <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
       Select a category to find icons for your ${trackCount} track${trackCount !== 1 ? 's' : ''}
@@ -1725,7 +1731,20 @@ function showCategorySelectionModal(cardId, trackCount) {
     }
     
     const searchBtn = document.getElementById('category-search');
-    searchBtn.textContent = 'Searching...';
+    const originalBtnContent = searchBtn.innerHTML;
+    searchBtn.innerHTML = `
+      <div style="display: inline-flex; align-items: center; gap: 8px;">
+        <div style="
+          width: 14px;
+          height: 14px;
+          border: 2px solid white;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        "></div>
+        <span>Searching...</span>
+      </div>
+    `;
     searchBtn.disabled = true;
     
     const searchResponse = await chrome.runtime.sendMessage({
@@ -1735,13 +1754,15 @@ function showCategorySelectionModal(cardId, trackCount) {
     
     if (searchResponse.error) {
       alert('Error searching for icons: ' + searchResponse.error);
+      searchBtn.innerHTML = originalBtnContent;
+      searchBtn.disabled = false;
       modal.remove();
       return;
     }
     
     if (!searchResponse.icons || searchResponse.icons.length === 0) {
       alert(`No icons found for category "${category}". Please try another category.`);
-      searchBtn.textContent = 'Search Icons';
+      searchBtn.innerHTML = originalBtnContent;
       searchBtn.disabled = false;
       return;
     }
@@ -1787,8 +1808,8 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
     
     <div id="icon-grid" style="
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+      gap: 8px;
       margin-bottom: 20px;
       max-height: 400px;
       overflow-y: auto;
@@ -1842,8 +1863,8 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
       position: relative;
       cursor: pointer;
       border: 2px solid transparent;
-      border-radius: 8px;
-      padding: 8px;
+      border-radius: 6px;
+      padding: 4px;
       transition: all 0.2s;
       display: flex;
       flex-direction: column;
@@ -1854,8 +1875,8 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
     const img = document.createElement('img');
     img.src = icon.url || icon.mediaUrl || `https://api.yotoplay.com/media/${icon.mediaId}`;
     img.style.cssText = `
-      width: 60px;
-      height: 60px;
+      width: 40px;
+      height: 40px;
       object-fit: cover;
       border-radius: 4px;
     `;
@@ -1863,17 +1884,17 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
     const orderBadge = document.createElement('div');
     orderBadge.style.cssText = `
       position: absolute;
-      top: 4px;
-      right: 4px;
+      top: 2px;
+      right: 2px;
       background: #3b82f6;
       color: white;
-      width: 24px;
-      height: 24px;
+      width: 18px;
+      height: 18px;
       border-radius: 50%;
       display: none;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 10px;
       font-weight: bold;
     `;
     

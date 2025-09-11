@@ -1838,14 +1838,23 @@ async function getBestPodcasts(genreId = null, page = 1) {
     }
 }
 
-async function getPodcastEpisodes(podcastId) {
+async function getPodcastEpisodes(podcastId, nextEpisodePubDate = null) {
     try {
-        const cached = apiCache.get('podcast_episodes', { id: podcastId }, 720); // 720 minutes = 12 hours
+        const cacheKey = nextEpisodePubDate ?
+            `${podcastId}_${nextEpisodePubDate}` : 
+            `${podcastId}_initial`;
+        
+        const cached = apiCache.get('podcast_episodes', { key: cacheKey }, 720); // 720 minutes = 12 hours
         if (cached) {
             return cached;
         }
 
-        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/podcast/${podcastId}?sort=recent_first`);
+        let url = `${CONFIG.PROXY_SERVER_URL}/api/podcast/${podcastId}?sort=recent_first`;
+        if (nextEpisodePubDate) {
+            url += `&next_episode_pub_date=${nextEpisodePubDate}`;
+        }
+
+        const response = await fetch(url);
 
         if (!response.ok) {
             if (response.status === 429) {
@@ -1861,8 +1870,7 @@ async function getPodcastEpisodes(podcastId) {
 
         const data = await response.json();
         
-        // Get the most recent episodes (max 10)
-        const episodes = data.episodes.slice(0, 10).map(episode => ({
+        const episodes = data.episodes.slice(0, 20).map(episode => ({
             id: episode.id,
             title: cleanEpisodeTitle(episode.title), // Use comprehensive title cleaning
             description: episode.description,
@@ -1872,10 +1880,14 @@ async function getPodcastEpisodes(podcastId) {
             pub_date_ms: episode.pub_date_ms
         }));
 
-        const result = { episodes };
+        const result = {
+            episodes,
+            next_episode_pub_date: data.next_episode_pub_date || null,
+            has_more: data.next_episode_pub_date ? true : false
+        };
         
         // Cache the result
-        apiCache.set('podcast_episodes', { id: podcastId }, result);
+        apiCache.set('podcast_episodes', { key: cacheKey }, result);
         
         return result;
     } catch (error) {
@@ -2437,7 +2449,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'GET_PODCAST_EPISODES':
-                    const episodesResult = await getPodcastEpisodes(request.podcastId);
+                    const episodesResult = await getPodcastEpisodes(request.podcastId, request.nextEpisodePubDate);
                     sendResponse(episodesResult);
                     break;
 

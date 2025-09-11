@@ -1466,21 +1466,40 @@ async function selectPodcast(podcast) {
     </div>
     <div id="episode-content" style="display: none;">
       <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          Number of recent episodes to import:
-        </label>
-        <select id="episode-count" style="
-          padding: 8px 12px;
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <label style="font-weight: 500; color: #374151;">
+            Select episodes to import: <span id="selected-count" style="color: #3b82f6;"></span>
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <button id="select-all-episodes" style="
+              padding: 4px 12px;
+              font-size: 12px;
+              background: #3b82f6;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            ">Select All</button>
+            <button id="deselect-all-episodes" style="
+              padding: 4px 12px;
+              font-size: 12px;
+              background: #6b7280;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            ">Deselect All</button>
+          </div>
+        </div>
+        <div id="episode-list" style="
+          max-height: 400px;
+          overflow-y: auto;
           border: 1px solid #d1d5db;
           border-radius: 6px;
-          font-size: 14px;
-        ">
-          <option value="3">3 episodes</option>
-          <option value="5" selected>5 episodes</option>
-          <option value="10">10 episodes</option>
-        </select>
+          padding: 12px;
+          background: #f9fafb;
+        "></div>
       </div>
-      <div id="episode-list" style="margin-bottom: 20px;"></div>
       <div id="import-progress" style="display: none; margin: 20px 0;">
         <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
           <div id="import-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
@@ -1514,8 +1533,12 @@ async function selectPodcast(podcast) {
   modal.appendChild(content);
   document.body.appendChild(modal);
   
+  // Store pagination data
+  let allEpisodes = [];
+  let nextEpisodePubDate = null;
+  let hasMoreEpisodes = false;
+  
   try {
-    // Get podcast episodes
     const response = await chrome.runtime.sendMessage({
       action: 'GET_PODCAST_EPISODES',
       podcastId: podcast.id
@@ -1548,78 +1571,217 @@ async function selectPodcast(podcast) {
       return;
     }
     
-    const episodes = response.episodes || [];
+    allEpisodes = response.episodes || [];
+    nextEpisodePubDate = response.next_episode_pub_date || null;
+    hasMoreEpisodes = response.has_more || false;
     
-    if (episodes.length === 0) {
+    if (allEpisodes.length === 0) {
       showNotification('No episodes found for this podcast', 'error');
       modal.remove();
       return;
     }
     
     const episodeList = document.getElementById('episode-list');
-    const episodeCountSelect = document.getElementById('episode-count');
     
-    // Update episode count selector based on available episodes
-    const maxEpisodes = Math.min(episodes.length, 10);
-    episodeCountSelect.innerHTML = '';
+    let selectedEpisodeIndices = new Set();
     
-    [3, 5, 10].forEach(num => {
-      if (num <= maxEpisodes) {
-        const option = document.createElement('option');
-        option.value = num;
-        option.textContent = `${num} episodes`;
-        if (num === 5) option.selected = true;
-        episodeCountSelect.appendChild(option);
+    const renderEpisodeList = (preserveSelection = false) => {
+      // If not preserving selection and this is the initial load, don't select any by default
+      if (!preserveSelection) {
+        selectedEpisodeIndices.clear();
       }
-    });
-    
-    if (maxEpisodes < 3) {
-      const option = document.createElement('option');
-      option.value = maxEpisodes;
-      option.textContent = `${maxEpisodes} episode${maxEpisodes > 1 ? 's' : ''}`;
-      option.selected = true;
-      episodeCountSelect.appendChild(option);
-    }
-    
-    // Display episode preview
-    const updateEpisodePreview = () => {
-      const count = parseInt(episodeCountSelect.value);
-      const hasLongEpisodes = episodes.slice(0, count).some(ep => ep.audio_length_sec > 3600);
       
-      episodeList.innerHTML = `
-        <p style="margin: 0 0 8px 0; font-size: 14px; color: #6b7280;">
-          Will import the ${count} most recent episodes:
-        </p>
-        <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #4b5563;">
-          ${episodes.slice(0, count).map(ep => {
-            const isOverLimit = ep.audio_length_sec > 3600;
-            const durationColor = isOverLimit ? '#ef4444' : 'inherit';
-            const warningAsterisk = isOverLimit ? '*' : '';
-            return `
-              <li style="margin-bottom: 4px;">
-                ${ep.title} 
-                <span style="color: ${durationColor};">
-                  (${formatDuration(ep.audio_length_sec)})${warningAsterisk}
-                </span>
-              </li>
-            `;
-          }).join('')}
-        </ul>
-        ${hasLongEpisodes ? `
-          <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280; font-style: italic;">
+      episodeList.innerHTML = allEpisodes.map((ep, index) => {
+      const isOverLimit = ep.audio_length_sec > 3600;
+      const durationColor = isOverLimit ? '#ef4444' : '#6b7280';
+      const warningAsterisk = isOverLimit ? '*' : '';
+      const isChecked = selectedEpisodeIndices.has(index);
+      
+      return `
+        <div style="
+          display: flex;
+          align-items: center;
+          margin-bottom: 8px;
+          padding: 10px;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #e5e7eb;
+        ">
+          <input type="checkbox" 
+            id="episode-${index}" 
+            value="${index}"
+            ${isChecked ? 'checked' : ''}
+            style="
+              margin-right: 12px;
+              cursor: pointer;
+              width: 16px;
+              height: 16px;
+            "
+          />
+          <label for="episode-${index}" style="
+            flex: 1;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1.5;
+          ">
+            <div style="font-weight: 500; color: #1f2937; margin-bottom: 4px;">
+              ${ep.title}
+            </div>
+            <div style="font-size: 12px; color: ${durationColor};">
+              ${formatDuration(ep.audio_length_sec)}${warningAsterisk}
+              ${ep.pub_date_ms ? ` • ${new Date(ep.pub_date_ms).toLocaleDateString()}` : ''}
+            </div>
+          </label>
+        </div>
+      `;
+      }).join('');
+      
+      const hasLongEpisodes = allEpisodes.some(ep => ep.audio_length_sec > 3600);
+      if (hasLongEpisodes) {
+        episodeList.innerHTML += `
+          <p style="margin: 12px 0 0 0; font-size: 12px; color: #6b7280; font-style: italic;">
             <span style="color: #ef4444;">*</span> Episodes over 60 minutes may exceed Yoto's official track limit.
           </p>
-        ` : ''}
-      `;
+        `;
+      }
+      
+      if (hasMoreEpisodes) {
+        episodeList.innerHTML += `
+          <div style="text-align: center; margin-top: 16px;">
+            <button id="load-more-episodes" style="
+              padding: 8px 20px;
+              background: #f3f4f6;
+              color: #4b5563;
+              border: 1px solid #d1d5db;
+              border-radius: 6px;
+              font-size: 14px;
+              cursor: pointer;
+              transition: all 0.2s;
+            ">
+              Load More Episodes
+            </button>
+          </div>
+        `;
+        
+        setTimeout(() => {
+          const loadMoreBtn = document.getElementById('load-more-episodes');
+          if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', async () => {
+              loadMoreBtn.disabled = true;
+              loadMoreBtn.textContent = 'Loading...';
+              
+              try {
+                selectedEpisodeIndices.clear();
+                allEpisodes.forEach((_, index) => {
+                  const checkbox = document.getElementById(`episode-${index}`);
+                  if (checkbox && checkbox.checked) {
+                    selectedEpisodeIndices.add(index);
+                  }
+                });
+                
+                const moreResponse = await chrome.runtime.sendMessage({
+                  action: 'GET_PODCAST_EPISODES',
+                  podcastId: podcast.id,
+                  nextEpisodePubDate: nextEpisodePubDate
+                });
+                
+                if (moreResponse.episodes && moreResponse.episodes.length > 0) {
+                  allEpisodes = [...allEpisodes, ...moreResponse.episodes];
+                  nextEpisodePubDate = moreResponse.next_episode_pub_date || null;
+                  hasMoreEpisodes = moreResponse.has_more || false;
+                  
+                  renderEpisodeList(true);
+                  
+                  attachEventListeners();
+                } else {
+                  loadMoreBtn.style.display = 'none';
+                }
+              } catch (error) {
+                showNotification('Failed to load more episodes', 'error');
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.textContent = 'Load More Episodes';
+              }
+            });
+          }
+        }, 100);
+      }
     };
     
-    episodeCountSelect.addEventListener('change', updateEpisodePreview);
-    updateEpisodePreview();
+    const updateSelectedCount = () => {
+      let selectedCount = 0;
+      allEpisodes.forEach((_, index) => {
+        const checkbox = document.getElementById(`episode-${index}`);
+        if (checkbox && checkbox.checked) {
+          selectedCount++;
+        }
+      });
+      const countElement = document.getElementById('selected-count');
+      if (countElement) {
+        countElement.textContent = `(${selectedCount} selected)`;
+      }
+    };
+    
+    const attachEventListeners = () => {
+      allEpisodes.forEach((_, index) => {
+        const checkbox = document.getElementById(`episode-${index}`);
+        if (checkbox) {
+          checkbox.removeEventListener('change', updateSelectedCount);
+          
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+              selectedEpisodeIndices.add(index);
+            } else {
+              selectedEpisodeIndices.delete(index);
+            }
+            updateSelectedCount();
+          });
+        }
+      });
+      
+      updateSelectedCount();
+    };
+    
+    renderEpisodeList();
+    attachEventListeners();
+    
+    document.getElementById('select-all-episodes').addEventListener('click', () => {
+      allEpisodes.forEach((_, index) => {
+        const checkbox = document.getElementById(`episode-${index}`);
+        if (checkbox) {
+          checkbox.checked = true;
+          selectedEpisodeIndices.add(index);
+        }
+      });
+      updateSelectedCount();
+    });
+    
+    document.getElementById('deselect-all-episodes').addEventListener('click', () => {
+      allEpisodes.forEach((_, index) => {
+        const checkbox = document.getElementById(`episode-${index}`);
+        if (checkbox) {
+          checkbox.checked = false;
+          selectedEpisodeIndices.delete(index);
+        }
+      });
+      updateSelectedCount();
+    });
     
     // Handle import button click
     document.getElementById('start-import').addEventListener('click', async () => {
-      const count = parseInt(episodeCountSelect.value);
-      const selectedEpisodes = episodes.slice(0, count);
+      const selectedIndices = [];
+      allEpisodes.forEach((_, index) => {
+        const checkbox = document.getElementById(`episode-${index}`);
+        if (checkbox && checkbox.checked) {
+          selectedIndices.push(index);
+        }
+      });
+      
+      if (selectedIndices.length === 0) {
+        showNotification('Please select at least one episode to import', 'warning');
+        return;
+      }
+      
+      const selectedEpisodes = selectedIndices.map(index => allEpisodes[index]);
       
       const progressDiv = document.getElementById('import-progress');
       const progressBar = document.getElementById('import-progress-bar');
@@ -1633,7 +1795,7 @@ async function selectPodcast(podcast) {
       // Keep cancel button enabled so user can cancel
       cancelBtn.textContent = 'Cancel Import';
       
-      statusText.textContent = 'Starting import...';
+      statusText.textContent = `Starting import of ${selectedEpisodes.length} episode${selectedEpisodes.length > 1 ? 's' : ''}...`;
       progressBar.style.width = '5%';
       
       // Create a flag to track if import was cancelled
