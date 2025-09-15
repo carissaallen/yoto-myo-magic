@@ -3,11 +3,11 @@ importScripts('../config.js');
 importScripts('../lib/analytics.js');
 importScripts('../lib/utils.js');
 
-// Use config from the centralized config file
 const CONFIG = ExtensionConfig;
 
+const yotoIconsCache = new Map();
+
 function getRedirectUri() {
-    // Use Chrome's built-in redirect URI for extensions
     return chrome.identity.getRedirectURL();
 }
 
@@ -74,7 +74,9 @@ class TokenManager {
             if (tokens?.access_token) {
                 const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
                 const userId = payload.sub || 'default';
-                userCacheKey = `yoto_icons_cache_${userId}`;
+                // Replace special characters that might cause issues with storage keys
+                const safeUserId = userId.replace(/[|:]/g, '_');
+                userCacheKey = `yoto_icons_cache_${safeUserId}`;
             }
         } catch (e) {
             // Ignore errors when getting user ID
@@ -288,9 +290,6 @@ async function exchangeCodeForTokens(code) {
         const tokens = await response.json();
         await TokenManager.setTokens(tokens);
 
-        // Load the new user's icon cache after successful authentication
-        await loadIconsCache();
-
         // Track successful authentication
         if (typeof YotoAnalytics !== 'undefined') {
             YotoAnalytics.trackAuth(true);
@@ -429,16 +428,16 @@ async function getCardContent(cardId) {
     }
 }
 
-// Icon cache to avoid re-uploading same icons from yotoicons.com
-const yotoIconsCache = new Map();
-
+// Helper function to get user-specific cache key
 async function getUserSpecificCacheKey() {
     try {
         const tokens = await TokenManager.getTokens();
         if (tokens?.access_token) {
             const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
             const userId = payload.sub || 'default';
-            return `yoto_icons_cache_${userId}`;
+            // Replace special characters that might cause issues with storage keys
+            const safeUserId = userId.replace(/[|:]/g, '_');
+            return `yoto_icons_cache_${safeUserId}`;
         }
     } catch (error) {
         console.warn('Failed to get user ID for cache key:', error);
@@ -471,18 +470,24 @@ async function loadIconsCache() {
         const cacheKey = await getUserSpecificCacheKey();
         if (!cacheKey) {
             // No authenticated user, don't load cache
+            console.log('No authenticated user, skipping cache load');
             return;
         }
 
         const result = await chrome.storage.local.get(cacheKey);
         const cached = result[cacheKey];
         if (cached && typeof cached === 'object') {
+            console.log(`Loading ${Object.keys(cached).length} cached icons for user`);
             Object.entries(cached).forEach(([key, value]) => {
                 yotoIconsCache.set(key, value);
             });
+        } else {
+            console.log('No cached icons found for user');
         }
     } catch (error) {
         console.warn('Failed to load icons cache:', error);
+        // On error, ensure cache is clear
+        yotoIconsCache.clear();
     }
 }
 
@@ -2330,6 +2335,62 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse(cards);
                     break;
 
+                case 'VERIFY_CARD_ACCESS':
+                    // Quick check if we can access this card - used before icon matching
+                    const verifyResult = await getCardContent(request.cardId);
+                    if (verifyResult.error && verifyResult.error.includes('403')) {
+                        console.log('Card access denied - clearing auth for re-authentication');
+                        // Clear everything to force fresh auth
+                        await TokenManager.clearAllAuthData();
+                        yotoIconsCache.clear();
+                        sendResponse({
+                            success: false,
+                            needsAuth: true,
+                            error: 'Account mismatch detected. Please authenticate again.'
+                        });
+                    } else if (verifyResult.error) {
+                        sendResponse({
+                            success: false,
+                            error: verifyResult.error
+                        });
+                    } else {
+                        sendResponse({
+                            success: true,
+                            trackCount: verifyResult.card?.content?.chapters?.length || 0
+                        });
+                    }
+                    break;
+
+                case 'VERIFY_AUTH':
+                    try {
+                        const isValid = await TokenManager.isTokenValid();
+                        if (!isValid) {
+                            console.log('Token invalid or missing - need auth');
+                            await TokenManager.clearAllAuthData();
+                            yotoIconsCache.clear();
+                            sendResponse({
+                                success: false,
+                                needsAuth: true,
+                                error: 'Authentication required.'
+                            });
+                            break;
+                        }
+                        sendResponse({
+                            success: true,
+                            authenticated: true
+                        });
+                    } catch (error) {
+                        console.log('Auth verification error:', error);
+                        await TokenManager.clearAllAuthData();
+                        yotoIconsCache.clear();
+                        sendResponse({
+                            success: false,
+                            needsAuth: true,
+                            error: 'Authentication error. Please try again.'
+                        });
+                    }
+                    break;
+
                 case 'GET_CARD_CONTENT':
                     const content = await getCardContent(request.cardId);
                     sendResponse(content);
@@ -2455,7 +2516,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'LOGOUT':
+                    yotoIconsCache.clear();
+                    console.log('Cleared in-memory icon cache on logout');
+
                     await TokenManager.clearAllAuthData();
+
+                    if (yotoIconsCache.size > 0) {
+                        console.warn('Icon cache not empty after logout!', yotoIconsCache.size);
+                        yotoIconsCache.clear();
+                    }
+
                     sendResponse({success: true, message: 'Logged out and cleared all auth data'});
                     break;
                     
