@@ -339,8 +339,9 @@ function showIconPreview(matches) {
         const successDiv = document.createElement('div');
         successDiv.style.cssText = `
           position: fixed;
-          top: 20px;
-          right: 20px;
+          top: 20vh;
+          left: 50%;
+          transform: translateX(-50%);
           background: #4CAF50;
           color: white;
           padding: 12px 20px;
@@ -357,13 +358,10 @@ function showIconPreview(matches) {
         }, 3000);
         
         modal.remove();
-        
+
         setTimeout(() => {
-          showRefreshIndicator();
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
-        }, 500);
+          window.location.reload();
+        }, 1500);
       } else if (response.possibleSuccess) {
         
         const warningDiv = document.createElement('div');
@@ -735,13 +733,13 @@ async function handleIconMatch(matchType) {
       button.disabled = true;
       button.innerHTML = `
         ${puzzlePieceIcon}
-        <span>Fetching content...</span>
+        <span>Verifying access...</span>
       `;
       button.style.opacity = '0.7';
-      
+
       const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
       const cardId = urlMatch ? urlMatch[1] : null;
-      
+
       if (!cardId) {
         alert('Could not identify card ID from URL');
         button.disabled = false;
@@ -752,6 +750,50 @@ async function handleIconMatch(matchType) {
         button.style.opacity = '1';
         return;
       }
+
+      // First verify we can access this card (detects account switches)
+      const verifyResponse = await chrome.runtime.sendMessage({
+        action: 'VERIFY_CARD_ACCESS',
+        cardId: cardId
+      });
+
+      if (verifyResponse.needsAuth) {
+        // Account mismatch detected - need to re-authenticate
+        button.innerHTML = `
+          ${puzzlePieceIcon}
+          <span>Re-authenticating...</span>
+        `;
+
+        const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
+
+        if (!authResult.authenticated) {
+          alert('Please authenticate to use icon matching');
+          button.disabled = false;
+          button.innerHTML = `
+            ${puzzlePieceIcon}
+            <span>Icon Match</span>
+          `;
+          button.style.opacity = '1';
+          return;
+        }
+
+        // Now continue with icon matching after successful re-auth
+      } else if (!verifyResponse.success) {
+        alert(`Error: ${verifyResponse.error}`);
+        button.disabled = false;
+        button.innerHTML = `
+          ${puzzlePieceIcon}
+          <span>Icon Match</span>
+        `;
+        button.style.opacity = '1';
+        return;
+      }
+
+      // Now fetch content for icon matching
+      button.innerHTML = `
+        ${puzzlePieceIcon}
+        <span>Fetching content...</span>
+      `;
       
       const playlistNameInput = document.querySelector('input[type="text"]');
       const playlistTitle = playlistNameInput?.value || 'Untitled Playlist';
@@ -909,7 +951,7 @@ async function handleIconMatch(matchType) {
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="4"/>
           <path d="M12 2a10 10 0 0 1 0 20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
         </svg>
-        <span>Matching ${tracks.length} tracks...</span>
+        <span>Matching ${tracks.length} track${tracks.length !== 1 ? 's' : ''}...</span>
       `;
       
       if (!document.querySelector('#yoto-magic-spinner-style')) {
@@ -1082,8 +1124,6 @@ function cleanup() {
 async function handleImportClick() {
   const button = document.querySelector('#yoto-import-btn');
   const originalContent = button.innerHTML;
-  
-  // Check authentication first
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   if (!authResponse.authenticated) {
     button.innerHTML = `

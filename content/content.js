@@ -620,12 +620,10 @@ async function handlePodcastImportClick() {
     eventName: 'podcast_import_click',
     parameters: {}
   });
-  
   // Check if we have permission for all URLs first
   const permissionCheck = await chrome.runtime.sendMessage({
     action: 'CHECK_ALL_URLS_PERMISSION'
   });
-  
   if (!permissionCheck.granted) {
     // Show a modal explaining why we need permission
     showPodcastPermissionModal();
@@ -761,7 +759,7 @@ async function handleBulkImportClick() {
       showAuthBanner();
       return;
     }
-    
+
     // User is authenticated, show bulk import modal
     showBulkImportOptionsModal();
   } catch (error) {

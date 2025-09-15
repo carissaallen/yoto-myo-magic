@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async function() {
   const goToYotoButton = document.getElementById('go-to-yoto');
   const manageExtensionButton = document.getElementById('manage-extension');
+  const signOutButton = document.getElementById('sign-out');
   const authButton = document.getElementById('auth-button');
   const authStatus = document.getElementById('auth-status');
   const authText = authStatus.querySelector('.auth-text');
@@ -9,20 +10,28 @@ document.addEventListener('DOMContentLoaded', async function() {
   async function checkAuthStatus() {
     try {
       const response = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
-      
+
       if (response.authenticated) {
         authStatus.className = 'auth-status authenticated';
-        authText.textContent = 'Authenticated with Yoto';
+        // Show user email if available, otherwise just show authenticated
+        if (response.userEmail) {
+          authText.innerHTML = `Authenticated with Yoto<br><span style="font-size: 11px; opacity: 0.8;">${response.userEmail}</span>`;
+        } else {
+          authText.textContent = 'Authenticated with Yoto';
+        }
         authButton.style.display = 'none';
+        signOutButton.style.display = 'block';
       } else {
         authStatus.className = 'auth-status not-authenticated';
         authText.textContent = 'Not authenticated';
         authButton.style.display = 'block';
+        signOutButton.style.display = 'none';
       }
     } catch (error) {
       authStatus.className = 'auth-status not-authenticated';
       authText.textContent = 'Authentication status unknown';
       authButton.style.display = 'block';
+      signOutButton.style.display = 'none';
     }
   }
   
@@ -39,10 +48,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       const result = await chrome.runtime.sendMessage({ action: 'START_AUTH_INTERACTIVE' });
       
       if (result.success) {
-        // Update UI to show authenticated status
-        authStatus.className = 'auth-status authenticated';
-        authText.textContent = 'Authenticated with Yoto';
-        authButton.style.display = 'none';
+        await checkAuthStatus();
         
         // Notify content scripts about auth status change
         chrome.runtime.sendMessage({ 
@@ -83,6 +89,40 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
     window.close();
   });
+
+  if (signOutButton) {
+    signOutButton.addEventListener('click', async function() {
+      signOutButton.disabled = true;
+      signOutButton.textContent = 'Signing out...';
+
+      try {
+        const result = await chrome.runtime.sendMessage({ action: 'CLEAR_AUTH' });
+
+        if (result.success) {
+          authStatus.className = 'auth-status not-authenticated';
+          authText.textContent = 'Not authenticated';
+          authButton.style.display = 'block';
+          signOutButton.style.display = 'none';
+          signOutButton.textContent = 'Sign Out';
+          signOutButton.disabled = false;
+        } else {
+          signOutButton.textContent = 'Error - Try again';
+          signOutButton.disabled = false;
+
+          setTimeout(() => {
+            signOutButton.textContent = 'Sign Out';
+          }, 2000);
+        }
+      } catch (error) {
+        signOutButton.textContent = 'Error - Try again';
+        signOutButton.disabled = false;
+
+        setTimeout(() => {
+          signOutButton.textContent = 'Sign Out';
+        }, 2000);
+      }
+    });
+  }
   
   // Listen for auth status updates
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
