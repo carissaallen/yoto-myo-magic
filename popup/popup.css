@@ -144,28 +144,238 @@ body {
     background: #1f2937;
     color: #f9fafb;
   }
-  
+
   .description {
     color: #d1d5db;
   }
-  
+
+  .auth-status {
+    background: #374151;
+    color: #f9fafb;
+  }
+
+  .auth-status.authenticated .auth-indicator {
+    background: #10b981;
+  }
+
+  .auth-status.not-authenticated .auth-indicator {
+    background: #f59e0b;
+  }
+
   .popup-button.secondary {
     background: #374151;
     color: #d1d5db;
     border-color: #4b5563;
   }
-  
+
   .popup-button.secondary:hover {
     background: #4b5563;
     color: #e5e7eb;
     border-color: #6b7280;
   }
-  
+
   .popup-footer {
     border-top-color: #374151;
   }
-  
+
   .footer-note {
+    color: #9ca3af;
+  }
+}
+
+/* Battery Status Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 280px;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.close-modal {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-modal:hover {
+  color: #1f2937;
+}
+
+.battery-content {
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.loading {
+  text-align: center;
+  color: #6b7280;
+  padding: 20px;
+}
+
+.device-item {
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.device-name {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.battery-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.battery-bar {
+  flex: 1;
+  height: 20px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.battery-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.battery-fill.high {
+  background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.battery-fill.medium {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.battery-fill.low {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.battery-percent {
+  font-weight: 600;
+  min-width: 40px;
+  text-align: right;
+}
+
+.device-status {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.charging-indicator {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.offline-indicator {
+  color: #ef4444;
+}
+
+.error-message {
+  color: #ef4444;
+  text-align: center;
+  padding: 20px;
+  font-size: 13px;
+}
+
+.battery-icon {
+  font-size: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .modal-content {
+    background: #1f2937;
+  }
+
+  .modal-header {
+    border-bottom-color: #374151;
+  }
+
+  .modal-header h3 {
+    color: #f9fafb;
+  }
+
+  .close-modal {
+    color: #9ca3af;
+  }
+
+  .close-modal:hover {
+    color: #f9fafb;
+  }
+
+  .device-item {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .device-name {
+    color: #f9fafb;
+  }
+
+  .battery-bar {
+    background: #4b5563;
+  }
+
+  .device-status {
     color: #9ca3af;
   }
 }
