@@ -428,6 +428,70 @@ async function getCardContent(cardId) {
     }
 }
 
+// Get battery status for all user devices
+async function getBatteryStatus() {
+    try {
+        const devicesResponse = await makeAuthenticatedRequest('/device-v2/devices/mine');
+
+        if (devicesResponse.error) {
+            return { error: devicesResponse.error };
+        }
+
+        const deviceArray = devicesResponse.devices || [];
+
+        if (deviceArray.length === 0) {
+            return { devices: [] };
+        }
+
+        const deviceStatuses = await Promise.all(
+            deviceArray.map(async (device) => {
+                try {
+                    const statusResponse = await makeAuthenticatedRequest(`/device-v2/${device.deviceId}/status`);
+
+                    if (statusResponse.error) {
+                        return {
+                            name: device.name || device.deviceId,
+                            batteryLevel: null,
+                            isCharging: false,
+                            isOnline: false,
+                            error: true,
+                            deviceFamily: device.deviceFamily || 'Unknown',
+                            deviceType: device.deviceType
+                        };
+                    }
+
+                    return {
+                        name: device.name || device.deviceId,
+                        batteryLevel: statusResponse.batteryLevelPercentage || 0,
+                        isCharging: statusResponse.isCharging || false,
+                        isOnline: statusResponse.isOnline !== false,
+                        powerSource: statusResponse.powerSource,
+                        wifiStrength: statusResponse.wifiStrength,
+                        systemVolume: statusResponse.systemVolumePercentage,
+                        deviceId: device.deviceId,
+                        deviceFamily: device.deviceFamily || 'Unknown',
+                        deviceType: device.deviceType
+                    };
+                } catch (error) {
+                    return {
+                        name: device.name || device.deviceId,
+                        batteryLevel: null,
+                        isCharging: false,
+                        isOnline: false,
+                        error: true,
+                        deviceFamily: device.deviceFamily || 'Unknown',
+                        deviceType: device.deviceType
+                    };
+                }
+            })
+        );
+
+        return { devices: deviceStatuses };
+    } catch (error) {
+        return { error: `Failed to fetch device status: ${error.message}` };
+    }
+}
+
 // Helper function to get user-specific cache key
 async function getUserSpecificCacheKey() {
     try {
@@ -2692,6 +2756,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse({success: true, message: 'Import cancelled'});
                     break;
 
+                case 'GET_BATTERY_STATUS':
+                    const batteryResult = await getBatteryStatus();
+                    sendResponse(batteryResult);
+                    break;
                 default:
                     sendResponse({error: 'Unknown action'});
             }

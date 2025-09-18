@@ -5,7 +5,38 @@ document.addEventListener('DOMContentLoaded', async function() {
   const authButton = document.getElementById('auth-button');
   const authStatus = document.getElementById('auth-status');
   const authText = authStatus.querySelector('.auth-text');
+  const batteryButton = document.getElementById('battery-status');
+  const batteryModal = document.getElementById('battery-modal');
+  const batteryContent = document.getElementById('battery-content');
+  const closeModal = document.querySelector('.close-modal');
   
+  // Check battery levels and update icon
+  async function checkBatteryLevels() {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'GET_BATTERY_STATUS' });
+
+      if (response.devices && response.devices.length > 0) {
+        const hasLowBattery = response.devices.some(device => {
+          const batteryLevel = device.batteryLevel;
+          return batteryLevel !== null && batteryLevel !== undefined && batteryLevel <= 25;
+        });
+
+        const batteryIcon = batteryButton.querySelector('.battery-icon');
+        if (batteryIcon) {
+          if (hasLowBattery) {
+            batteryIcon.textContent = '🪫';
+            batteryIcon.style.color = '';
+          } else {
+            batteryIcon.textContent = '🔋';
+            batteryIcon.style.color = '';
+          }
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't interrupt the UI if battery check fails
+    }
+  }
+
   // Check authentication status
   async function checkAuthStatus() {
     try {
@@ -21,17 +52,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
         authButton.style.display = 'none';
         signOutButton.style.display = 'block';
+        batteryButton.style.display = 'block';
+        checkBatteryLevels();
       } else {
         authStatus.className = 'auth-status not-authenticated';
         authText.textContent = 'Not authenticated';
         authButton.style.display = 'block';
         signOutButton.style.display = 'none';
+        batteryButton.style.display = 'none';
       }
     } catch (error) {
       authStatus.className = 'auth-status not-authenticated';
       authText.textContent = 'Authentication status unknown';
       authButton.style.display = 'block';
       signOutButton.style.display = 'none';
+      batteryButton.style.display = 'none';
     }
   }
   
@@ -124,6 +159,113 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
   }
   
+  // Battery button handler
+  if (batteryButton) {
+    batteryButton.addEventListener('click', async function() {
+      batteryModal.style.display = 'flex';
+      batteryContent.innerHTML = '<div class="loading">Loading device information...</div>';
+
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'GET_BATTERY_STATUS' });
+
+        if (response.error) {
+          batteryContent.innerHTML = `<div class="error-message">${response.error}</div>`;
+        } else if (response.devices && response.devices.length > 0) {
+          const devicesByFamily = {};
+          response.devices.forEach(device => {
+            const family = device.deviceFamily || 'Unknown';
+            if (!devicesByFamily[family]) {
+              devicesByFamily[family] = [];
+            }
+            devicesByFamily[family].push(device);
+          });
+
+          let html = '';
+
+          const familyDisplayNames = {
+            'v2': 'Yoto Player (V2)',
+            'v3': 'Yoto Player (V3)',
+            'mini': 'Yoto Mini',
+            'Unknown': 'Other Devices'
+          };
+
+          Object.keys(devicesByFamily).sort().forEach(family => {
+            const displayName = familyDisplayNames[family] || family;
+
+            if (Object.keys(devicesByFamily).length > 1) {
+              html += `<div class="device-family-group">
+                <div class="device-family-header">${displayName}</div>`;
+            }
+
+            devicesByFamily[family].forEach(device => {
+              const batteryLevel = device.batteryLevel || 0;
+              const isCharging = device.isCharging || false;
+              const isOnline = device.isOnline !== false;
+
+              let batteryClass = 'high';
+              if (batteryLevel < 30) batteryClass = 'low';
+              else if (batteryLevel < 60) batteryClass = 'medium';
+
+              html += `
+                <div class="device-item">
+                  <div class="device-name">${device.name || 'Unknown Device'}</div>
+                  <div class="battery-info">
+                    <div class="battery-bar">
+                      <div class="battery-fill ${batteryClass}" style="width: ${batteryLevel}%"></div>
+                    </div>
+                    <span class="battery-percent">${batteryLevel}%</span>
+                  </div>
+                  <div class="device-status">
+                    ${isCharging ? '<span class="status-item charging-indicator">⚡ Charging</span>' : ''}
+                    ${!isOnline ? '<span class="status-item offline-indicator">• Offline</span>' : '<span class="status-item">• Online</span>'}
+                  </div>
+                </div>
+              `;
+            });
+
+            if (Object.keys(devicesByFamily).length > 1) {
+              html += `</div>`;
+            }
+          });
+
+          batteryContent.innerHTML = html;
+
+          const hasLowBattery = response.devices.some(device => {
+            const batteryLevel = device.batteryLevel;
+            return batteryLevel !== null && batteryLevel !== undefined && batteryLevel <= 25;
+          });
+
+          const batteryIcon = batteryButton.querySelector('.battery-icon');
+          if (batteryIcon) {
+            if (hasLowBattery) {
+              batteryIcon.textContent = '🪫';
+              batteryIcon.style.color = '';
+            } else {
+              batteryIcon.textContent = '🔋';
+              batteryIcon.style.color = '';
+            }
+          }
+        } else {
+          batteryContent.innerHTML = '<div class="error-message">No devices found. Make sure your Yoto devices are connected to your account.</div>';
+        }
+      } catch (error) {
+        batteryContent.innerHTML = '<div class="error-message">Failed to load device information. Please try again.</div>';
+      }
+    });
+  }
+
+  if (closeModal) {
+    closeModal.addEventListener('click', function() {
+      batteryModal.style.display = 'none';
+    });
+  }
+
+  batteryModal.addEventListener('click', function(e) {
+    if (e.target === batteryModal) {
+      batteryModal.style.display = 'none';
+    }
+  });
+
   // Listen for auth status updates
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTH_STATUS_CHANGED') {

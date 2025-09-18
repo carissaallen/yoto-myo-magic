@@ -26,6 +26,11 @@
         Go to Yoto Playlists
       </button>
 
+      <button id="battery-status" class="popup-button secondary" style="display: none;">
+        <span class="battery-icon">🔋</span>
+        Device Battery Status
+      </button>
+
       <button id="manage-extension" class="popup-button secondary">
         Manage Extension
       </button>
@@ -39,7 +44,20 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- Battery Status Modal -->
+  <div id="battery-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Device Battery Status</h3>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div id="battery-content" class="battery-content">
+        <div class="loading">Loading device information...</div>
+      </div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
