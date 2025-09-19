@@ -26,15 +26,10 @@ Buttons will auto-magically appear on the Yoto MYO playlist page!
 
 ## What's New
 
-### v1.3.0
-
-- **🏷️ Category Icon Matching**: Apply themed icons to multiple tracks at once
-- **🎯 Smarter Icon Matching**: Improved search accuracy with whole-word matching and intelligent keyword extraction
-
-### v1.2.0
-- **🎙️ Import Podcasts**: Search and import podcast episodes directly from ListenNotes
-- **⚡ Performance Boost**: Faster uploads with improved chunking strategy
-- **🔧 Better Error Recovery**: Automatic retry and extension context recovery
+- **📝 Update Playlist**: Add new tracks to existing playlists without starting over
+- **🎙️ Import Podcasts**: Bring your favorite kid-friendly shows directly to your Yoto cards
+- **🏷️ Smart Icon Matching**: Find perfect icons by theme - animals, nature, music, and more
+- **🔋 Device Status**: See your Yoto player's battery level right from the library page
 
 ## How to Use
 
