@@ -428,6 +428,16 @@ async function getCardContent(cardId) {
     }
 }
 
+async function getUserCards() {
+    try {
+        const response = await makeAuthenticatedRequest('/content/mine');
+        const cards = response?.cards || (Array.isArray(response) ? response : []);
+        return { cards };
+    } catch (error) {
+        return { cards: [], error: error.message };
+    }
+}
+
 // Get battery status for all user devices
 async function getBatteryStatus() {
     try {
@@ -1544,6 +1554,108 @@ async function uploadAudioFile(audioFileData) {
     }
 }
 
+function generateRandomId() {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
+// Update existing playlist with new content
+async function updatePlaylistContent(cardId, existingChapters, newTracks, newIcons, metadata, title) {
+    try {
+        const cardContent = await getCardContent(cardId);
+        if (cardContent.error) {
+            return { error: cardContent.error };
+        }
+
+        let chapters = [...(existingChapters || [])];
+
+        let maxChapterNum = 0;
+        chapters.forEach(chapter => {
+            const num = parseInt(chapter.key);
+            if (!isNaN(num) && num > maxChapterNum) {
+                maxChapterNum = num;
+            }
+        });
+
+        newTracks.forEach((track, index) => {
+            const chapterNum = maxChapterNum + index + 1;
+            const chapterKey = String(chapterNum).padStart(2, '0');
+
+            let iconId = 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q';
+            if (newIcons && newIcons[index]) {
+                iconId = newIcons[index].startsWith('yoto:#') ? newIcons[index] : `yoto:#${newIcons[index]}`;
+            }
+
+            let format = track.format || 'mp3';
+            const validFormats = ['mp3', 'aac', 'alac', 'flac', 'pcm_s16le', 'opus', 'ogg', 'x-m4a', 'wav', 'aiff', 'mpeg'];
+            if (!validFormats.includes(format)) {
+                format = 'mp3';
+            }
+
+            const chapter = {
+                key: chapterKey,
+                title: track.title || `Track ${chapterNum}`,
+                overlayLabel: String(chapterNum),
+                display: {
+                    icon16x16: iconId,
+                    overlayLabel: {
+                        label: String(chapterNum)
+                    }
+                },
+                tracks: [{
+                    format: format,
+                    key: track.key,
+                    trackId: generateRandomId(),
+                    title: track.title || `Track ${chapterNum}`,
+                    trackUrl: track.trackUrl || `yoto:#${track.key}`,
+                    type: 'audio',
+                    display: {
+                        icon16x16: iconId
+                    },
+                    duration: track.duration || 0
+                }]
+            };
+
+            chapters.push(chapter);
+        });
+
+        const updateBody = {
+            createdByClientId: cardContent.card.createdByClientId,
+            cardId: cardId,
+            userId: cardContent.card.userId,
+            createdAt: cardContent.card.createdAt,
+            updatedAt: new Date().toISOString(),
+            content: {
+                ...cardContent.card.content,
+                chapters: chapters
+            },
+            metadata: metadata || cardContent.card.metadata || {},
+            title: title || cardContent.card.title || "Untitled"
+        };
+
+        const updateResponse = await makeAuthenticatedRequest(
+            '/content',
+            {
+                method: 'POST',
+                body: JSON.stringify(updateBody)
+            }
+        );
+
+        if (updateResponse.error) {
+            return { error: updateResponse.error };
+        }
+
+        return {
+            success: true,
+            cardId: cardId,
+            addedTracks: newTracks.length,
+            totalChapters: chapters.length
+        };
+
+    } catch (error) {
+        return { error: error.message };
+    }
+}
+
 // Create playlist with uploaded content
 async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl = null) {
     try {
@@ -2460,6 +2572,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse(content);
                     break;
 
+                case 'GET_USER_CARDS':
+                    const userCards = await getUserCards();
+                    sendResponse(userCards);
+                    break;
+
                 case 'MATCH_ICONS':
                     const matches = await matchIcons(request.tracks);
                     sendResponse({matches});
@@ -2512,8 +2629,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'UPDATE_CARD_ICONS':
-                    const updateResult = await updateCardIcons(request.cardId, request.iconMatches);
-                    sendResponse(updateResult);
+                    const updateIconsResult = await updateCardIcons(request.cardId, request.iconMatches);
+                    sendResponse(updateIconsResult);
                     break;
                     
                 case 'UPLOAD_AUDIO':
@@ -2564,6 +2681,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         request.coverUrl
                     );
                     sendResponse({success: true, result});
+                    break;
+
+                case 'UPDATE_PLAYLIST':
+                    const updatePlaylistResult = await updatePlaylistContent(
+                        request.cardId,
+                        request.existingChapters,
+                        request.newTracks,
+                        request.newIcons,
+                        request.metadata,
+                        request.title
+                    );
+                    sendResponse(updatePlaylistResult);
                     break;
 
                 case 'GET_ACCESS_TOKEN':
