@@ -317,10 +317,12 @@ function checkAndInjectImportButton() {
       buttonContainer.id = 'yoto-import-container';
       
       const importButton = createImportButton();
+      const updateButton = createUpdateButton();
       const bulkImportButton = createBulkImportButton();
       const podcastButton = createPodcastButton();
-      
+
       buttonContainer.appendChild(importButton);
+      buttonContainer.appendChild(updateButton);
       buttonContainer.appendChild(bulkImportButton);
       if (podcastButton) {
         buttonContainer.appendChild(podcastButton);
@@ -396,6 +398,61 @@ function createImportButton() {
   
   button.addEventListener('click', handleImportClick);
   
+  return button;
+}
+
+function createUpdateButton() {
+  const button = document.createElement('button');
+  button.id = 'yoto-update-btn';
+
+  const updateIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 19H5C3.89543 19 3 18.1046 3 17V7C3 5.89543 3.89543 5 5 5H9.58579C9.851 5 10.1054 5.10536 10.2929 5.29289L12 7H19C20.1046 7 21 7.89543 21 9V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M18 14V17M18 20V17M18 17H15M18 17H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  button.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
+  `;
+
+  button.innerHTML = `
+    ${updateIcon}
+    <span>Update Playlist</span>
+  `;
+
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#ffdd00';
+    button.style.borderColor = '#ffdd00';
+    button.style.transform = 'translateY(-1px)';
+  };
+
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+  };
+
+  button.addEventListener('click', handleUpdateClick);
+
   return button;
 }
 
@@ -716,6 +773,37 @@ function updateButtonIcon(authenticated) {
 
 
 
+async function handleUpdateClick() {
+  try {
+    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+
+    if (!authResponse || !authResponse.authenticated) {
+      showNotification('Please authenticate to use update features', 'info');
+      showAuthBanner();
+      return;
+    }
+
+    chrome.runtime.sendMessage({
+      action: 'TRACK_EVENT',
+      eventName: 'update_playlist_click',
+      parameters: {}
+    });
+
+    showCardSelectionModal();
+  } catch (error) {
+    showNotification('Error occurred. Please try again.', 'error');
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'Update initialization failed',
+      context: {
+        action: 'update_init',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
+  }
+}
+
 async function handleImportClick() {
   try {
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
@@ -725,7 +813,7 @@ async function handleImportClick() {
       showAuthBanner();
       return;
     }
-    
+
     // Show import options
     openFolderSelector();
   } catch (error) {
@@ -894,6 +982,328 @@ function showImportOptionsModal() {
   
 }
 
+async function showCardSelectionModal() {
+  const existingModal = document.getElementById('yoto-card-selection-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-card-selection-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10vh;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background-color: white;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    margin: 0 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  `;
+
+  content.innerHTML = `
+    <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #1f2937;">Select a Card to Update</h2>
+    <p style="color: #6b7280; margin-bottom: 20px;">Choose which MYO card you want to update with new content:</p>
+
+    <div style="margin-bottom: 20px;">
+      <input type="text" id="card-search-input" placeholder="Search your cards..." style="
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s;
+      " onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#d1d5db'">
+    </div>
+
+    <div id="cards-loading" style="text-align: center; padding: 40px;">
+      <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 10px; color: #6b7280;">Loading your cards...</p>
+    </div>
+
+    <div id="cards-list" style="display: none;">
+      <!-- Cards will be populated here -->
+    </div>
+
+    <button id="card-cancel-btn" style="
+      width: 100%;
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 14px;
+      transition: color 0.2s;
+    " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
+      Cancel
+    </button>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+
+  content.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  try {
+    const cardsResponse = await chrome.runtime.sendMessage({ action: 'GET_USER_CARDS' });
+    const loadingDiv = document.getElementById('cards-loading');
+    const listDiv = document.getElementById('cards-list');
+
+    if (cardsResponse && cardsResponse.cards && cardsResponse.cards.length > 0) {
+      loadingDiv.style.display = 'none';
+      listDiv.style.display = 'block';
+
+      const sortedCards = cardsResponse.cards.sort((a, b) =>
+        new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+      );
+
+      displayCards(sortedCards, listDiv);
+
+      const searchInput = document.getElementById('card-search-input');
+      searchInput.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredCards = sortedCards.filter(card =>
+          (card.title || 'Untitled').toLowerCase().includes(searchTerm)
+        );
+        displayCards(filteredCards, listDiv);
+      });
+    } else {
+      loadingDiv.innerHTML = `
+        <p style="color: #6b7280;">No MYO cards found. Please create a card first.</p>
+      `;
+    }
+  } catch (error) {
+    document.getElementById('cards-loading').innerHTML = `
+      <p style="color: #ef4444;">Error loading cards. Please try again.</p>
+    `;
+  }
+
+  document.getElementById('card-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+}
+
+function displayCards(cards, container) {
+  container.innerHTML = cards.map(card => {
+    let trackCount = 0;
+
+    if (card.content?.chapters) {
+      trackCount = card.content.chapters.reduce((sum, ch) =>
+        sum + (ch.tracks?.length || 1), 0);
+    }
+    else if (card.chapters) {
+      trackCount = card.chapters.reduce((sum, ch) =>
+        sum + (ch.tracks?.length || 1), 0);
+    }
+    else if (card.tracks) {
+      trackCount = card.tracks.length;
+    }
+    else if (card.chapterCount) {
+      trackCount = card.chapterCount;
+    } else if (card.trackCount) {
+      trackCount = card.trackCount;
+    }
+
+    const lastUpdated = card.updatedAt ?
+      new Date(card.updatedAt).toLocaleDateString() :
+      'Unknown';
+
+    return `
+      <div class="card-item" data-card-id="${card.cardId || card.id}" style="
+        padding: 10px 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      " onmouseover="this.style.backgroundColor='#f9fafb'; this.style.borderColor='#3b82f6'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'"
+         onmouseout="this.style.backgroundColor='transparent'; this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg style="width: 16px; height: 16px; color: #9ca3af; flex-shrink: 0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+            </svg>
+            <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${card.title || card.name || 'Untitled Card'}
+            </h3>
+          </div>
+          <p style="margin: 4px 0 0 24px; font-size: 11px; color: #6b7280;">
+            ${trackCount > 0 ? `${trackCount} track${trackCount !== 1 ? 's' : ''} • ` : ''}Updated ${lastUpdated}
+          </p>
+        </div>
+        <svg style="width: 20px; height: 20px; color: #9ca3af; flex-shrink: 0; margin-left: 12px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+        </svg>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.card-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const cardId = item.dataset.cardId;
+      const cardTitle = item.querySelector('h3').textContent;
+      selectCardForUpdate(cardId, cardTitle);
+    });
+  });
+}
+
+async function selectCardForUpdate(cardId, cardTitle) {
+  const selectionModal = document.getElementById('yoto-card-selection-modal');
+  if (selectionModal) selectionModal.remove();
+
+  chrome.runtime.sendMessage({
+    action: 'TRACK_EVENT',
+    eventName: 'update_card_selected',
+    parameters: {
+      cardId: cardId
+    }
+  });
+
+  state.updateCardId = cardId;
+  state.updateCardTitle = cardTitle;
+
+  showUpdateImportOptionsModal(cardId, cardTitle);
+}
+
+function showUpdateImportOptionsModal(cardId, cardTitle) {
+  const existingModal = document.getElementById('yoto-update-import-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-update-import-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+
+  modal.innerHTML = `
+    <div style="
+      background-color: white;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      margin: 0 16px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    ">
+      <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">Update: ${cardTitle}</h2>
+      <p style="color: #6b7280; margin-bottom: 24px;">Select files to add to this card.</p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="update-zip-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span>Import ZIP File</span>
+        </button>
+
+        <button id="update-folder-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #10b981;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+          </svg>
+          <span>Import Folder</span>
+        </button>
+      </div>
+
+      <button id="update-cancel-btn" style="
+        width: 100%;
+        margin-top: 16px;
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 14px;
+        transition: color 0.2s;
+      " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  document.getElementById('update-zip-btn').addEventListener('click', () => {
+    modal.remove();
+    selectZipFileForUpdate(cardId);
+  });
+
+  document.getElementById('update-folder-btn').addEventListener('click', () => {
+    modal.remove();
+    selectFolderForUpdate(cardId);
+  });
+
+  document.getElementById('update-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+}
+
 function showBulkImportOptionsModal() {
   const existingModal = document.getElementById('yoto-bulk-import-options-modal');
   if (existingModal) existingModal.remove();
@@ -1006,6 +1416,78 @@ function showBulkImportOptionsModal() {
     modal.remove();
   });
   
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result.split(',')[1];
+      resolve(base64String);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function extractZipContents(zip) {
+  const files = {};
+  const zipEntries = Object.keys(zip.files);
+
+  for (const entryName of zipEntries) {
+    const zipEntry = zip.files[entryName];
+    if (!zipEntry.dir) {
+      try {
+        const content = await zipEntry.async('base64');
+        files[entryName] = content;
+      } catch (error) {
+        console.error(`Error extracting ${entryName}:`, error);
+      }
+    }
+  }
+
+  return files;
+}
+
+function selectZipFileForUpdate(cardId) {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.zip,application/zip,application/x-zip-compressed';
+  fileInput.style.display = 'none';
+
+  fileInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      try {
+        const zip = await JSZip.loadAsync(file);
+        const files = await extractZipContents(zip);
+        processUpdateFiles(files, file.name, cardId);
+      } catch (error) {
+        showNotification('Error reading ZIP file. Please try again.', 'error');
+      }
+    }
+  });
+
+  fileInput.click();
+}
+
+function selectFolderForUpdate(cardId) {
+  const folderInput = document.createElement('input');
+  folderInput.type = 'file';
+  folderInput.webkitdirectory = true;
+  folderInput.directory = true;
+  folderInput.multiple = true;
+  folderInput.style.display = 'none';
+
+  folderInput.addEventListener('change', async (event) => {
+    const files = Array.from(event.target.files);
+    if (files.length > 0) {
+      const folderName = files[0].webkitRelativePath.split('/')[0];
+      processUpdateFiles(files, folderName, cardId);
+    }
+  });
+
+  folderInput.click();
 }
 
 function selectZipFile() {
@@ -3791,6 +4273,389 @@ function showBulkImportModal(playlists) {
     // Start the bulk import process
     await processBulkImport(selectedPlaylists, modal);
   };
+}
+
+async function processUpdateFiles(files, sourceName, cardId) {
+  const audioFiles = [];
+  const iconFiles = [];
+
+  if (Array.isArray(files)) {
+    files.forEach(file => {
+      const fileName = file.name.toLowerCase();
+      const path = file.webkitRelativePath || file.name;
+
+      if (fileName.match(/\.(mp3|m4a|wav|ogg|aac|flac)$/)) {
+        audioFiles.push({
+          file: file,
+          name: file.name,
+          path: path
+        });
+      } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
+        // Exclude files that are likely cover images
+        if (!fileName.includes('cover') && !fileName.includes('album') && !fileName.includes('artwork')) {
+          iconFiles.push({
+            file: file,
+            name: file.name,
+            path: path
+          });
+        }
+      }
+    });
+  } else {
+    // From ZIP extraction
+    Object.entries(files).forEach(([path, file]) => {
+      const fileName = path.toLowerCase();
+      const baseName = path.split('/').pop().toLowerCase();
+
+      if (fileName.match(/\.(mp3|m4a|wav|ogg|aac|flac)$/)) {
+        audioFiles.push({
+          file: file,
+          name: path.split('/').pop(),
+          path: path
+        });
+      } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
+        // Exclude files that are likely cover images
+        if (!baseName.includes('cover') && !baseName.includes('album') && !baseName.includes('artwork')) {
+          iconFiles.push({
+            file: file,
+            name: path.split('/').pop(),
+            path: path
+          });
+        }
+      }
+    });
+  }
+
+  if (audioFiles.length === 0 && iconFiles.length === 0) {
+    showNotification('No audio or icon files found in selection', 'error');
+    return;
+  }
+
+  audioFiles.sort((a, b) => {
+    const pathA = a.path || a.name;
+    const pathB = b.path || b.name;
+    return pathA.localeCompare(pathB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  const numericIcons = [];
+  const nonNumericIcons = [];
+
+  iconFiles.forEach(f => {
+    const numberMatch = f.name.match(/(\d+)[^0-9]*\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i);
+
+    if (numberMatch) {
+      f.extractedNumber = parseInt(numberMatch[1]);
+      numericIcons.push(f);
+    } else {
+      nonNumericIcons.push(f);
+    }
+  });
+
+  numericIcons.sort((a, b) => {
+    return (a.extractedNumber || 0) - (b.extractedNumber || 0);
+  });
+
+  iconFiles.length = 0;
+  iconFiles.push(...numericIcons, ...nonNumericIcons);
+
+  showUpdateProgressModal(audioFiles, iconFiles, cardId);
+}
+
+async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
+  const modal = document.createElement('div');
+  modal.id = 'yoto-update-progress-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    animation: fadeIn 0.3s ease;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease;
+  `;
+
+  content.innerHTML = `
+    <h2 style="margin: 0 0 16px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
+      Update Card: ${state.updateCardTitle || 'Untitled'}
+    </h2>
+
+    <div style="margin-bottom: 20px; color: #666;">
+      <p style="margin: 0 0 8px 0;">Ready to add to existing card:</p>
+      <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
+        ${audioFiles.length > 0 ? `<li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>` : ''}
+        ${iconFiles.length > 0 ? `<li>${iconFiles.length} icon file${iconFiles.length !== 1 ? 's' : ''}</li>` : ''}
+      </ul>
+      <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Existing content will be preserved</p>
+      <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Cover image will not be changed</p>
+    </div>
+
+    <div style="margin: 20px 0;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span id="update-status" style="color: #666; font-size: 14px;">Preparing update...</span>
+        <span id="update-percentage" style="color: #3b82f6; font-size: 14px;">0%</span>
+      </div>
+      <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;">
+        <div id="update-progress-bar" style="width: 0%; height: 100%; background: #3b82f6; transition: width 0.3s;"></div>
+      </div>
+    </div>
+
+    <button id="cancel-update" style="
+      width: 100%;
+      padding: 12px;
+      background: #6b7280;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 16px;
+    " onmouseover="this.style.backgroundColor='#4b5563'" onmouseout="this.style.backgroundColor='#6b7280'">
+      Cancel
+    </button>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  performCardUpdate(audioFiles, iconFiles, cardId, modal);
+
+  document.getElementById('cancel-update').addEventListener('click', () => {
+    modal.remove();
+  });
+}
+
+async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
+  const statusText = document.getElementById('update-status');
+  const progressBar = document.getElementById('update-progress-bar');
+  const percentageText = document.getElementById('update-percentage');
+  const cancelBtn = document.getElementById('cancel-update');
+
+  cancelBtn.disabled = true;
+  cancelBtn.style.opacity = '0.5';
+  cancelBtn.style.cursor = 'not-allowed';
+
+  try {
+    statusText.textContent = 'Fetching existing card content...';
+    progressBar.style.width = '10%';
+    percentageText.textContent = '10%';
+
+    const cardContent = await chrome.runtime.sendMessage({
+      action: 'GET_CARD_CONTENT',
+      cardId: cardId
+    });
+
+    if (cardContent.error) {
+      throw new Error(cardContent.error);
+    }
+
+    // Preserve existing content
+    const existingChapters = cardContent.card?.content?.chapters || [];
+    const existingMetadata = cardContent.card?.metadata || {};
+    const existingTitle = cardContent.card?.title || state.updateCardTitle;
+
+    statusText.textContent = 'Uploading audio files...';
+    progressBar.style.width = '30%';
+    percentageText.textContent = '30%';
+
+    const uploadedTracks = [];
+    const uploadStrategy = audioFiles.length >= 10 ? 'chunked' : 'parallel';
+
+    if (uploadStrategy === 'chunked') {
+      const chunkSize = 8;
+      const audioResults = await uploadInChunks(
+        audioFiles,
+        async (audio, index) => {
+          const fileData = audio.file instanceof File ?
+            await readFileAsBase64(audio.file) :
+            audio.file;
+
+          const uploadResult = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_AUDIO',
+            file: {
+              data: fileData,
+              type: audio.file.type || 'audio/mpeg',
+              name: audio.name
+            }
+          });
+
+          return { uploadResult, audio, index };
+        },
+        chunkSize,
+        (completed, total) => {
+          const progressPercent = 30 + (completed / total) * 40;
+          progressBar.style.width = `${progressPercent}%`;
+          percentageText.textContent = `${Math.round(progressPercent)}%`;
+          statusText.textContent = `Uploading audio files... ${completed}/${total}`;
+        }
+      );
+
+      audioResults.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.uploadResult.success) {
+          const { uploadResult, audio, index } = result.value;
+          let trackKey = uploadResult.transcodedAudio?.key || uploadResult.uploadId || '';
+          if (trackKey.length > 20) {
+            trackKey = trackKey.substring(trackKey.length - 20);
+          }
+
+          const trackUrl = uploadResult.transcodedAudio?.transcodedSha256 ?
+            `yoto:#${uploadResult.transcodedAudio.transcodedSha256}` :
+            `yoto:#${trackKey}`;
+
+          uploadedTracks[index] = {
+            title: cleanTrackTitle(audio.name),
+            duration: uploadResult.transcodedAudio?.duration || 0,
+            key: trackKey,
+            trackUrl: trackUrl,
+            format: uploadResult.transcodedAudio?.transcodedInfo?.format || 'mp3'
+          };
+        }
+      });
+    } else {
+      const audioPromises = audioFiles.map(async (audio, index) => {
+        const fileData = audio.file instanceof File ?
+          await readFileAsBase64(audio.file) :
+          audio.file;
+
+        const uploadResult = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_AUDIO',
+          file: {
+            data: fileData,
+            type: audio.file.type || 'audio/mpeg',
+            name: audio.name
+          }
+        });
+
+        const progressPercent = 30 + ((index + 1) / audioFiles.length) * 40;
+        progressBar.style.width = `${progressPercent}%`;
+        percentageText.textContent = `${Math.round(progressPercent)}%`;
+
+        return { uploadResult, audio, index };
+      });
+
+      const results = await Promise.allSettled(audioPromises);
+
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.uploadResult.success) {
+          const { uploadResult, audio, index } = result.value;
+          let trackKey = uploadResult.transcodedAudio?.key || uploadResult.uploadId || '';
+          if (trackKey.length > 20) {
+            trackKey = trackKey.substring(trackKey.length - 20);
+          }
+
+          const trackUrl = uploadResult.transcodedAudio?.transcodedSha256 ?
+            `yoto:#${uploadResult.transcodedAudio.transcodedSha256}` :
+            `yoto:#${trackKey}`;
+
+          uploadedTracks[index] = {
+            title: cleanTrackTitle(audio.name),
+            duration: uploadResult.transcodedAudio?.duration || 0,
+            key: trackKey,
+            trackUrl: trackUrl,
+            format: uploadResult.transcodedAudio?.transcodedInfo?.format || 'mp3'
+          };
+        }
+      });
+    }
+
+    // Filter out any undefined entries (failed uploads)
+    const validTracks = uploadedTracks.filter(track => track !== undefined);
+
+    let uploadedIcons = [];
+    if (iconFiles.length > 0) {
+      statusText.textContent = 'Uploading icon files...';
+      progressBar.style.width = '75%';
+      percentageText.textContent = '75%';
+
+      for (let i = 0; i < iconFiles.length; i++) {
+        const icon = iconFiles[i];
+        const fileData = icon.file instanceof File ?
+          await readFileAsBase64(icon.file) :
+          icon.file;
+
+        const uploadResult = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_ICON',
+          file: {
+            data: fileData,
+            type: icon.file.type || 'image/png',
+            name: icon.name
+          }
+        });
+
+        if (uploadResult.iconId) {
+          if (icon.extractedNumber !== undefined) {
+            const iconIndex = icon.extractedNumber - 1;
+            uploadedIcons[iconIndex] = uploadResult.iconId;
+          } else {
+            uploadedIcons.push(uploadResult.iconId);
+          }
+        }
+      }
+    }
+
+    statusText.textContent = 'Updating card...';
+    progressBar.style.width = '90%';
+    percentageText.textContent = '90%';
+
+    const updateResult = await chrome.runtime.sendMessage({
+      action: 'UPDATE_PLAYLIST',
+      cardId: cardId,
+      existingChapters: existingChapters,
+      newTracks: validTracks,
+      newIcons: uploadedIcons,
+      metadata: existingMetadata,
+      title: existingTitle
+    });
+
+    if (updateResult.error) {
+      throw new Error(updateResult.error);
+    }
+
+    statusText.textContent = 'Card updated successfully!';
+    progressBar.style.width = '100%';
+    percentageText.textContent = '100%';
+    progressBar.style.background = '#10b981';
+
+    showNotification(`Successfully updated "${existingTitle}" with ${validTracks.length} new tracks`, 'success');
+
+    setTimeout(() => {
+      modal.remove();
+      window.location.reload();
+    }, 2000);
+
+  } catch (error) {
+    statusText.textContent = 'Update failed: ' + error.message;
+    progressBar.style.background = '#ef4444';
+    cancelBtn.textContent = 'Close';
+    cancelBtn.disabled = false;
+
+    showNotification('Failed to update card: ' + error.message, 'error');
+
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message,
+      context: {
+        action: 'update_card',
+        cardId: cardId
+      }
+    });
+  }
 }
 
 async function processBulkImport(playlists, modal) {
