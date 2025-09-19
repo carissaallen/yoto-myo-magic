@@ -2785,33 +2785,43 @@ async function processFolderFiles(files) {
     }
   }
   
-  // Smart image folder detection (same logic as ZIP)
+  // Smart image folder detection
   let imageFiles = [];
-  
-  // 1. First, look for folders containing 'images' or 'icons' in the name
+
+  const rootCoverFiles = allImageFiles.filter(f => {
+    const pathParts = f.webkitRelativePath.split('/');
+    if (pathParts.length === 2) {
+      const fileName = f.name.toLowerCase();
+      return fileName.includes('cover') ||
+             fileName.includes('album') ||
+             fileName.includes('artwork') ||
+             fileName.includes('front') ||
+             fileName === 'folder.jpg' ||
+             fileName === 'folder.png';
+    }
+    return false;
+  });
+
   const imageFolderFiles = allImageFiles.filter(f => {
     const path = f.webkitRelativePath.toLowerCase();
     return path.includes('/image') || path.includes('/icon');
   });
-  
+
   if (imageFolderFiles.length > 0) {
-    imageFiles = imageFolderFiles;
+    imageFiles = [...imageFolderFiles, ...rootCoverFiles];
   }
-  // 2. If not found, use all image files found
   else if (allImageFiles.length > 0) {
-    // Find the most common directory containing image files
     const imageDirs = {};
     allImageFiles.forEach(f => {
       const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
       imageDirs[dir] = (imageDirs[dir] || 0) + 1;
     });
-    
-    // Use files from the directory with most image files, or all if in root
+
     if (Object.keys(imageDirs).length > 0) {
-      const mainImageDir = Object.keys(imageDirs).reduce((a, b) => 
+      const mainImageDir = Object.keys(imageDirs).reduce((a, b) =>
         imageDirs[a] > imageDirs[b] ? a : b, ''
       );
-      imageFiles = allImageFiles.filter(f => 
+      imageFiles = allImageFiles.filter(f =>
         f.webkitRelativePath.startsWith(mainImageDir)
       );
     } else {
@@ -2827,17 +2837,27 @@ async function processFolderFiles(files) {
   // Intelligently separate track icons from cover images (same logic as ZIP)
   const trackIcons = [];
   let coverImage = null;
-  
+
   // First, separate by naming pattern
   const numericImages = [];
   const nonNumericImages = [];
-  
+
   imageFiles.forEach(f => {
     const fileName = f.name.split('/').pop();
     // Check if filename contains a number pattern (supports "01.png", "Icon 01.png", "icon_01.png", "icn3.png", etc.)
     // Extract the number to ensure proper sorting
     const numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
-    if (numberMatch) {
+
+    const lowerFileName = fileName.toLowerCase();
+    const isCoverName = lowerFileName.includes('cover') ||
+                        lowerFileName.includes('album') ||
+                        lowerFileName.includes('art') ||
+                        lowerFileName === 'folder.jpg' ||
+                        lowerFileName === 'folder.png';
+
+    if (isCoverName) {
+      nonNumericImages.push(f);
+    } else if (numberMatch) {
       // Store the extracted number for sorting
       f.extractedNumber = parseInt(numberMatch[1]);
       numericImages.push(f);
@@ -2845,22 +2865,35 @@ async function processFolderFiles(files) {
       nonNumericImages.push(f);
     }
   });
-  
+
   // Sort numeric images by their extracted number
   numericImages.sort((a, b) => {
     return (a.extractedNumber || 0) - (b.extractedNumber || 0);
   });
-  
+
   // Use numeric images as track icons
   if (numericImages.length > 0) {
     trackIcons.push(...numericImages);
   }
-  
-  // Find cover image from non-numeric images (typically the largest one)
+
+  // Find cover image from non-numeric images (prioritize files with "cover" in the name)
   if (nonNumericImages.length > 0) {
-    coverImage = nonNumericImages.reduce((largest, current) => {
-      return (current.fileSize > largest.fileSize) ? current : largest;
+    const namedCovers = nonNumericImages.filter(f => {
+      const name = f.name.toLowerCase();
+      return name.includes('cover') || name.includes('album') || name.includes('artwork') || name.includes('front');
     });
+
+    if (namedCovers.length > 0) {
+      // If there are files specifically named as covers, use the largest one
+      coverImage = namedCovers.reduce((largest, current) => {
+        return (current.fileSize > largest.fileSize) ? current : largest;
+      });
+    } else {
+      // Otherwise use the largest non-numeric image
+      coverImage = nonNumericImages.reduce((largest, current) => {
+        return (current.fileSize > largest.fileSize) ? current : largest;
+      });
+    }
   }
   
   // If no non-numeric cover found, check for significantly larger image
