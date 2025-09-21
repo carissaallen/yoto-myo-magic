@@ -320,6 +320,7 @@ function checkAndInjectImportButton() {
       const updateButton = createUpdateButton();
       const bulkImportButton = createBulkImportButton();
       const podcastButton = createPodcastButton();
+      const visualTimerButton = createVisualTimerButton();
 
       buttonContainer.appendChild(importButton);
       buttonContainer.appendChild(updateButton);
@@ -327,6 +328,7 @@ function checkAndInjectImportButton() {
       if (podcastButton) {
         buttonContainer.appendChild(podcastButton);
       }
+      buttonContainer.appendChild(visualTimerButton);
       
       // Insert after the target element (either heading or descriptive text)
       if (targetElement.nextSibling) {
@@ -751,11 +753,71 @@ function createPodcastButton() {
   }
 }
 
+function createVisualTimerButton() {
+  const button = document.createElement('button');
+  button.id = 'yoto-visual-timer-btn';
+
+  const timerIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
+      <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M9 2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M12 2v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
+
+  button.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  `;
+
+  button.innerHTML = `
+    ${timerIcon}
+    <span>Visual Timer</span>
+  `;
+
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#ec4899';
+    button.style.borderColor = '#ec4899';
+    button.style.transform = 'translateY(-1px)';
+    button.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+  };
+
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+    button.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+  };
+
+  button.onclick = (e) => {
+    e.preventDefault();
+    handleVisualTimerClick();
+  };
+
+  return button;
+}
+
 function updateButtonIcon(authenticated) {
   const button = document.getElementById('yoto-magic-bulk-btn');
   if (!button) return;
-  
-  const iconSvg = authenticated ? 
+
+  const iconSvg = authenticated ?
     // Magic wand icon
     `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path>
@@ -764,7 +826,7 @@ function updateButtonIcon(authenticated) {
     `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
     </svg>`;
-  
+
   button.innerHTML = `
     ${iconSvg}
     <span>Bulk Icon Match</span>
@@ -865,6 +927,37 @@ async function handleBulkImportClick() {
     // If auth check fails, still show the import options
     showNotification('Proceeding without auth check...', 'warning');
     showBulkImportOptionsModal();
+  }
+}
+
+async function handleVisualTimerClick() {
+  try {
+    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+
+    if (!authResponse || !authResponse.authenticated) {
+      showNotification('Please authenticate to use Visual Timer', 'info');
+      showAuthBanner();
+      return;
+    }
+
+    chrome.runtime.sendMessage({
+      action: 'TRACK_EVENT',
+      eventName: 'visual_timer_click',
+      parameters: {}
+    });
+
+    showVisualTimerModal();
+  } catch (error) {
+    showNotification('Error occurred. Please try again.', 'error');
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message || 'Visual timer initialization failed',
+      context: {
+        action: 'visual_timer_init',
+        component: 'content',
+        authenticated: state.authenticated
+      }
+    });
   }
 }
 
@@ -1415,7 +1508,748 @@ function showBulkImportOptionsModal() {
   document.getElementById('bulk-import-cancel-btn').addEventListener('click', () => {
     modal.remove();
   });
-  
+
+}
+
+function showVisualTimerModal() {
+  const existingModal = document.getElementById('yoto-visual-timer-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-visual-timer-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background-color: white;
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  `;
+
+  content.innerHTML = `
+    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">Create Visual Timer</h2>
+
+    <form id="visual-timer-form" style="display: flex; flex-direction: column; gap: 20px;">
+      <!-- Card Title -->
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          Timer Name
+        </label>
+        <input type="text" id="timer-name" placeholder="e.g., Bedtime Timer" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          box-sizing: border-box;
+        " value="Visual Timer - 5 minutes">
+      </div>
+
+      <!-- Timer Duration -->
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          Timer Duration
+        </label>
+        <select id="timer-duration" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          background-color: white;
+          cursor: pointer;
+        ">
+          <option value="2">2 minutes</option>
+          <option value="5" selected>5 minutes</option>
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60">60 minutes</option>
+          <option value="custom">Custom duration...</option>
+        </select>
+      </div>
+
+      <!-- Custom Duration Input (hidden by default) -->
+      <div id="custom-duration-container" style="display: none;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          Custom Duration (minutes)
+        </label>
+        <input type="number" id="custom-duration-input" min="1" max="120" placeholder="Enter minutes (1-120)" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          box-sizing: border-box;
+        ">
+        <p style="margin-top: 8px; font-size: 12px; color: #6b7280;">
+          • 1-2 min: 15-second segments<br>
+          • 3-15 min: 1-minute segments<br>
+          • 16-30 min: 5-minute segments<br>
+          • 31+ min: 10-minute segments
+        </p>
+      </div>
+
+      <!-- Icon Style -->
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          Icon Style
+        </label>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
+            <input type="radio" name="icon-style" value="blocks" checked style="margin-right: 8px;">
+            <span>Blocks</span>
+          </label>
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
+            <input type="radio" name="icon-style" value="circle" style="margin-right: 8px;">
+            <span>Circle Progress</span>
+          </label>
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
+            <input type="radio" name="icon-style" value="dots" style="margin-right: 8px;">
+            <span>Dots</span>
+          </label>
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
+            <input type="radio" name="icon-style" value="pie" style="margin-right: 8px;">
+            <span>Pie Chart</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Alarm Sound -->
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          End Alarm Sound
+        </label>
+        <select id="timer-alarm-sound" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          background-color: white;
+          cursor: pointer;
+        ">
+          <option value="">No alarm</option>
+          <option value="friendly-alarm.mp3" selected>Friendly Chime</option>
+          <option value="soft-alarm.mp3">Soft Bell</option>
+          <option value="happy-alarm.mp3">Happy Tune</option>
+          <option value="sunshine-alarm.mp3">Sunshine Melody</option>
+          <option value="calm-alarm.mp3">Calm Bells</option>
+          <option value="calm-christmas-alarm.mp3">Christmas Bells</option>
+          <option value="spooky-alarm.mp3">Spooky Sound</option>
+        </select>
+      </div>
+
+      <!-- Status Message -->
+      <div id="timer-status" style="display: none; padding: 12px; border-radius: 6px; font-size: 14px;"></div>
+
+      <!-- Buttons -->
+      <div style="display: flex; gap: 12px; margin-top: 8px;">
+        <button type="submit" style="
+          flex: 1;
+          padding: 12px 24px;
+          background-color: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
+          Create Timer
+        </button>
+        <button type="button" id="timer-cancel-btn" style="
+          flex: 1;
+          padding: 12px 24px;
+          background-color: #f3f4f6;
+          color: #4b5563;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
+          Cancel
+        </button>
+      </div>
+    </form>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  // Update radio button styling
+  const radioInputs = content.querySelectorAll('input[name="icon-style"]');
+  radioInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      content.querySelectorAll('label').forEach(label => {
+        if (label.querySelector('input[name="icon-style"]')) {
+          label.style.borderColor = label.querySelector('input').checked ? '#3b82f6' : '#e5e7eb';
+        }
+      });
+    });
+  });
+
+  // Handle custom duration selection and update timer name
+  const durationSelect = document.getElementById('timer-duration');
+  const customContainer = document.getElementById('custom-duration-container');
+  const timerNameInput = document.getElementById('timer-name');
+  const customDurationInput = document.getElementById('custom-duration-input');
+
+  // Track if user has manually edited the timer name
+  let userEditedName = false;
+  timerNameInput.addEventListener('input', () => {
+    // If user clears the field, allow auto-updates again
+    if (timerNameInput.value.trim() === '') {
+      userEditedName = false;
+    } else {
+      userEditedName = true;
+    }
+  });
+
+  // Update timer name when duration changes
+  const updateTimerName = (minutes) => {
+    if (!userEditedName) {
+      const minuteText = minutes === 1 ? 'minute' : 'minutes';
+      timerNameInput.value = `Visual Timer - ${minutes} ${minuteText}`;
+    }
+  };
+
+  // Initialize with default selection (5 minutes)
+  updateTimerName(5);
+
+  durationSelect.addEventListener('change', () => {
+    if (durationSelect.value === 'custom') {
+      customContainer.style.display = 'block';
+      // Don't update name until they enter a custom value
+    } else {
+      customContainer.style.display = 'none';
+      const minutes = parseInt(durationSelect.value);
+      updateTimerName(minutes);
+    }
+  });
+
+  // Update timer name when custom duration changes
+  customDurationInput.addEventListener('input', () => {
+    const minutes = parseInt(customDurationInput.value);
+    if (minutes && minutes > 0 && minutes <= 120) {
+      updateTimerName(minutes);
+    }
+  });
+
+  // Handle form submission
+  document.getElementById('visual-timer-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await createVisualTimer();
+  });
+
+  // Handle cancel
+  document.getElementById('timer-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+async function createVisualTimer() {
+  const timerName = document.getElementById('timer-name').value || 'Visual Timer';
+  const durationSelect = document.getElementById('timer-duration');
+  let duration;
+
+  // Get duration from either select or custom input
+  if (durationSelect.value === 'custom') {
+    const customInput = document.getElementById('custom-duration-input');
+    duration = parseInt(customInput.value);
+    if (!duration || duration < 1 || duration > 120) {
+      alert('Please enter a valid duration between 1 and 120 minutes');
+      return;
+    }
+  } else {
+    duration = parseInt(durationSelect.value);
+  }
+
+  const iconStyle = document.querySelector('input[name="icon-style"]:checked').value;
+  const alarmSound = document.getElementById('timer-alarm-sound').value;
+  const statusDiv = document.getElementById('timer-status');
+  const submitButton = document.querySelector('#visual-timer-form button[type="submit"]');
+
+  // Show initial status
+  statusDiv.style.display = 'block';
+  statusDiv.style.backgroundColor = '#dbeafe';
+  statusDiv.style.color = '#1e40af';
+  statusDiv.textContent = 'Preparing timer tracks...';
+  submitButton.disabled = true;
+  submitButton.style.opacity = '0.5';
+  submitButton.style.cursor = 'not-allowed';
+
+  try {
+    // Calculate segments based on duration
+    let segmentDuration, numSegments, silentFiles;
+
+    // Handle predefined durations
+    if (duration <= 2) {
+      // 1-2 minutes: 15-second increments
+      segmentDuration = 15; // seconds
+      numSegments = (duration * 60) / 15; // 4 segments per minute
+      silentFiles = ['silent-15s.wav'];
+    } else if (duration <= 15) {
+      // 3-15 minutes: 1-minute increments
+      segmentDuration = 60;
+      numSegments = duration;
+      silentFiles = ['silent-1m.wav'];
+    } else if (duration <= 30) {
+      // 16-30 minutes: 5-minute increments
+      segmentDuration = 300;
+      numSegments = Math.ceil(duration / 5);
+      silentFiles = ['silent-5m.wav'];
+
+      // Handle remainder (e.g., 17 minutes = 3x5min + 1x2min)
+      const remainder = duration % 5;
+      if (remainder > 0) {
+        // We'll need to mix 5-minute and 1-minute segments
+        numSegments = Math.floor(duration / 5) + remainder;
+        silentFiles = [];
+        for (let i = 0; i < Math.floor(duration / 5); i++) {
+          silentFiles.push('silent-5m.wav');
+        }
+        for (let i = 0; i < remainder; i++) {
+          silentFiles.push('silent-1m.wav');
+        }
+      }
+    } else {
+      // 31+ minutes: 10-minute increments
+      segmentDuration = 600;
+      numSegments = Math.ceil(duration / 10);
+      silentFiles = ['silent-10m.wav'];
+
+      // Handle remainder
+      const remainder = duration % 10;
+      if (remainder > 0) {
+        numSegments = Math.floor(duration / 10);
+        if (remainder >= 5) {
+          numSegments += 1; // Add a 5-minute segment
+          silentFiles = [];
+          for (let i = 0; i < Math.floor(duration / 10); i++) {
+            silentFiles.push('silent-10m.wav');
+          }
+          silentFiles.push('silent-5m.wav');
+          if (remainder > 5) {
+            // Add 1-minute segments for the remainder
+            for (let i = 0; i < (remainder - 5); i++) {
+              silentFiles.push('silent-1m.wav');
+              numSegments++;
+            }
+          }
+        } else {
+          // remainder < 5, use 1-minute segments
+          silentFiles = [];
+          for (let i = 0; i < Math.floor(duration / 10); i++) {
+            silentFiles.push('silent-10m.wav');
+          }
+          for (let i = 0; i < remainder; i++) {
+            silentFiles.push('silent-1m.wav');
+            numSegments++;
+          }
+        }
+      }
+    }
+
+    statusDiv.textContent = 'Loading audio files...';
+
+    // Load all unique silent audio files
+    const audioCache = {};
+    const uniqueFiles = [...new Set(silentFiles)];
+
+    for (const fileName of uniqueFiles) {
+      const audioUrl = chrome.runtime.getURL(`assets/audio/timer/${fileName}`);
+
+      const audioResponse = await fetch(audioUrl);
+      if (!audioResponse.ok) {
+        throw new Error(`Failed to load audio file: ${fileName}`);
+      }
+
+      const audioBlob = await audioResponse.blob();
+
+      // Check file size before converting to base64
+      const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit for safe message passing
+      if (audioBlob.size > MAX_SIZE) {
+        // For large files, we'll handle them differently
+        audioCache[fileName] = { blob: audioBlob, isLarge: true };
+      } else {
+        const audioBase64 = await blobToBase64(audioBlob);
+        audioCache[fileName] = { base64: audioBase64, isLarge: false };
+      }
+    }
+
+    // Load alarm audio if selected
+    let alarmAudioBase64 = null;
+    if (alarmSound) {
+      const alarmUrl = chrome.runtime.getURL(`assets/audio/alarms/${alarmSound}`);
+
+      const alarmResponse = await fetch(alarmUrl);
+      if (!alarmResponse.ok) {
+        throw new Error(`Failed to load alarm file: ${alarmSound}`);
+      }
+
+      const alarmBlob = await alarmResponse.blob();
+      alarmAudioBase64 = await blobToBase64(alarmBlob);
+    }
+
+    statusDiv.textContent = 'Generating timer icons...';
+
+    // Import the icon generator functions
+    const { generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon } = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
+
+    // Generate and upload icons for each segment
+    const uploadedIcons = [];
+    for (let i = 0; i < numSegments; i++) {
+      const progress = 1 - (i / numSegments); // 1.0 to 0.0
+
+      let iconDataUrl;
+      if (iconStyle === 'dots') {
+        // Use special dots function with rainbow colors and segment count
+        iconDataUrl = generateDotsTimerIcon(progress, numSegments);
+      } else if (iconStyle === 'blocks') {
+        // Use special blocks function with blue dots and segment count
+        iconDataUrl = generateBlocksTimerIcon(progress, numSegments);
+      } else {
+        // Use regular icon generator for other styles
+        iconDataUrl = generateTimerIcon(progress, iconStyle);
+      }
+
+      // Convert data URL to base64
+      const iconBase64 = iconDataUrl.split(',')[1];
+
+      // Upload icon
+      const iconResponse = await chrome.runtime.sendMessage({
+        action: 'UPLOAD_ICON',
+        file: {
+          data: iconBase64,
+          type: 'image/png',
+          name: `timer-icon-${i}.png`
+        }
+      });
+
+      if (iconResponse.error) {
+        console.error(`Failed to upload icon ${i + 1}:`, iconResponse.error);
+        uploadedIcons.push(null); // Use default icon if upload fails
+      } else {
+        uploadedIcons.push(iconResponse.iconId);
+      }
+    }
+
+    statusDiv.textContent = 'Uploading audio tracks...';
+
+    // Upload silent tracks
+    const uploadedTracks = [];
+    let currentTime = duration * 60; // Start with total seconds
+
+    for (let i = 0; i < numSegments; i++) {
+      // Get the appropriate audio file for this segment
+      const audioFileName = silentFiles.length === 1 ? silentFiles[0] : silentFiles[i];
+      const audioData = audioCache[audioFileName];
+
+      // Calculate duration for this specific segment
+      let trackDuration;
+      if (audioFileName === 'silent-10m.wav') {
+        trackDuration = 600;
+      } else if (audioFileName === 'silent-5m.wav') {
+        trackDuration = 300;
+      } else if (audioFileName === 'silent-1m.wav') {
+        trackDuration = 60;
+      } else if (audioFileName === 'silent-15s.wav') {
+        trackDuration = 15;
+      }
+
+      // Calculate remaining time for title
+      const displayMinutes = Math.floor(currentTime / 60);
+      const displaySeconds = currentTime % 60;
+
+      let trackTitle;
+      if (displayMinutes === 0) {
+        trackTitle = `${displaySeconds} seconds left`;
+      } else if (displaySeconds === 0) {
+        trackTitle = displayMinutes === 1 ? '1 minute left' : `${displayMinutes} minutes left`;
+      } else {
+        trackTitle = `${displayMinutes}:${displaySeconds.toString().padStart(2, '0')} left`;
+      }
+
+      // Handle upload based on file size
+      let uploadResponse;
+
+      if (audioData.isLarge) {
+        // For large files, have the service worker load and upload directly
+        uploadResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_TIMER_AUDIO',
+          fileName: audioFileName,
+          trackName: `timer-segment-${i}.wav`
+        });
+      } else {
+        // For smaller files, use the regular upload with base64
+        const audioBase64 = audioData.base64;
+
+        // Validate base64 before sending
+        if (!audioBase64 || audioBase64.length === 0) {
+          throw new Error(`Invalid base64 data for track ${i + 1}`);
+        }
+
+        uploadResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_AUDIO',
+          file: {
+            data: audioBase64,
+            type: 'audio/wav',
+            name: `timer-segment-${i}.wav`
+          }
+        });
+      }
+
+      if (!uploadResponse) {
+        throw new Error(`No response when uploading track ${i + 1}`);
+      }
+
+      if (uploadResponse.error) {
+        console.error(`Upload error for track ${i + 1}:`, uploadResponse.error);
+        throw new Error(`Failed to upload track ${i + 1}: ${uploadResponse.error}`);
+      }
+
+      if (!uploadResponse.success || !uploadResponse.transcodedAudio) {
+        throw new Error(`Failed to upload track ${i + 1}: No transcoded audio returned`);
+      }
+
+      // Format the track to match what createPlaylistContent expects
+      uploadedTracks.push({
+        title: trackTitle,
+        transcodedAudio: uploadResponse.transcodedAudio
+      });
+
+      // Decrement time for next iteration
+      currentTime -= trackDuration;
+
+      // Update progress
+      const progress = Math.round(((i + 1) / (numSegments + (alarmSound ? 1 : 0))) * 100);
+      statusDiv.textContent = `Uploading tracks... ${progress}%`;
+    }
+
+    // Upload alarm track if selected
+    if (alarmAudioBase64) {
+      const alarmResponse = await chrome.runtime.sendMessage({
+        action: 'UPLOAD_AUDIO',
+        file: {
+          data: alarmAudioBase64,
+          type: 'audio/mpeg',
+          name: alarmSound
+        }
+      });
+
+      if (alarmResponse.error) {
+        throw new Error(`Failed to upload alarm: ${alarmResponse.error}`);
+      }
+
+      if (!alarmResponse.success || !alarmResponse.transcodedAudio) {
+        throw new Error('Failed to upload alarm: No transcoded audio returned');
+      }
+
+      // Format the track to match what createPlaylistContent expects
+      uploadedTracks.push({
+        title: "Time's Up!",
+        transcodedAudio: alarmResponse.transcodedAudio
+      });
+
+      // Select a random celebration icon for the alarm track
+      const celebrationIcons = [
+        'yoto:#tNXOIzQIPO6OjSzmT5WFofHhK3-KRGYvnlBxE1oF0-4', // celebrate
+        'yoto:#idzbpyi9ucjYfVWrfR637M6WkBKZsrP-34x7e5XFV4Y', // gold bell
+        'yoto:#0Iqxsda8bJiWuN4SaGiQiOPuAfZWS1Rbzae3d7P53RU', // clock
+        'yoto:#_WWpLHoOj6iqeREcGkJnGlsis2QSF6znM0UPFdXTjf8'  // music notes
+      ];
+      const randomIcon = celebrationIcons[Math.floor(Math.random() * celebrationIcons.length)];
+      uploadedIcons.push(randomIcon);
+    }
+
+    statusDiv.textContent = 'Uploading cover art...';
+
+    let coverUrl = null;
+    try {
+      const coverPath = chrome.runtime.getURL('assets/visual_timer/covers/generic-timer-cover.png');
+      const coverResponse = await fetch(coverPath);
+      if (!coverResponse.ok) {
+        throw new Error(`Failed to fetch cover: ${coverResponse.status}`);
+      }
+
+      const coverBlob = await coverResponse.blob();
+      const coverBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(coverBlob);
+      });
+
+      const base64Data = coverBase64.split(',')[1];
+
+      const uploadCoverResponse = await chrome.runtime.sendMessage({
+        action: 'UPLOAD_COVER',
+        file: {
+          data: base64Data,
+          type: 'image/png',
+          name: 'timer-cover.png'
+        }
+      });
+
+      if (uploadCoverResponse && !uploadCoverResponse.error) {
+        coverUrl = uploadCoverResponse.url;
+      }
+    } catch (coverError) {
+      console.warn('Failed to upload timer cover:', coverError);
+    }
+
+    statusDiv.textContent = 'Creating timer card...';
+
+    // Create the playlist
+    const createResponse = await chrome.runtime.sendMessage({
+      action: 'CREATE_PLAYLIST',
+      title: timerName,
+      audioTracks: uploadedTracks,
+      iconIds: uploadedIcons, // Pass the uploaded icon IDs
+      coverUrl: coverUrl,
+      isVisualTimer: true // Flag to indicate this is a Visual Timer
+    });
+
+    if (createResponse.error) {
+      throw new Error(`Failed to create timer: ${createResponse.error}`);
+    }
+
+    // Success!
+    statusDiv.style.backgroundColor = '#d1fae5';
+    statusDiv.style.color = '#065f46';
+    statusDiv.textContent = 'Timer created successfully! Refreshing page...';
+
+    // Track event
+    chrome.runtime.sendMessage({
+      action: 'TRACK_EVENT',
+      eventName: 'visual_timer_created',
+      parameters: {
+        duration: duration,
+        icon_style: iconStyle,
+        has_alarm: !!alarmSound,
+        alarm_type: alarmSound || 'none'
+      }
+    });
+
+    // Refresh after short delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+
+  } catch (error) {
+    console.error('Timer creation error:', error);
+    statusDiv.style.backgroundColor = '#fee2e2';
+    statusDiv.style.color = '#991b1b';
+    statusDiv.textContent = `Error: ${error.message}`;
+    submitButton.disabled = false;
+    submitButton.style.opacity = '1';
+    submitButton.style.cursor = 'pointer';
+
+    // Track error
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ERROR',
+      error: error.message,
+      context: {
+        action: 'create_visual_timer',
+        component: 'content'
+      }
+    });
+  }
+}
+
+// Helper function to convert blob to base64
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Make sure we have a valid result
+      if (reader.result && typeof reader.result === 'string') {
+        // Extract just the base64 part (remove the data:audio/wav;base64, prefix)
+        const base64String = reader.result.split(',')[1];
+        if (base64String) {
+          // Clean the base64 string - remove any whitespace or line breaks
+          const cleanBase64 = base64String.replace(/[\s\n\r]/g, '');
+
+          // Validate base64 characters
+          const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+          if (!base64Regex.test(cleanBase64)) {
+            reject(new Error('Invalid base64 characters detected'));
+          } else {
+            resolve(cleanBase64);
+          }
+        } else {
+          reject(new Error('Failed to extract base64 from blob'));
+        }
+      } else {
+        reject(new Error('FileReader did not return a valid result'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Failed to read blob'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Helper function to convert file to base64 (for compatibility with existing code)
+function fileToBase64(file) {
+  return blobToBase64(file);
 }
 
 function readFileAsBase64(file) {
@@ -2844,9 +3678,17 @@ async function processFolderFiles(files) {
 
   imageFiles.forEach(f => {
     const fileName = f.name.split('/').pop();
-    // Check if filename contains a number pattern (supports "01.png", "Icon 01.png", "icon_01.png", "icn3.png", etc.)
-    // Extract the number to ensure proper sorting
-    const numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
+    // Check if filename contains a number pattern - now supports more formats:
+    // - Files ending with number: "01.png", "icon01.png", "icn3.png"
+    // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
+    // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
+    let numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Files ending with number
+    if (!numberMatch) {
+      numberMatch = fileName.match(/^(\d+)[\s\-_.]/i); // Files starting with number followed by separator
+    }
+    if (!numberMatch) {
+      numberMatch = fileName.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Number in middle
+    }
 
     const lowerFileName = fileName.toLowerCase();
     const isCoverName = lowerFileName.includes('cover') ||
@@ -3210,9 +4052,17 @@ async function processZipFile(file) {
     const nonNumericImages = [];
     
     imageFiles.forEach(f => {
-      // Check if filename contains a number pattern (supports "01.png", "Icon 01.png", "icon_01.png", "icn3.png", etc.)
-      // Extract the number to ensure proper sorting
-      const numberMatch = f.name.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
+      // Check if filename contains a number pattern - now supports more formats:
+      // - Files ending with number: "01.png", "icon01.png", "icn3.png"
+      // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
+      // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
+      let numberMatch = f.name.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Files ending with number
+      if (!numberMatch) {
+        numberMatch = f.name.match(/^(\d+)[\s\-_.]/i); // Files starting with number followed by separator
+      }
+      if (!numberMatch) {
+        numberMatch = f.name.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Number in middle
+      }
       if (numberMatch) {
         f.extractedNumber = parseInt(numberMatch[1]);
         numericImages.push(f);
@@ -3417,7 +4267,6 @@ async function processBulkZipFile(file) {
     hasMultipleTopLevelFolders = topLevelFolders.size > 1;
     const singleRootFolder = topLevelFolders.size === 1 ? Array.from(topLevelFolders)[0] : null;
     
-    console.log(`Structure analysis: ${topLevelFolders.size} top-level folder(s), max depth: ${maxDepth}, single root: ${singleRootFolder}`);
     
     for (const [path, zipEntry] of Object.entries(contents.files)) {
       if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
@@ -3458,7 +4307,6 @@ async function processBulkZipFile(file) {
       }
     }
     
-    console.log(`Bulk import analysis: ${nestedZips.length} nested ZIPs, ${folders.size} folders, ${rootFiles.length} root files`);
     
     if (nestedZips.length > 0) {
       statusElement.textContent = 'Extracting playlists...';
@@ -3478,21 +4326,18 @@ async function processBulkZipFile(file) {
       
       try {
         const nestedZipBlob = await zipEntry.async('blob');
-        console.log(`Processing nested ZIP: ${path}, size: ${nestedZipBlob.size} bytes`);
         
         const nestedZip = new JSZip();
         const nestedContents = await nestedZip.loadAsync(nestedZipBlob);
         
         // Log the contents of the nested ZIP for debugging
         const nestedFileCount = Object.keys(nestedContents.files).length;
-        console.log(`Nested ZIP ${path} contains ${nestedFileCount} entries`);
         
         const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
         
         const playlist = await extractPlaylistFromZip(nestedContents, playlistName);
         
         if (playlist && playlist.audioFiles.length > 0) {
-          console.log(`Successfully extracted ${playlist.audioFiles.length} audio files from ${playlistName}`);
           playlists.push(playlist);
         } else {
           // Log detailed info about what was in the ZIP to help diagnose issues
@@ -3544,7 +4389,6 @@ async function processBulkZipFile(file) {
     // 2. There were NO folders (another expected bulk structure)
     // 3. There ARE root-level audio files (edge case: flat ZIP with audio files)
     if (playlists.length === 0 && nestedZips.length === 0 && folders.size === 0 && rootFiles.length > 0) {
-      console.log('No nested structure found (no ZIPs or folders), processing root files as single playlist');
       
       const playlist = await extractPlaylistFromFiles(rootFiles, file.name.replace(/\.zip$/i, ''), contents);
       if (playlist && playlist.audioFiles.length > 0) {
@@ -3673,7 +4517,6 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
     // Skip non-media files
     if (!audioExtensions.includes(ext) && !imageExtensions.includes(ext)) {
       skippedFiles++;
-      console.log(`Skipping non-media file in ${playlistName}: ${fileName} (extension: ${ext})`);
       continue;
     }
     
@@ -3741,7 +4584,6 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
   // Separate track icons from cover image
   const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
 
-  console.log(`Playlist ${playlistName} summary: ${totalFiles} total files, ${audioFiles.length} audio, ${imageFiles.length} images, ${skippedFiles} skipped`);
 
   return {
     name: playlistName,
@@ -3844,18 +4686,26 @@ function separateImagesIntelligently(imageFiles) {
   
   imageFiles.forEach(f => {
     const fileName = f.name.split('/').pop();
-    // Check if filename contains a number pattern - more flexible pattern
-    // Matches: "01.png", "Icon 01.png", "icon_01.png", "icn3.png", etc.
-    const numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
-    
+    // Check if filename contains a number pattern - now supports more formats:
+    // - Files ending with number: "01.png", "icon01.png", "icn3.png"
+    // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
+    // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
+    let numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Files ending with number
+    if (!numberMatch) {
+      numberMatch = fileName.match(/^(\d+)[\s\-_.]/i); // Files starting with number followed by separator
+    }
+    if (!numberMatch) {
+      numberMatch = fileName.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Number in middle
+    }
+
     // Check for common cover image names (including cover_image.png style)
     const lowerFileName = fileName.toLowerCase();
-    const isCoverName = lowerFileName.includes('cover') || 
-                        lowerFileName.includes('album') || 
+    const isCoverName = lowerFileName.includes('cover') ||
+                        lowerFileName.includes('album') ||
                         lowerFileName.includes('art') ||
                         lowerFileName === 'folder.jpg' ||
                         lowerFileName === 'folder.png';
-    
+
     if (isCoverName) {
       nonNumericImages.push(f);
     } else if (numberMatch) {
@@ -4374,7 +5224,17 @@ async function processUpdateFiles(files, sourceName, cardId) {
   const nonNumericIcons = [];
 
   iconFiles.forEach(f => {
-    const numberMatch = f.name.match(/(\d+)[^0-9]*\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i);
+    // Check if filename contains a number pattern - now supports more formats:
+    // - Files ending with number: "01.png", "icon01.png", "icn3.png"
+    // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
+    // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
+    let numberMatch = f.name.match(/(\d+)[^0-9]*\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i); // Files ending with number (existing pattern)
+    if (!numberMatch) {
+      numberMatch = f.name.match(/^(\d+)[\s\-_.]/i); // Files starting with number followed by separator
+    }
+    if (!numberMatch) {
+      numberMatch = f.name.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i); // Number in middle
+    }
 
     if (numberMatch) {
       f.extractedNumber = parseInt(numberMatch[1]);
@@ -5349,11 +6209,72 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     const progressBar = document.querySelector('#import-progress-bar');
     const statusText = document.querySelector('#import-status');
     const startButton = document.querySelector('#start-import');
-    
+
+    // Validate file sizes before starting import
+    // Chrome message passing limit is ~64MB, and base64 encoding increases size by ~33%
+    const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40MB max to stay under Chrome's limit (40MB * 1.33 ≈ 53MB)
+    const largeFiles = audioFiles.filter(f => f.size > MAX_FILE_SIZE);
+
+    if (largeFiles.length > 0) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.cssText = `
+        background: #fee;
+        border: 1px solid #fcc;
+        border-radius: 6px;
+        padding: 15px;
+        margin: 20px 0;
+        color: #000;
+      `;
+      errorDiv.innerHTML = `
+        <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #374151;">
+          File Size Limit Exceeded
+        </div>
+        <div style="margin-bottom: 15px; color: #374151;">
+          These files are too large (max 40MB due to browser limitations):
+        </div>
+        <ul style="margin: 0 0 15px 20px; color: #374151;">
+          ${largeFiles.map(f => `<li><strong>${f.name}</strong> (${(f.size / 1024 / 1024).toFixed(1)}MB)</li>`).join('')}
+        </ul>
+        <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 4px; padding: 12px; margin-bottom: 10px;">
+          <div style="font-weight: bold; margin-bottom: 8px; color: #92400e;">How to Fix:</div>
+          <div style="color: #78350f; line-height: 1.6;">
+            <strong>Option 1: Easy Online Tool (Free)</strong><br>
+            1. Go to <a href="https://online-audio-converter.com" target="_blank" style="color: #1e40af;">online-audio-converter.com</a><br>
+            2. Upload your MP3 files<br>
+            3. Select Standard Quality → Bitrate: 64 kbps or 128 kbps<br>
+            4. Convert and download the smaller files<br>
+            <small style="color: #92400e;">(This reduces size by 50-75% with no noticeable quality loss for audiobooks)</small>
+          </div>
+        </div>
+        <details style="margin-top: 10px;">
+          <summary style="cursor: pointer; color: #4b5563; font-size: 14px;">More Options</summary>
+          <div style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 4px; font-size: 13px; line-height: 1.5;">
+            <strong>Desktop Software:</strong><br>
+            • Mac: Music app, Audacity (free)<br>
+            • Windows: VLC Media Player, Audacity (free)<br>
+            <br>
+            <strong>Command Line:</strong><br>
+            <code style="background: #e5e7eb; padding: 4px 6px; border-radius: 3px; display: block; margin-top: 5px;">
+              ffmpeg -i input.mp3 -b:a 64k output.mp3
+            </code>
+          </div>
+        </details>
+      `;
+
+      // Insert error message before buttons
+      const buttonsDiv = document.querySelector('#start-import').parentElement;
+      buttonsDiv.parentElement.insertBefore(errorDiv, buttonsDiv);
+
+      // Keep button disabled when file size limit is exceeded
+      startButton.disabled = true;
+      startButton.textContent = 'Start Import';
+      return;
+    }
+
     progressDiv.style.display = 'block';
     startButton.disabled = true;
     startButton.textContent = 'Importing...';
-    
+
     try {
       const totalFiles = audioFiles.length + trackIcons.length + (coverImage ? 1 : 0);
       let completedFiles = 0;
@@ -5427,15 +6348,60 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           completedFiles += trackIcons.length;
         }
         
-        // Upload audio in chunks
+        // Upload audio in chunks with retry logic
         const audioResults = await uploadInChunks(
           audioFiles,
           async (audioFile, index) => {
             const base64Data = await fileToBase64(audioFile);
-            const response = await chrome.runtime.sendMessage({
-              action: 'UPLOAD_AUDIO',
-              file: base64Data
-            });
+
+            // Log file info for debugging
+
+            // Check if base64 data is too large for a single message
+            const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
+            const base64Size = base64Data.data.length;
+
+            if (base64Size > MAX_MESSAGE_SIZE) {
+              console.warn(`[Chunked Upload] File too large for single message (${(base64Size / 1024 / 1024).toFixed(2)}MB base64).`);
+
+              // For very large files, provide helpful instructions
+              throw new Error(`File "${audioFile.name}" is too large (${(audioFile.size / 1024 / 1024).toFixed(1)}MB). Maximum is 40MB. Please compress it using online-audio-converter.com (select Standard Quality, 64 kbps or 128 kbps) or other audio software.`);
+            }
+
+            // Retry logic for chunked uploads
+            let response;
+            let retryCount = 0;
+            const maxRetries = 2;
+
+            while (retryCount <= maxRetries) {
+              try {
+                response = await chrome.runtime.sendMessage({
+                  action: 'UPLOAD_AUDIO',
+                  file: base64Data
+                });
+
+                // If we got a response (even with error), break out of retry loop
+                if (response !== undefined) {
+                  break;
+                }
+              } catch (error) {
+                console.warn(`[Chunked Upload] Message send failed for ${audioFile.name}, attempt ${retryCount + 1}:`, error);
+              }
+
+              if (retryCount < maxRetries) {
+                // Wait with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                retryCount++;
+              } else {
+                break;
+              }
+            }
+
+            // Check if response is still undefined after retries
+            if (response === undefined) {
+              console.error(`[Chunked Upload Error] No response received for ${audioFile.name} after ${maxRetries + 1} attempts`);
+              throw new Error(`Upload failed for "${audioFile.name}". The file may be too large. Try refreshing the page and importing smaller batches of files.`);
+            }
+
             return { response, audioFile, index };
           },
           chunkSize,
@@ -5448,13 +6414,39 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         );
         
         audioResults.forEach((result, index) => {
-          if (result.status === 'fulfilled' && !result.value.response.error) {
+
+          if (result.status === 'fulfilled' && result.value && result.value.response && !result.value.response.error) {
             uploadedTracks[index] = {
               title: cleanTrackTitle(result.value.audioFile.name),
               transcodedAudio: result.value.response.transcodedAudio
             };
-          } else if (result.status === 'rejected' || result.value.response.error) {
-            throw new Error(`Failed to upload audio: ${result.reason || result.value.response.error}`);
+          } else if (result.status === 'rejected') {
+            console.error(`[Upload Error] Audio upload rejected:`, result.reason);
+            throw new Error(`Failed to upload audio: ${result.reason}`);
+          } else if (result.value && result.value.response && result.value.response.error) {
+            console.error(`[Upload Error] Audio upload error response:`, result.value.response.error);
+            throw new Error(`Failed to upload audio: ${result.value.response.error}`);
+          } else {
+            console.error(`[Upload Error] Unexpected audio upload result:`, {
+              status: result.status,
+              hasValue: !!result.value,
+              hasResponse: !!(result.value && result.value.response),
+              hasAudioFile: !!(result.value && result.value.audioFile),
+              responseKeys: result.value?.response ? Object.keys(result.value.response) : 'no response',
+              fullResult: result
+            });
+
+            // Check for specific error conditions
+            if (result.value && result.value.response) {
+              const response = result.value.response;
+              if (response.error) {
+                throw new Error(`Failed to upload audio: ${response.error}`);
+              } else if (!response.transcodedAudio) {
+                throw new Error(`Failed to upload audio: No transcoded audio in response. The file may be corrupted or in an unsupported format.`);
+              }
+            }
+
+            throw new Error(`Failed to upload audio: Unexpected response format`);
           }
         });
         
@@ -5496,17 +6488,61 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         uploadPromises.push(...iconPromises);
         uploadTypes.push(...Array(iconPromises.length).fill('icon'));
         
-        // 3. Prepare all audio uploads in parallel
-        const audioPromises = audioFiles.map((audioFile, index) => 
-          fileToBase64(audioFile).then(base64 => 
-            chrome.runtime.sendMessage({
-              action: 'UPLOAD_AUDIO',
-              file: base64
-            }).then(response => {
-              updateProgress();
-              return { response, audioFile, index };
-            })
-          )
+        // 3. Prepare all audio uploads in parallel with retry logic
+        const audioPromises = audioFiles.map((audioFile, index) =>
+          fileToBase64(audioFile).then(async base64 => {
+
+            // Check if base64 data is too large for a single message
+            const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
+            const base64Size = base64.data.length;
+
+            if (base64Size > MAX_MESSAGE_SIZE) {
+              console.error(`[Upload Error] File too large for Chrome message passing: ${audioFile.name} (${(base64Size / 1024 / 1024).toFixed(2)}MB base64)`);
+              throw new Error(`File "${audioFile.name}" is too large (${(audioFile.size / 1024 / 1024).toFixed(1)}MB). Maximum is 40MB. Please compress it using online-audio-converter.com (select Standard Quality, 64 kbps or 128 kbps) or other audio software.`);
+            }
+
+            // Retry logic for upload
+            let response;
+            let retryCount = 0;
+            const maxRetries = 2;
+
+            while (retryCount <= maxRetries) {
+              try {
+                response = await chrome.runtime.sendMessage({
+                  action: 'UPLOAD_AUDIO',
+                  file: base64
+                });
+
+
+                // If we got a response (even with error), break out of retry loop
+                if (response !== undefined) {
+                  break;
+                }
+              } catch (error) {
+                console.warn(`[Upload] Message send failed for ${audioFile.name}, attempt ${retryCount + 1}:`, error);
+              }
+
+              if (retryCount < maxRetries) {
+                // Wait a bit before retrying (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                retryCount++;
+              } else {
+                break;
+              }
+            }
+
+            // Check if response is still undefined after retries
+            if (response === undefined) {
+              console.error(`[Upload Error] No response received for ${audioFile.name} after ${maxRetries + 1} attempts - service worker may have crashed`);
+              throw new Error(`Upload failed for "${audioFile.name}". The file may be too large. Try refreshing the page and importing smaller batches of files.`);
+            }
+
+            updateProgress();
+            return { response, audioFile, index };
+          }).catch(error => {
+            console.error(`[Upload Error] Failed to process file ${audioFile.name}:`, error);
+            throw error;
+          })
         );
         uploadPromises.push(...audioPromises);
         uploadTypes.push(...Array(audioPromises.length).fill('audio'));
@@ -5539,12 +6575,17 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               }
             } else if (type === 'audio') {
               const { response, audioFile, index: audioIndex } = value;
-              if (!response.error && response.transcodedAudio) {
+
+              if (response && !response.error && response.transcodedAudio) {
                 uploadedTracks[audioIndex] = {
                   title: cleanTrackTitle(audioFile.name),
                   transcodedAudio: response.transcodedAudio
                 };
+              } else if (!response) {
+                console.error(`[Upload Error] No response for ${audioFile.name}`);
+                throw new Error(`Failed to upload ${audioFile.name}: No response from server`);
               } else {
+                console.error(`[Upload Error] Upload failed for ${audioFile.name}:`, response);
                 throw new Error(`Failed to upload ${audioFile.name}: ${response.error || 'Unknown error'}`);
               }
             }
@@ -5697,7 +6738,99 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       }, 2000);
       
     } catch (error) {
-      showNotification('Import failed: ' + error.message, 'error');
+      // Check if this is a file size error that needs special formatting
+      const isFileSizeError = error.message && (error.message.includes('too large') && error.message.includes('MB'));
+
+      // Check if this might be a file size related upload failure
+      const isPossibleSizeError = error.message && (
+        error.message.includes('Unexpected response format') ||
+        error.message.includes('Failed to upload audio')
+      ) && audioFiles && audioFiles.some(f => f.size > 35 * 1024 * 1024); // Check if any file is > 35MB
+
+      if (isFileSizeError || isPossibleSizeError) {
+        // Extract filename from error message if present
+        const fileMatch = error.message.match(/File "([^"]+)"/);
+        let errorContent = '';
+
+        if (isPossibleSizeError && !isFileSizeError) {
+          // Find large files that might have caused the issue
+          const largeFiles = audioFiles.filter(f => f.size > 35 * 1024 * 1024);
+          errorContent = `
+            <div style="margin-bottom: 15px; color: #374151;">
+              Upload failed. These files may be too large (max 40MB recommended):
+            </div>
+            <ul style="margin: 0 0 15px 20px; color: #374151;">
+              ${largeFiles.map(f => `<li><strong>${f.name}</strong> (${(f.size / 1024 / 1024).toFixed(1)}MB)</li>`).join('')}
+            </ul>
+          `;
+        } else {
+          const fileName = fileMatch ? fileMatch[1] : 'One or more files';
+          errorContent = `
+            <div style="margin-bottom: 15px; color: #374151;">
+              ${fileName} is too large (max 40MB due to browser limitations)
+            </div>
+          `;
+        }
+
+        // Show the same nice formatted error as the upfront check
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+          background: #fee;
+          border: 1px solid #fcc;
+          border-radius: 6px;
+          padding: 15px;
+          margin: 20px 0;
+          color: #000;
+        `;
+        errorDiv.innerHTML = `
+          <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #374151;">
+            File Size Limit Exceeded
+          </div>
+          ${errorContent}
+          <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 4px; padding: 12px; margin-bottom: 10px;">
+            <div style="font-weight: bold; margin-bottom: 8px; color: #92400e;">How to Fix:</div>
+            <div style="color: #78350f; line-height: 1.6;">
+              <strong>Option 1: Easy Online Tool (Free)</strong><br>
+              1. Go to <a href="https://cloudconvert.com" target="_blank" style="color: #1e40af;">cloudconvert.com</a><br>
+              2. Upload your MP3 files<br>
+              3. Click Settings → Audio Codec: "MP3" → Bitrate: "64 kbps"<br>
+              4. Convert and download the smaller files<br>
+              <small style="color: #92400e;">(This reduces size by 50-75% with no noticeable quality loss for audiobooks)</small>
+            </div>
+          </div>
+          <details style="margin-top: 10px;">
+            <summary style="cursor: pointer; color: #4b5563; font-size: 14px;">More Options</summary>
+            <div style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 4px; font-size: 13px; line-height: 1.5;">
+              <strong>Desktop Software:</strong><br>
+              • Mac: Music app, Audacity (free)<br>
+              • Windows: VLC Media Player, Audacity (free)<br>
+              <br>
+              <strong>Command Line:</strong><br>
+              <code style="background: #e5e7eb; padding: 4px 6px; border-radius: 3px; display: block; margin-top: 5px;">
+                ffmpeg -i input.mp3 -b:a 64k output.mp3
+              </code>
+            </div>
+          </details>
+        `;
+
+        // Replace progress area with error message
+        const progressDiv = document.querySelector('#import-progress');
+        if (progressDiv) {
+          progressDiv.innerHTML = '';
+          progressDiv.appendChild(errorDiv);
+        }
+
+        // Update button states - keep disabled for file size errors
+        const startButton = document.querySelector('#start-import');
+        if (startButton) {
+          startButton.disabled = true;
+          startButton.textContent = 'Start Import';
+        }
+      } else {
+        // For other errors, show simple notification
+        showNotification('Import failed: ' + error.message, 'error');
+      }
+
       // Track import failures
       chrome.runtime.sendMessage({
         action: 'TRACK_ERROR',
@@ -5708,7 +6841,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           authenticated: state.authenticated
         }
       });
-      
+
       // Track failed import
       chrome.runtime.sendMessage({
         action: 'TRACK_EVENT',
@@ -5719,7 +6852,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           success: false
         }
       });
-      
+
       // Show error in modal
       progressDiv.innerHTML = `
         <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 12px; margin-top: 20px;">
@@ -5737,31 +6870,68 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
   // Helper function to convert File to base64
   async function fileToBase64(file) {
     return new Promise((resolve, reject) => {
+      // Add validation
+      if (!file) {
+        console.error('[fileToBase64] No file provided');
+        reject(new Error('No file provided'));
+        return;
+      }
+
+
+      // Check for very large files that might cause issues
+      const MAX_SIZE = 100 * 1024 * 1024; // 100MB limit
+      if (file.size > MAX_SIZE) {
+        console.error(`[fileToBase64] File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        reject(new Error(`File too large: ${file.name} exceeds 100MB limit`));
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = () => {
-        const arrayBuffer = reader.result;
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        bytes.forEach(byte => binary += String.fromCharCode(byte));
-        const base64 = btoa(binary);
-        
-        // Ensure proper MIME type for images
-        let mimeType = file.type;
-        if (!mimeType && file.name) {
-          // Guess MIME type from extension if not provided
-          const ext = file.name.split('.').pop().toLowerCase();
-          if (ext === 'png') mimeType = 'image/png';
-          else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
-          else if (ext === 'gif') mimeType = 'image/gif';
+        try {
+          const arrayBuffer = reader.result;
+          const bytes = new Uint8Array(arrayBuffer);
+
+          // Use chunked approach for large files to avoid memory issues
+          const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+          let binary = '';
+
+          for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+            const chunk = bytes.slice(i, Math.min(i + CHUNK_SIZE, bytes.length));
+            const chunkBinary = Array.from(chunk, byte => String.fromCharCode(byte)).join('');
+            binary += chunkBinary;
+          }
+
+          const base64 = btoa(binary);
+
+          // Ensure proper MIME type for images and audio
+          let mimeType = file.type;
+          if (!mimeType && file.name) {
+            // Guess MIME type from extension if not provided
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext === 'png') mimeType = 'image/png';
+            else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
+            else if (ext === 'gif') mimeType = 'image/gif';
+            else if (ext === 'mp3') mimeType = 'audio/mpeg';
+            else if (ext === 'm4a' || ext === 'm4b') mimeType = 'audio/mp4';
+            else if (ext === 'wav') mimeType = 'audio/wav';
+          }
+
+
+          resolve({
+            data: base64,
+            type: mimeType || 'application/octet-stream',
+            name: file.name
+          });
+        } catch (error) {
+          console.error(`[fileToBase64] Error processing ${file.name}:`, error);
+          reject(error);
         }
-        
-        resolve({
-          data: base64,
-          type: mimeType || 'image/png',
-          name: file.name
-        });
       };
-      reader.onerror = reject;
+      reader.onerror = (error) => {
+        console.error(`[fileToBase64] FileReader error for ${file.name}:`, error);
+        reject(error);
+      };
       reader.readAsArrayBuffer(file);
     });
   }
