@@ -544,19 +544,16 @@ async function loadIconsCache() {
         const cacheKey = await getUserSpecificCacheKey();
         if (!cacheKey) {
             // No authenticated user, don't load cache
-            console.log('No authenticated user, skipping cache load');
             return;
         }
 
         const result = await chrome.storage.local.get(cacheKey);
         const cached = result[cacheKey];
         if (cached && typeof cached === 'object') {
-            console.log(`Loading ${Object.keys(cached).length} cached icons for user`);
             Object.entries(cached).forEach(([key, value]) => {
                 yotoIconsCache.set(key, value);
             });
         } else {
-            console.log('No cached icons found for user');
         }
     } catch (error) {
         console.warn('Failed to load icons cache:', error);
@@ -1453,10 +1450,10 @@ async function uploadIcon(iconFileData) {
         for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
         }
-        
+
         // Extract filename without extension for the query parameter
         const filename = iconFileData.name ? iconFileData.name.split('.')[0] : 'icon';
-        
+
         // Upload the icon - send binary data directly in body
         const response = await makeAuthenticatedRequest(
             `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(filename)}`,
@@ -1494,19 +1491,28 @@ async function uploadIcon(iconFileData) {
 // Upload audio file to Yoto
 async function uploadAudioFile(audioFileData) {
     try {
+
         // Step 1: Get upload URL
         const uploadUrlResponse = await makeAuthenticatedRequest('/media/transcode/audio/uploadUrl', {
             method: 'GET'
         });
-        
+
+        if (uploadUrlResponse.needsAuth) {
+            console.error('[Upload Audio] Authentication required');
+            return { error: 'Authentication required. Please log in again.' };
+        }
+
         if (uploadUrlResponse.error) {
+            console.error('[Upload Audio] Failed to get upload URL:', uploadUrlResponse.error);
             return { error: uploadUrlResponse.error };
         }
-        
+
         const { upload } = uploadUrlResponse;
         if (!upload?.uploadUrl || !upload?.uploadId) {
-            return { error: 'Failed to get upload URL' };
+            console.error('[Upload Audio] Invalid upload URL response:', uploadUrlResponse);
+            return { error: 'Failed to get upload URL - invalid response structure' };
         }
+
         
         // Step 2: Upload the file
         const uploadResponse = await fetch(upload.uploadUrl, {
@@ -1516,32 +1522,51 @@ async function uploadAudioFile(audioFileData) {
                 'Content-Type': audioFileData.type || 'audio/mpeg'
             }
         });
-        
+
         if (!uploadResponse.ok) {
-            return { error: 'Failed to upload audio file' };
+            console.error('[Upload Audio] Failed to upload to S3:', uploadResponse.status, uploadResponse.statusText);
+            return { error: `Failed to upload audio file: ${uploadResponse.status} ${uploadResponse.statusText}` };
         }
+
         
         // Step 3: Wait for transcoding
         let transcodedAudio = null;
         let attempts = 0;
         const maxAttempts = 60; // 60 seconds - increased for larger files
-        
+
+
         while (attempts < maxAttempts) {
             const transcodeResponse = await makeAuthenticatedRequest(
                 `/media/upload/${upload.uploadId}/transcoded?loudnorm=false`
             );
-            
+
+            // Check for specific errors
+            if (transcodeResponse.error) {
+                // If we get a specific error, don't keep retrying
+                if (transcodeResponse.error.includes('403') ||
+                    transcodeResponse.error.includes('forbidden') ||
+                    transcodeResponse.error.includes('not allowed')) {
+                    console.error('[Upload Audio] Upload rejected by server:', transcodeResponse.error);
+                    return { error: `Upload rejected: ${transcodeResponse.error}. The file may contain copyrighted content.` };
+                }
+            }
+
             if (!transcodeResponse.error && transcodeResponse.transcode?.transcodedSha256) {
                 transcodedAudio = transcodeResponse.transcode;
                 break;
             }
-            
+
+            // Log every 5 seconds to show progress
+            if (attempts % 5 === 0) {
+            }
+
             await new Promise(resolve => setTimeout(resolve, 1000));
             attempts++;
         }
-        
+
         if (!transcodedAudio) {
-            return { error: 'Transcoding timed out' };
+            console.error('[Upload Audio] Transcoding timed out after', maxAttempts, 'seconds');
+            return { error: `Transcoding timed out after ${maxAttempts} seconds. The file may be too large or in an unsupported format.` };
         }
         
         return {
@@ -1657,17 +1682,16 @@ async function updatePlaylistContent(cardId, existingChapters, newTracks, newIco
 }
 
 // Create playlist with uploaded content
-async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl = null) {
+async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl = null, isVisualTimer = false) {
     try {
         const chapters = audioTracks.map((audio, index) => {
             const chapterKey = String(index + 1).padStart(2, '0');
             // Use yoto:# format for icons - this is what the API expects
             const iconId = iconIds[index] || 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q'; // Default Yoto icon
-            
+
             const chapter = {
                 key: chapterKey,
                 title: audio.title || `Track ${index + 1}`,
-                overlayLabel: String(index + 1),
                 tracks: [{
                     key: chapterKey,
                     title: audio.title || `Track ${index + 1}`,
@@ -1677,7 +1701,6 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
                     channels: audio.transcodedAudio.transcodedInfo?.channels,
                     format: audio.transcodedAudio.transcodedInfo?.format,
                     type: 'audio',
-                    overlayLabel: String(index + 1),
                     display: {
                         icon16x16: iconId
                     }
@@ -1692,7 +1715,13 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
                 defaultTrackDisplay: null,
                 defaultTrackAmbient: null
             };
-            
+
+            // Only add overlayLabel for non-Visual Timer playlists
+            if (!isVisualTimer) {
+                chapter.overlayLabel = String(index + 1);
+                chapter.tracks[0].overlayLabel = String(index + 1);
+            }
+
             return chapter;
         });
         
@@ -2515,7 +2544,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     // Quick check if we can access this card - used before icon matching
                     const verifyResult = await getCardContent(request.cardId);
                     if (verifyResult.error && verifyResult.error.includes('403')) {
-                        console.log('Card access denied - clearing auth for re-authentication');
                         // Clear everything to force fresh auth
                         await TokenManager.clearAllAuthData();
                         yotoIconsCache.clear();
@@ -2541,7 +2569,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     try {
                         const isValid = await TokenManager.isTokenValid();
                         if (!isValid) {
-                            console.log('Token invalid or missing - need auth');
                             await TokenManager.clearAllAuthData();
                             yotoIconsCache.clear();
                             sendResponse({
@@ -2556,7 +2583,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             authenticated: true
                         });
                     } catch (error) {
-                        console.log('Auth verification error:', error);
                         await TokenManager.clearAllAuthData();
                         yotoIconsCache.clear();
                         sendResponse({
@@ -2633,16 +2659,126 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse(updateIconsResult);
                     break;
                     
+                case 'UPLOAD_TIMER_AUDIO':
+                    // Handle large timer audio files by loading them directly in the service worker
+                    try {
+                        const audioUrl = chrome.runtime.getURL(`assets/audio/timer/${request.fileName}`);
+                        const audioResponse = await fetch(audioUrl);
+
+                        if (!audioResponse.ok) {
+                            sendResponse({ error: `Failed to load timer audio: ${request.fileName}` });
+                            break;
+                        }
+
+                        const audioBlob = await audioResponse.blob();
+                        const reader = new FileReader();
+
+                        reader.onloadend = async function() {
+                            const base64Data = reader.result.split(',')[1];
+
+                            // Convert base64 to blob for uploadAudioFile
+                            const binaryString = atob(base64Data);
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }
+                            const audioBlob = new Blob([bytes], { type: 'audio/wav' });
+
+                            const uploadResult = await uploadAudioFile({
+                                blob: audioBlob,
+                                type: 'audio/wav',
+                                name: request.trackName
+                            });
+
+                            sendResponse(uploadResult);
+                        };
+
+                        reader.readAsDataURL(audioBlob);
+
+                        // Return true to indicate we'll respond asynchronously
+                        return true;
+                    } catch (error) {
+                        console.error('[Service Worker] Timer audio upload error:', error);
+                        sendResponse({ error: error.message || 'Failed to upload timer audio' });
+                    }
+                    break;
+
                 case 'UPLOAD_AUDIO':
-                    // Convert base64 to blob
-                    const audioBlob = new Blob([Uint8Array.from(atob(request.file.data), c => c.charCodeAt(0))], {
-                        type: request.file.type
-                    });
-                    sendResponse(await uploadAudioFile({
-                        blob: audioBlob,
-                        type: request.file.type,
-                        name: request.file.name
-                    }));
+                    try {
+
+                        // Check if we have the required data
+                        if (!request.file || !request.file.data) {
+                            console.error('[Service Worker] Missing file data');
+                            sendResponse({ error: 'Missing file data' });
+                            break;
+                        }
+
+                        // Check base64 string size - prevent processing extremely large strings that might crash
+                        const base64Size = request.file.data.length;
+                        const estimatedFileSize = base64Size * 0.75; // Rough estimate of original file size
+
+                        if (base64Size > 150 * 1024 * 1024) { // 150MB base64 limit (~112MB file)
+                            console.error(`[Service Worker] File too large: ${(estimatedFileSize / 1024 / 1024).toFixed(2)}MB`);
+                            sendResponse({
+                                error: `File "${request.file.name}" is too large (${(estimatedFileSize / 1024 / 1024).toFixed(2)}MB). Maximum file size is 100MB. Please split the file or use smaller files.`
+                            });
+                            break;
+                        }
+
+                        // Convert base64 to blob with chunked processing for large files
+                        let audioBlob;
+                        try {
+                            // For large files, decode in chunks to avoid memory issues
+                            if (base64Size > 20 * 1024 * 1024) { // If > 20MB base64
+
+                                // Decode base64 string
+                                const binaryString = atob(request.file.data);
+
+                                // Create Uint8Array in chunks to avoid memory spikes
+                                const chunkSize = 1024 * 1024; // 1MB chunks
+                                const chunks = [];
+
+                                for (let i = 0; i < binaryString.length; i += chunkSize) {
+                                    const chunk = new Uint8Array(Math.min(chunkSize, binaryString.length - i));
+                                    for (let j = 0; j < chunk.length; j++) {
+                                        chunk[j] = binaryString.charCodeAt(i + j);
+                                    }
+                                    chunks.push(chunk);
+                                }
+
+                                // Combine chunks into single blob
+                                audioBlob = new Blob(chunks, {
+                                    type: request.file.type || 'audio/mpeg'
+                                });
+                            } else {
+                                // Standard decode for smaller files
+                                const binaryString = atob(request.file.data);
+                                const bytes = new Uint8Array(binaryString.length);
+                                for (let i = 0; i < binaryString.length; i++) {
+                                    bytes[i] = binaryString.charCodeAt(i);
+                                }
+                                audioBlob = new Blob([bytes], {
+                                    type: request.file.type || 'audio/mpeg'
+                                });
+                            }
+
+                        } catch (decodeError) {
+                            console.error('[Service Worker] Failed to decode base64:', decodeError);
+                            sendResponse({ error: `Failed to process file "${request.file.name}": ${decodeError.message}. The file may be corrupted or too large.` });
+                            break;
+                        }
+
+                        const uploadResult = await uploadAudioFile({
+                            blob: audioBlob,
+                            type: request.file.type,
+                            name: request.file.name
+                        });
+
+                        sendResponse(uploadResult);
+                    } catch (error) {
+                        console.error('[Service Worker] Upload audio error:', error);
+                        sendResponse({ error: error.message || 'Upload failed' });
+                    }
                     break;
                     
                 case 'UPLOAD_ICON':
@@ -2669,7 +2805,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         request.title,
                         request.audioTracks,
                         request.iconIds,
-                        request.coverUrl
+                        request.coverUrl,
+                        request.isVisualTimer
                     ));
                     break;
 
@@ -2710,7 +2847,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 case 'LOGOUT':
                     yotoIconsCache.clear();
-                    console.log('Cleared in-memory icon cache on logout');
 
                     await TokenManager.clearAllAuthData();
 
@@ -2918,7 +3054,6 @@ chrome.runtime.onInstalled.addListener(async (details) => {
             // Clean up old global cache from previous versions
             try {
                 await chrome.storage.local.remove('yoto_icons_cache');
-                console.log('Cleaned up old global icon cache');
             } catch (e) {
                 // Ignore errors during cleanup
             }
