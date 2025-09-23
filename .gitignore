@@ -42,6 +42,14 @@ Desktop.ini
 tmp/
 temp/
 *.tmp
+test-*.html
+*-screenshot.png
+*-preview.png
+*-comparison.png
+*-detail.png
+create-*.html
+resize-*.sh
+speed-up-*.sh
 
 # Test coverage
 coverage/

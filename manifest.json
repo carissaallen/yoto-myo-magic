@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Yoto MYO Magic",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Transform how you create Yoto MYO cards with smart imports, automatic icon matching, and more delightful shortcuts.",
 
   "permissions": [
@@ -70,10 +70,13 @@
       "resources": [
         "assets/styles/*.css",
         "assets/icons/*.png",
+        "assets/icons/timer/ghost/*.png",
+        "assets/icons/timer/tree-lights/*.png",
         "assets/images/*.png",
         "assets/audio/timer/*.wav",
         "assets/audio/alarms/*.mp3",
-        "assets/visual_timer/covers/*.png",
+        "assets/timer/covers/*.png",
+        "assets/timer/icons/*.png",
         "lib/*.js",
         "utils/timerIconGenerator.js",
         "callback.html",

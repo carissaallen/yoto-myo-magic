@@ -1660,6 +1660,32 @@ function showVisualTimerModal() {
             <input type="radio" name="icon-style" value="pie" style="margin-right: 8px;">
             <span>Pie Chart</span>
           </label>
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: linear-gradient(135deg, #f3e7e9 0%, #e3eeff 100%);
+          " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
+            <input type="radio" name="icon-style" value="ghost" style="margin-right: 8px;">
+            <span>Ghost</span>
+          </label>
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: linear-gradient(45deg, #f0f9ff 25%, #e0f2fe 25%);
+          " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
+            <input type="radio" name="icon-style" value="tree-lights" style="margin-right: 8px;">
+            <span>Tree Lights</span>
+          </label>
         </div>
       </div>
 
@@ -1953,7 +1979,7 @@ async function createVisualTimer() {
     statusDiv.textContent = 'Generating timer icons...';
 
     // Import the icon generator functions
-    const { generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon } = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
+    const { generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon, generateGhostTimerIcon } = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
 
     // Generate and upload icons for each segment
     const uploadedIcons = [];
@@ -1961,7 +1987,34 @@ async function createVisualTimer() {
       const progress = 1 - (i / numSegments); // 1.0 to 0.0
 
       let iconDataUrl;
-      if (iconStyle === 'dots') {
+      if (iconStyle === 'tree-lights') {
+        const treePath = `assets/icons/timer/tree-lights/tree-${numSegments}-${i}.png`;
+        iconDataUrl = chrome.runtime.getURL(treePath);
+        const treeResponse = await fetch(iconDataUrl);
+        const treeBlob = await treeResponse.blob();
+        const reader = new FileReader();
+        iconDataUrl = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(treeBlob);
+        });
+      } else if (iconStyle === 'ghost') {
+        const pngUrl = chrome.runtime.getURL(`assets/icons/timer/ghost/ghost-${numSegments}-${i}.png`);
+        const pngResponse = await fetch(pngUrl);
+
+        if (!pngResponse.ok) {
+          console.error(`Failed to fetch ghost PNG: ${pngUrl}`);
+          throw new Error(`Ghost PNG not found: ghost-${numSegments}-${i}.png`);
+        }
+
+        const pngBlob = await pngResponse.blob();
+
+
+        const reader = new FileReader();
+        iconDataUrl = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(pngBlob);
+        });
+      } else if (iconStyle === 'dots') {
         // Use special dots function with rainbow colors and segment count
         iconDataUrl = generateDotsTimerIcon(progress, numSegments);
       } else if (iconStyle === 'blocks') {
@@ -1975,13 +2028,17 @@ async function createVisualTimer() {
       // Convert data URL to base64
       const iconBase64 = iconDataUrl.split(',')[1];
 
+      const isGifStyle = false;
+      const iconType = 'image/png';
+      const iconExtension = 'png';
+
       // Upload icon
       const iconResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_ICON',
         file: {
           data: iconBase64,
-          type: 'image/png',
-          name: `timer-icon-${i}.png`
+          type: iconType,
+          name: `timer-icon-${i}.${iconExtension}`
         }
       });
 
@@ -2085,8 +2142,9 @@ async function createVisualTimer() {
       statusDiv.textContent = `Uploading tracks... ${progress}%`;
     }
 
-    // Upload alarm track if selected
+    // Always add a final track (either alarm or silent)
     if (alarmAudioBase64) {
+      // Upload alarm audio
       const alarmResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_AUDIO',
         file: {
@@ -2109,8 +2167,61 @@ async function createVisualTimer() {
         title: "Time's Up!",
         transcodedAudio: alarmResponse.transcodedAudio
       });
+    } else {
+      // No alarm selected - add a silent final track
+      // Use the first silent file that was loaded (could be 15s, 1m, 5m, or 10m)
+      const silentFileName = silentFiles[0] || 'silent-1m.wav';
+      const silentAudioObj = audioCache[silentFileName];
 
-      // Select a random celebration icon for the alarm track
+      if (!silentAudioObj) {
+        throw new Error(`Silent audio not found in cache: ${silentFileName}`);
+      }
+
+      let silentResponse;
+
+      // Handle based on file size (same as timer segments)
+      if (silentAudioObj.isLarge) {
+        // For large files, have the service worker load and upload directly
+        silentResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_TIMER_AUDIO',
+          fileName: silentFileName,
+          trackName: 'timer-complete-silent.wav'
+        });
+      } else {
+        // For smaller files, use the regular upload with base64
+        const silentAudioData = silentAudioObj.base64;
+
+        if (!silentAudioData) {
+          throw new Error(`No base64 data for silent track: ${silentFileName}`);
+        }
+
+        silentResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_AUDIO',
+          file: {
+            data: silentAudioData,
+            type: 'audio/wav',
+            name: silentFileName
+          }
+        });
+      }
+
+      if (silentResponse.error) {
+        throw new Error(`Failed to upload silent track: ${silentResponse.error}`);
+      }
+
+      uploadedTracks.push({
+        title: "Timer Complete",
+        transcodedAudio: silentResponse.transcodedAudio
+      });
+    }
+
+    if (iconStyle === 'ghost') {
+      const pumpkinIcon = 'yoto:#bOEw9RBCHNv1ZRssedCImm4dG0ZwU2vHZhZSqPDp8DI';
+      uploadedIcons.push(pumpkinIcon);
+    } else if (iconStyle === 'tree-lights') {
+      const treeIcon = 'yoto:#rJatTQ_Y6mlIATEti0EEDFxBws4uUpnDuiWo9rw03KY';
+      uploadedIcons.push(treeIcon);
+    } else {
       const celebrationIcons = [
         'yoto:#tNXOIzQIPO6OjSzmT5WFofHhK3-KRGYvnlBxE1oF0-4', // celebrate
         'yoto:#idzbpyi9ucjYfVWrfR637M6WkBKZsrP-34x7e5XFV4Y', // gold bell
@@ -2125,7 +2236,7 @@ async function createVisualTimer() {
 
     let coverUrl = null;
     try {
-      const coverPath = chrome.runtime.getURL('assets/visual_timer/covers/generic-timer-cover.png');
+      const coverPath = chrome.runtime.getURL('assets/timer/covers/generic-timer-cover.png');
       const coverResponse = await fetch(coverPath);
       if (!coverResponse.ok) {
         throw new Error(`Failed to fetch cover: ${coverResponse.status}`);
