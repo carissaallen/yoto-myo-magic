@@ -32,6 +32,7 @@ zip -r "$OUTPUT_FILE" \
     lib/ \
     options/ \
     popup/ \
+    utils/ \
     -x "*.DS_Store" \
     -x "*/.DS_Store" \
     -x "*.swp" \
