@@ -1454,6 +1454,19 @@ async function uploadIcon(iconFileData) {
         // Extract filename without extension for the query parameter
         const filename = iconFileData.name ? iconFileData.name.split('.')[0] : 'icon';
 
+        // Log GIF upload details for debugging
+        const isGif = iconFileData.type === 'image/gif';
+        if (isGif) {
+            console.log('[Ghost GIF Upload]', {
+                filename: filename,
+                type: iconFileData.type,
+                autoConvert: true,
+                dataSize: bytes.length,
+                // Check for GIF header (should be 'GIF89a' or 'GIF87a')
+                gifHeader: String.fromCharCode(...bytes.slice(0, 6))
+            });
+        }
+
         // Upload the icon - send binary data directly in body
         const response = await makeAuthenticatedRequest(
             `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(filename)}`,
