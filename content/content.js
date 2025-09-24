@@ -1400,7 +1400,7 @@ function showUpdateImportOptionsModal(cardId, cardTitle) {
 function showBulkImportOptionsModal() {
   const existingModal = document.getElementById('yoto-bulk-import-options-modal');
   if (existingModal) existingModal.remove();
-  
+
   const modal = document.createElement('div');
   modal.id = 'yoto-bulk-import-options-modal';
   modal.style.cssText = `
@@ -1416,20 +1416,47 @@ function showBulkImportOptionsModal() {
     padding-top: 20vh;
     background-color: rgba(0, 0, 0, 0.5);
   `;
-  
+
   modal.innerHTML = `
     <div style="
       background-color: white;
       border-radius: 8px;
       padding: 24px;
-      max-width: 400px;
+      max-width: 450px;
       width: 90%;
       margin: 0 16px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     ">
-      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">Bulk Import Playlists</h2>
-      <p style="color: #6b7280; margin-bottom: 24px;">Select a ZIP file containing multiple playlists. Each playlist should be in its own ZIP file or folder within the main ZIP.</p>
-      
+      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">Bulk Import Settings</h2>
+      <p style="color: #6b7280; margin-bottom: 20px;">Select a ZIP file or folder containing your audio files.</p>
+
+      <div style="
+        background-color: #f3f4f6;
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 20px;
+      ">
+        <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 12px;">
+          Import Mode:
+        </label>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio" name="import-mode" value="separate" checked style="width: 16px; height: 16px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">Separate Playlists</div>
+              <div style="font-size: 12px; color: #6b7280;">Each subfolder/ZIP becomes its own playlist</div>
+            </div>
+          </label>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio" name="import-mode" value="merged" style="width: 16px; height: 16px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">Single Merged Playlist</div>
+              <div style="font-size: 12px; color: #6b7280;">Combine all subfolders into one playlist</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <button id="bulk-import-zip-btn" style="
           width: 100%;
@@ -1452,7 +1479,7 @@ function showBulkImportOptionsModal() {
           </svg>
           <span>Select ZIP File</span>
         </button>
-        
+
         <button id="bulk-import-folder-btn" style="
           width: 100%;
           padding: 12px 16px;
@@ -1475,7 +1502,7 @@ function showBulkImportOptionsModal() {
           <span>Select Folder</span>
         </button>
       </div>
-      
+
       <button id="bulk-import-cancel-btn" style="
         width: 100%;
         margin-top: 16px;
@@ -1491,20 +1518,22 @@ function showBulkImportOptionsModal() {
       </button>
     </div>
   `;
-  
+
   document.body.appendChild(modal);
-  
+
   // Add event listeners
   document.getElementById('bulk-import-zip-btn').addEventListener('click', () => {
+    const importMode = document.querySelector('input[name="import-mode"]:checked').value;
     modal.remove();
-    selectBulkZipFile();
+    selectBulkZipFile(importMode);
   });
-  
+
   document.getElementById('bulk-import-folder-btn').addEventListener('click', () => {
+    const importMode = document.querySelector('input[name="import-mode"]:checked').value;
     modal.remove();
-    selectBulkFolder();
+    selectBulkFolder(importMode);
   });
-  
+
   document.getElementById('bulk-import-cancel-btn').addEventListener('click', () => {
     modal.remove();
   });
@@ -4237,53 +4266,53 @@ async function processZipFile(file) {
   }
 }
 
-function selectBulkZipFile() {
+function selectBulkZipFile(importMode = 'separate') {
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.zip,application/zip,application/x-zip-compressed';
   fileInput.style.display = 'none';
-  
+
   document.body.appendChild(fileInput);
-  
+
   fileInput.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
     fileInput.remove();
-    
+
     if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
       // Don't show notification here, the loading modal will handle it
-      await processBulkZipFile(files[0]);
+      await processBulkZipFile(files[0], importMode);
     } else if (files.length > 0) {
       showNotification('Please select a valid ZIP file', 'error');
     }
   });
-  
+
   fileInput.click();
 }
 
-function selectBulkFolder() {
+function selectBulkFolder(importMode = 'separate') {
   const folderInput = document.createElement('input');
   folderInput.type = 'file';
   folderInput.webkitdirectory = true;
   folderInput.directory = true;
   folderInput.multiple = true;
   folderInput.style.display = 'none';
-  
+
   document.body.appendChild(folderInput);
-  
+
   folderInput.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
     folderInput.remove();
-    
+
     if (files.length > 0) {
       showNotification('Processing bulk folder...', 'info');
-      await processBulkFolderFiles(files);
+      await processBulkFolderFiles(files, importMode);
     }
   });
-  
+
   folderInput.click();
 }
 
-async function processBulkZipFile(file) {
+async function processBulkZipFile(file, importMode = 'separate') {
   // Create extraction loading modal
   const loadingModal = document.createElement('div');
   loadingModal.style.cssText = `
@@ -4300,7 +4329,7 @@ async function processBulkZipFile(file) {
     padding-top: 20vh;
     z-index: 10001;
   `;
-  
+
   const loadingContent = document.createElement('div');
   loadingContent.style.cssText = `
     background: white;
@@ -4310,7 +4339,7 @@ async function processBulkZipFile(file) {
     text-align: center;
     min-width: 320px;
   `;
-  
+
   loadingContent.innerHTML = `
     <div style="margin-bottom: 20px;">
       <div style="
@@ -4509,7 +4538,7 @@ async function processBulkZipFile(file) {
     }
     
     loadingModal.remove();
-    
+
     if (playlists.length === 0) {
       if (nestedZips.length > 0) {
         showNotification('No valid playlists could be extracted from the nested ZIP files. Please ensure each ZIP contains audio files.', 'error');
@@ -4520,11 +4549,49 @@ async function processBulkZipFile(file) {
       }
       return;
     }
-    
-    const sourceType = nestedZips.length > 0 ? 'ZIP file' : 'folder';
-    const sourcePlural = playlists.length > 1 ? 's' : '';
-    showNotification(`Successfully extracted ${playlists.length} playlist${sourcePlural} from ${sourceType}${sourcePlural}. Preparing import...`, 'success');
-    showBulkImportModal(playlists);
+
+    if (importMode === 'merged' && playlists.length > 0) {
+      let rootCoverImage = null;
+      const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+
+      for (const { path, zipEntry } of rootFiles) {
+        const fileName = path.split('/').pop();
+        const ext = fileName.split('.').pop().toLowerCase();
+        const lowerFileName = fileName.toLowerCase();
+
+        if (imageExtensions.includes(ext)) {
+          const isCoverName = lowerFileName.includes('cover') ||
+                              lowerFileName.includes('album') ||
+                              lowerFileName.includes('art') ||
+                              lowerFileName === 'folder.jpg' ||
+                              lowerFileName === 'folder.png';
+
+          if (isCoverName) {
+            try {
+              const blob = await zipEntry.async('blob');
+              rootCoverImage = new File([blob], fileName, { type: `image/${ext}` });
+              rootCoverImage.fileSize = blob.size;
+              break;
+            } catch (err) {
+              console.warn('Failed to extract root cover image:', err);
+            }
+          }
+        }
+      }
+
+      const mergedPlaylist = await mergePlaylists(playlists, file.name.replace(/\.zip$/i, ''), rootCoverImage);
+      if (mergedPlaylist) {
+        showNotification('Successfully merged all content into a single playlist. Preparing import...', 'success');
+        showBulkImportModal([mergedPlaylist], importMode);
+      } else {
+        showNotification('Failed to merge playlists', 'error');
+      }
+    } else {
+      const sourceType = nestedZips.length > 0 ? 'ZIP file' : 'folder';
+      const sourcePlural = playlists.length > 1 ? 's' : '';
+      showNotification(`Successfully extracted ${playlists.length} playlist${sourcePlural} from ${sourceType}${sourcePlural}. Preparing import...`, 'success');
+      showBulkImportModal(playlists, importMode);
+    }
     
   } catch (error) {
     if (loadingModal && loadingModal.parentNode) {
@@ -4543,7 +4610,7 @@ async function processBulkZipFile(file) {
   }
 }
 
-async function processBulkFolderFiles(files) {
+async function processBulkFolderFiles(files, importMode = 'separate') {
   try {
     const playlists = [];
     
@@ -4580,9 +4647,49 @@ async function processBulkFolderFiles(files) {
       showNotification('No valid playlists found in the selected folder', 'error');
       return;
     }
-    
-    showNotification(`Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''}. Preparing import...`, 'success');
-    showBulkImportModal(playlists);
+
+    if (importMode === 'merged' && playlists.length > 0) {
+      const rootFolderName = files[0]?.webkitRelativePath?.split('/')[0] || 'Merged Playlist';
+
+      let rootCoverImage = null;
+      const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+
+      for (const file of files) {
+        if (file.webkitRelativePath) {
+          const pathParts = file.webkitRelativePath.split('/');
+          if (pathParts.length === 2) {
+            const fileName = pathParts[1];
+            const ext = fileName.split('.').pop().toLowerCase();
+            const lowerFileName = fileName.toLowerCase();
+
+            if (imageExtensions.includes(ext)) {
+              const isCoverName = lowerFileName.includes('cover') ||
+                                  lowerFileName.includes('album') ||
+                                  lowerFileName.includes('art') ||
+                                  lowerFileName === 'folder.jpg' ||
+                                  lowerFileName === 'folder.png';
+
+              if (isCoverName) {
+                rootCoverImage = file;
+                rootCoverImage.fileSize = file.size;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      const mergedPlaylist = await mergePlaylists(playlists, rootFolderName, rootCoverImage);
+      if (mergedPlaylist) {
+        showNotification('Successfully merged all folders into a single playlist. Preparing import...', 'success');
+        showBulkImportModal([mergedPlaylist], importMode);
+      } else {
+        showNotification('Failed to merge playlists', 'error');
+      }
+    } else {
+      showNotification(`Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''}. Preparing import...`, 'success');
+      showBulkImportModal(playlists, importMode);
+    }
     
   } catch (error) {
     showNotification('Error processing bulk folder: ' + error.message, 'error');
@@ -4595,6 +4702,45 @@ async function processBulkFolderFiles(files) {
         authenticated: state.authenticated
       }
     });
+  }
+}
+
+async function mergePlaylists(playlists, mergedName, rootCoverImage = null) {
+  try {
+    const mergedPlaylist = {
+      name: mergedName,
+      audioFiles: [],
+      trackIcons: [],
+      coverImage: rootCoverImage  // Use root cover if provided
+    };
+
+    // Combine all audio files and their corresponding icons
+    let currentTrackIndex = 0;
+
+    for (const playlist of playlists) {
+      if (playlist.audioFiles && playlist.audioFiles.length > 0) {
+        playlist.audioFiles.forEach((file, fileIndex) => {
+          mergedPlaylist.audioFiles.push(file);
+
+          if (playlist.trackIcons && playlist.trackIcons[fileIndex]) {
+            const icon = playlist.trackIcons[fileIndex];
+            icon.extractedNumber = currentTrackIndex + 1;
+            mergedPlaylist.trackIcons[currentTrackIndex] = icon;
+          }
+
+          currentTrackIndex++;
+        });
+      }
+
+      if (!rootCoverImage && playlist.coverImage && !mergedPlaylist.coverImage) {
+        mergedPlaylist.coverImage = playlist.coverImage;
+      }
+    }
+
+    return mergedPlaylist;
+  } catch (error) {
+    console.error('Error merging playlists:', error);
+    return null;
   }
 }
 
@@ -5072,7 +5218,7 @@ async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000, time
 }
 
 // Show bulk import modal
-function showBulkImportModal(playlists) {
+function showBulkImportModal(playlists, importMode = 'separate') {
   // Remove existing modal if any
   const existing = document.querySelector('#yoto-bulk-import-modal');
   if (existing) existing.remove();
@@ -5131,15 +5277,21 @@ function showBulkImportModal(playlists) {
     </div>
   `).join('');
   
+  const modalTitle = importMode === 'merged' ? 'Import Merged Playlist' : 'Bulk Import Playlists';
+  const modalDescription = importMode === 'merged'
+    ? `Content will upload into a single playlist with ${playlists[0].audioFiles.length} tracks:`
+    : `Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''} ready to import:`;
+
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Bulk Import Playlists</h2>
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${modalTitle}</h2>
     <div style="margin-bottom: 20px; color: #666;">
-      <p>Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''} ready to import:</p>
+      <p>${modalDescription}</p>
     </div>
     
     <div style="margin-bottom: 20px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <label style="font-weight: 500; margin-right: 16px;">Select playlists to import:</label>
+        <label style="font-weight: 500; margin-right: 16px;">${importMode === 'merged' ? 'Playlist details:' : 'Select playlists to import:'}</label>
+        ${importMode === 'merged' ? '' : `
         <div style="display: flex; gap: 8px;">
           <button id="select-all" style="
             padding: 4px 12px;
@@ -5158,6 +5310,7 @@ function showBulkImportModal(playlists) {
             font-size: 13px;
           ">Deselect All</button>
         </div>
+        `}
       </div>
       <div style="max-height: 300px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
         ${playlistPreviews}
@@ -5217,20 +5370,26 @@ function showBulkImportModal(playlists) {
   modal.appendChild(content);
   document.body.appendChild(modal);
   
-  // Event handlers for select/deselect all
-  document.querySelector('#select-all').onclick = () => {
-    playlists.forEach((_, index) => {
-      const checkbox = document.querySelector(`#playlist-${index}`);
-      if (checkbox) checkbox.checked = true;
-    });
-  };
-  
-  document.querySelector('#deselect-all').onclick = () => {
-    playlists.forEach((_, index) => {
-      const checkbox = document.querySelector(`#playlist-${index}`);
-      if (checkbox) checkbox.checked = false;
-    });
-  };
+  // Event handlers for select/deselect all (only if buttons exist)
+  const selectAllBtn = document.querySelector('#select-all');
+  if (selectAllBtn) {
+    selectAllBtn.onclick = () => {
+      playlists.forEach((_, index) => {
+        const checkbox = document.querySelector(`#playlist-${index}`);
+        if (checkbox) checkbox.checked = true;
+      });
+    };
+  }
+
+  const deselectAllBtn = document.querySelector('#deselect-all');
+  if (deselectAllBtn) {
+    deselectAllBtn.onclick = () => {
+      playlists.forEach((_, index) => {
+        const checkbox = document.querySelector(`#playlist-${index}`);
+        if (checkbox) checkbox.checked = false;
+      });
+    };
+  }
   
   // Prevent input clicks from bubbling
   playlists.forEach((_, index) => {
@@ -5935,13 +6094,13 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
           throw new Error('Extension context lost during upload.');
         }
         
-        // Convert file to base64 format expected by service worker
         let base64Data;
         try {
           base64Data = await convertFileToBase64(file);
         } catch (convError) {
-          console.error(`[Bulk Import] Failed to convert ${file.name} to base64:`, convError);
-          throw new Error(`Failed to convert ${file.name}: ${convError.message}`);
+          const fileName = file.name || 'unknown';
+          console.error(`[Bulk Import] Failed to convert ${fileName} to base64:`, convError);
+          throw new Error(`Failed to convert ${fileName}: ${convError.message}`);
         }
         
         const uploadResult = await chrome.runtime.sendMessage({
@@ -5959,9 +6118,9 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
           throw new Error(`Audio upload failed: ${uploadResult.error}`);
         }
         
-        
-        // Clean track title
-        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+
+        const fileName = file.name || 'Track';
+        const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
         const cleanedTitle = cleanTrackTitle(nameWithoutExt);
         
         return {
@@ -6026,7 +6185,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
             throw new Error('Extension context lost during icon upload.');
           }
           
-          // Convert file to base64 format expected by service worker
           const base64Data = await convertFileToBase64(file);
           
           const result = await chrome.runtime.sendMessage({
@@ -6082,7 +6240,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
         throw new Error('Extension context lost during cover upload.');
       }
       
-      // Convert file to base64 format expected by service worker
       const base64Data = await convertFileToBase64(coverImage);
       
       const coverResult = await chrome.runtime.sendMessage({
@@ -6137,7 +6294,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   return createResponse;
 }
 
-// Helper function to convert file to base64 (for compatibility)
 async function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -6147,17 +6303,15 @@ async function fileToBase64(file) {
   });
 }
 
-// Helper function to convert file to base64 format expected by service worker
 async function convertFileToBase64(file) {
   return new Promise((resolve, reject) => {
-    // Verify the file is valid
     if (!file || !(file instanceof Blob)) {
       console.error('[convertFileToBase64] Invalid file object:', file);
       reject(new Error('Invalid file object provided'));
       return;
     }
     
-    
+
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -6166,12 +6320,11 @@ async function convertFileToBase64(file) {
         let binary = '';
         bytes.forEach(byte => binary += String.fromCharCode(byte));
         const base64 = btoa(binary);
-      
-      // Ensure proper MIME type
+
       let mimeType = file.type;
-      if (!mimeType && file.name) {
-        // Guess MIME type from extension if not provided
-        const ext = file.name.split('.').pop().toLowerCase();
+      const fileName = file.name || '';
+      if (!mimeType && fileName) {
+        const ext = fileName.split('.').pop().toLowerCase();
         if (ext === 'mp3') mimeType = 'audio/mpeg';
         else if (ext === 'm4a') mimeType = 'audio/mp4';
         else if (ext === 'm4b') mimeType = 'audio/mp4';
@@ -6183,11 +6336,11 @@ async function convertFileToBase64(file) {
         else if (ext === 'jpg' || ext === 'jpeg') mimeType = 'image/jpeg';
         else if (ext === 'gif') mimeType = 'image/gif';
       }
-      
+
       resolve({
         data: base64,
         type: mimeType || 'application/octet-stream',
-        name: file.name
+        name: fileName
       });
       } catch (error) {
         console.error('[convertFileToBase64] Error during conversion:', error);
