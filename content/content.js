@@ -4419,10 +4419,24 @@ async function processBulkZipFile(file, importMode = 'separate') {
       }
       else if (!zipEntry.dir) {
         const pathParts = path.split('/').filter(p => p);
-        
+
         if (pathParts.length > 1) {
+          if (singleRootFolder && pathParts.length === 2) {
+            // This is a file directly in the single root folder (e.g., "root/cover.jpg")
+            const fileName = pathParts[1];
+            const ext = fileName.split('.').pop().toLowerCase();
+            const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+
+            // If it's an image file at root level, add to rootFiles for cover detection
+            if (imageExtensions.includes(ext)) {
+              rootFiles.push({ path, zipEntry });
+              processedPaths.add(path);
+              continue;
+            }
+          }
+
           let folderName;
-          
+
           // If there's only one top-level folder and it contains subfolders,
           // treat the subfolders as individual playlists
           if (singleRootFolder && pathParts.length > 2) {
@@ -4435,7 +4449,7 @@ async function processBulkZipFile(file, importMode = 'separate') {
             // Single folder with files directly in it
             folderName = pathParts[0];
           }
-          
+
           if (!folders.has(folderName)) {
             folders.set(folderName, []);
           }
@@ -4657,10 +4671,10 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
       for (const file of files) {
         if (file.webkitRelativePath) {
           const pathParts = file.webkitRelativePath.split('/');
-          // Check if file is at the second level (e.g., root/merged-folder/cover.jpg)
-          // This is the actual root of the selected folder
-          if (pathParts.length === 2 || (pathParts.length === 3 && !folderMap.has(pathParts[1]))) {
-            const fileName = pathParts[pathParts.length - 1];
+          // Root-level files have exactly 2 parts: [rootFolder, filename]
+          // Subfolder files have 3+ parts: [rootFolder, subfolder, filename]
+          if (pathParts.length === 2) {
+            const fileName = pathParts[1];
             const ext = fileName.split('.').pop().toLowerCase();
             const lowerFileName = fileName.toLowerCase();
 
