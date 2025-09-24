@@ -4657,8 +4657,10 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
       for (const file of files) {
         if (file.webkitRelativePath) {
           const pathParts = file.webkitRelativePath.split('/');
-          if (pathParts.length === 2) {
-            const fileName = pathParts[1];
+          // Check if file is at the second level (e.g., root/merged-folder/cover.jpg)
+          // This is the actual root of the selected folder
+          if (pathParts.length === 2 || (pathParts.length === 3 && !folderMap.has(pathParts[1]))) {
+            const fileName = pathParts[pathParts.length - 1];
             const ext = fileName.split('.').pop().toLowerCase();
             const lowerFileName = fileName.toLowerCase();
 
@@ -5318,14 +5320,16 @@ function showBulkImportModal(playlists, importMode = 'separate') {
     </div>
     
     <div id="bulk-import-progress" style="display: none; margin: 20px 0;">
+      ${importMode === 'merged' ? '' : `
       <div style="margin-bottom: 12px;">
         <p id="overall-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">Overall Progress:</p>
         <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
           <div id="overall-progress-bar" style="background: #10b981; height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
       </div>
-      <div style="margin-top: 16px;">
-        <p id="current-playlist-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">Current Playlist:</p>
+      `}
+      <div style="${importMode === 'merged' ? '' : 'margin-top: 16px;'}">
+        <p id="current-playlist-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">${importMode === 'merged' ? 'Upload Progress:' : 'Current Playlist:'}</p>
         <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
           <div id="current-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
@@ -5424,7 +5428,7 @@ function showBulkImportModal(playlists, importMode = 'separate') {
     }
     
     // Start the bulk import process
-    await processBulkImport(selectedPlaylists, modal);
+    await processBulkImport(selectedPlaylists, modal, importMode);
   };
 }
 
@@ -5821,7 +5825,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
   }
 }
 
-async function processBulkImport(playlists, modal) {
+async function processBulkImport(playlists, modal, importMode = 'separate') {
   // Check if extension context is valid before starting
   if (!chrome.runtime?.id) {
     showNotification('Extension connection lost. Please refresh the page and try again.', 'error');
@@ -5875,8 +5879,10 @@ async function processBulkImport(playlists, modal) {
   // Process each playlist
   for (const playlist of playlists) {
     const playlistNumber = completedPlaylists + 1;
-    overallStatus.textContent = `Overall Progress: ${playlistNumber}/${totalPlaylists} playlists`;
-    currentStatus.textContent = `Importing: ${playlist.name}`;
+    if (overallStatus) {
+      overallStatus.textContent = `Overall Progress: ${playlistNumber}/${totalPlaylists} playlists`;
+    }
+    currentStatus.textContent = importMode === 'merged' ? `Uploading: ${playlist.name}` : `Importing: ${playlist.name}`;
     currentProgressBar.style.width = '0%';
     
     addLogEntry(`Starting import of "${playlist.name}"...`);
@@ -5930,12 +5936,16 @@ async function processBulkImport(playlists, modal) {
     
     completedPlaylists++;
     const overallProgress = (completedPlaylists / totalPlaylists) * 100;
-    overallProgressBar.style.width = `${overallProgress}%`;
+    if (overallProgressBar) {
+      overallProgressBar.style.width = `${overallProgress}%`;
+    }
   }
-  
+
   // Final status
-  overallStatus.textContent = `Import Complete: ${successfulImports} successful, ${failedImports} failed`;
-  currentStatus.textContent = '';
+  if (overallStatus) {
+    overallStatus.textContent = `Import Complete: ${successfulImports} successful, ${failedImports} failed`;
+  }
+  currentStatus.textContent = importMode === 'merged' ? 'Upload Complete' : '';
   currentProgressBar.style.width = '0%';
   
   if (successfulImports > 0 && failedImports === 0) {
