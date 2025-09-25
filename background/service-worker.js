@@ -1606,55 +1606,87 @@ async function updatePlaylistContent(cardId, existingChapters, newTracks, newIco
 
         let chapters = [...(existingChapters || [])];
 
-        let maxChapterNum = 0;
-        chapters.forEach(chapter => {
-            const num = parseInt(chapter.key);
-            if (!isNaN(num) && num > maxChapterNum) {
-                maxChapterNum = num;
-            }
-        });
+        // If we have new tracks, add them to the playlist
+        if (newTracks && newTracks.length > 0) {
+            let maxChapterNum = 0;
+            chapters.forEach(chapter => {
+                const num = parseInt(chapter.key);
+                if (!isNaN(num) && num > maxChapterNum) {
+                    maxChapterNum = num;
+                }
+            });
 
-        newTracks.forEach((track, index) => {
-            const chapterNum = maxChapterNum + index + 1;
-            const chapterKey = String(chapterNum).padStart(2, '0');
+            newTracks.forEach((track, index) => {
+                const chapterNum = maxChapterNum + index + 1;
+                const chapterKey = String(chapterNum).padStart(2, '0');
 
-            let iconId = 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q';
-            if (newIcons && newIcons[index]) {
-                iconId = newIcons[index].startsWith('yoto:#') ? newIcons[index] : `yoto:#${newIcons[index]}`;
-            }
+                let iconId = 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q';
+                if (newIcons && newIcons[index]) {
+                    iconId = newIcons[index].startsWith('yoto:#') ? newIcons[index] : `yoto:#${newIcons[index]}`;
+                }
 
-            let format = track.format || 'mp3';
-            const validFormats = ['mp3', 'aac', 'alac', 'flac', 'pcm_s16le', 'opus', 'ogg', 'x-m4a', 'wav', 'aiff', 'mpeg'];
-            if (!validFormats.includes(format)) {
-                format = 'mp3';
-            }
+                let format = track.format || 'mp3';
+                const validFormats = ['mp3', 'aac', 'alac', 'flac', 'pcm_s16le', 'opus', 'ogg', 'x-m4a', 'wav', 'aiff', 'mpeg'];
+                if (!validFormats.includes(format)) {
+                    format = 'mp3';
+                }
 
-            const chapter = {
-                key: chapterKey,
-                title: track.title || `Track ${chapterNum}`,
-                overlayLabel: String(chapterNum),
-                display: {
-                    icon16x16: iconId,
-                    overlayLabel: {
-                        label: String(chapterNum)
-                    }
-                },
-                tracks: [{
-                    format: format,
-                    key: track.key,
-                    trackId: generateRandomId(),
+                const chapter = {
+                    key: chapterKey,
                     title: track.title || `Track ${chapterNum}`,
-                    trackUrl: track.trackUrl || `yoto:#${track.key}`,
-                    type: 'audio',
+                    overlayLabel: String(chapterNum),
                     display: {
-                        icon16x16: iconId
+                        icon16x16: iconId,
+                        overlayLabel: {
+                            label: String(chapterNum)
+                        }
                     },
-                    duration: track.duration || 0
-                }]
-            };
+                    tracks: [{
+                        format: format,
+                        key: track.key,
+                        trackId: generateRandomId(),
+                        title: track.title || `Track ${chapterNum}`,
+                        trackUrl: track.trackUrl || `yoto:#${track.key}`,
+                        type: 'audio',
+                        display: {
+                            icon16x16: iconId
+                        },
+                        duration: track.duration || 0
+                    }]
+                };
 
-            chapters.push(chapter);
-        });
+                chapters.push(chapter);
+            });
+        }
+        // If we only have icons (no new tracks), update existing chapters with new icons
+        else if (newIcons && newIcons.length > 0) {
+            chapters.forEach((chapter, chapterIndex) => {
+                // Check if we have an icon for this chapter position
+                if (newIcons[chapterIndex]) {
+                    const iconId = newIcons[chapterIndex].startsWith('yoto:#')
+                        ? newIcons[chapterIndex]
+                        : `yoto:#${newIcons[chapterIndex]}`;
+
+                    // Update the chapter's icon
+                    if (chapter.display) {
+                        chapter.display.icon16x16 = iconId;
+                    } else {
+                        chapter.display = { icon16x16: iconId };
+                    }
+
+                    // Update all tracks within this chapter with the same icon
+                    if (chapter.tracks && Array.isArray(chapter.tracks)) {
+                        chapter.tracks.forEach(track => {
+                            if (track.display) {
+                                track.display.icon16x16 = iconId;
+                            } else {
+                                track.display = { icon16x16: iconId };
+                            }
+                        });
+                    }
+                }
+            });
+        }
 
         const updateBody = {
             createdByClientId: cardContent.card.createdByClientId,
@@ -1682,10 +1714,14 @@ async function updatePlaylistContent(cardId, existingChapters, newTracks, newIco
             return { error: updateResponse.error };
         }
 
+        const addedTracks = (newTracks && newTracks.length > 0) ? newTracks.length : 0;
+        const updatedIcons = (newIcons && newTracks && newTracks.length === 0) ? newIcons.filter(icon => icon).length : 0;
+
         return {
             success: true,
             cardId: cardId,
-            addedTracks: newTracks.length,
+            addedTracks: addedTracks,
+            updatedIcons: updatedIcons,
             totalChapters: chapters.length
         };
 

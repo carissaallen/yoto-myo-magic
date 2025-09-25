@@ -5577,13 +5577,14 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
     </h2>
 
     <div style="margin-bottom: 20px; color: #666;">
-      <p style="margin: 0 0 8px 0;">Ready to add to existing card:</p>
+      <p style="margin: 0 0 8px 0;">${audioFiles.length > 0 ? 'Ready to add to existing card:' : 'Ready to update existing card icons:'}</p>
       <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
         ${audioFiles.length > 0 ? `<li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>` : ''}
-        ${iconFiles.length > 0 ? `<li>${iconFiles.length} icon file${iconFiles.length !== 1 ? 's' : ''}</li>` : ''}
+        ${iconFiles.length > 0 ? `<li>${iconFiles.length} icon file${iconFiles.length !== 1 ? 's' : ''} ${audioFiles.length === 0 ? '(will update existing tracks by number)' : ''}</li>` : ''}
       </ul>
       <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Existing content will be preserved</p>
       <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Cover image will not be changed</p>
+      ${audioFiles.length === 0 && iconFiles.length > 0 ? '<p style="color: #3b82f6; font-size: 13px; margin: 8px 0;">ℹ Icons will be applied to tracks based on filename numbers</p>' : ''}
     </div>
 
     <div style="margin: 20px 0;">
@@ -5651,12 +5652,15 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
     const existingMetadata = cardContent.card?.metadata || {};
     const existingTitle = cardContent.card?.title || state.updateCardTitle;
 
-    statusText.textContent = 'Uploading audio files...';
-    progressBar.style.width = '30%';
-    percentageText.textContent = '30%';
-
     const uploadedTracks = [];
-    const uploadStrategy = audioFiles.length >= 10 ? 'chunked' : 'parallel';
+
+    // Only upload audio files if we have any
+    if (audioFiles.length > 0) {
+      statusText.textContent = 'Uploading audio files...';
+      progressBar.style.width = '30%';
+      percentageText.textContent = '30%';
+
+      const uploadStrategy = audioFiles.length >= 10 ? 'chunked' : 'parallel';
 
     if (uploadStrategy === 'chunked') {
       const chunkSize = 8;
@@ -5754,6 +5758,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
         }
       });
     }
+    } // Close the if (audioFiles.length > 0) block
 
     // Filter out any undefined entries (failed uploads)
     const validTracks = uploadedTracks.filter(track => track !== undefined);
@@ -5761,8 +5766,10 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
     let uploadedIcons = [];
     if (iconFiles.length > 0) {
       statusText.textContent = 'Uploading icon files...';
-      progressBar.style.width = '75%';
-      percentageText.textContent = '75%';
+      // Adjust progress based on whether we had audio files
+      const iconProgressStart = audioFiles.length > 0 ? 75 : 30;
+      progressBar.style.width = `${iconProgressStart}%`;
+      percentageText.textContent = `${iconProgressStart}%`;
 
       for (let i = 0; i < iconFiles.length; i++) {
         const icon = iconFiles[i];
@@ -5813,7 +5820,17 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
     percentageText.textContent = '100%';
     progressBar.style.background = '#10b981';
 
-    showNotification(`Successfully updated "${existingTitle}" with ${validTracks.length} new tracks`, 'success');
+    // Create appropriate success message based on what was updated
+    let successMessage = `Successfully updated "${existingTitle}"`;
+    if (validTracks.length > 0 && uploadedIcons.length > 0) {
+      successMessage += ` with ${validTracks.length} new tracks and ${uploadedIcons.filter(icon => icon).length} icons`;
+    } else if (validTracks.length > 0) {
+      successMessage += ` with ${validTracks.length} new tracks`;
+    } else if (updateResult.updatedIcons > 0) {
+      successMessage += ` with ${updateResult.updatedIcons} new icons`;
+    }
+
+    showNotification(successMessage, 'success');
 
     setTimeout(() => {
       modal.remove();
