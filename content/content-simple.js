@@ -7,7 +7,7 @@ let currentMatches = [];
 const iconMatchCache = new Map();
 let authCached = null;
 let authCacheTime = 0;
-const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const AUTH_CACHE_DURATION = 5 * 60 * 1000;
 
 function cycleIcon(trackId, direction) {
   const match = currentMatches.find(m => m.uniqueTrackId === trackId);
@@ -211,7 +211,7 @@ function showIconPreview(matches) {
   
   modal.appendChild(content);
   document.body.appendChild(modal);
-  
+
   if (!document.querySelector('#yoto-magic-animation-style')) {
     const style = document.createElement('style');
     style.id = 'yoto-magic-animation-style';
@@ -268,7 +268,7 @@ function showIconPreview(matches) {
   };
   
   document.querySelector('#apply-icons').onclick = async () => {
-    
+
     const applyButton = document.querySelector('#apply-icons');
     applyButton.disabled = true;
     applyButton.textContent = 'Applying...';
@@ -289,7 +289,7 @@ function showIconPreview(matches) {
         alert('Could not identify card ID');
         return;
       }
-      
+
       const selectedMatches = matches.map(match => {
         if (!match.iconOptions || match.iconOptions.length === 0) return null;
         
@@ -317,7 +317,6 @@ function showIconPreview(matches) {
         modal.remove();
         return;
       }
-      
 
       const response = await chrome.runtime.sendMessage({
         action: 'UPDATE_CARD_ICONS',
@@ -441,7 +440,7 @@ function showIconPreview(matches) {
       applyButton.textContent = 'Apply Icons';
     }
   };
-  
+
   modal.onclick = (e) => {
     if (e.target === modal) {
       modal.remove();
@@ -452,8 +451,7 @@ function showIconPreview(matches) {
 function createImportButton() {
   const button = document.createElement('button');
   button.id = 'yoto-import-btn';
-  
-  // Import icon SVG
+
   const importIcon = `
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <g id="Import">
@@ -504,13 +502,1259 @@ function createImportButton() {
     button.style.borderColor = '#3b82f6';
     button.style.transform = 'translateY(0)';
   };
-  
+
   button.onclick = async () => {
-    // Import functionality will be implemented here
     handleImportClick();
   };
   
   return button;
+}
+
+function createIconArtButton() {
+  const button = document.createElement('button');
+  button.id = 'yoto-icon-art-btn';
+
+  const createIcon = `
+    <svg width="16" height="16" viewBox="-30 0 155 155" fill="currentColor">
+      <path d="M65.3694 99.0891C65.2239 100.017 65.1332 100.953 65.0977 101.892C65.2617 108.397 65.6084 114.902 65.6182 121.408C65.6274 128.127 65.4245 134.854 65.0931 141.565C64.8819 143.571 64.3711 145.535 63.5776 147.39C63.1865 148.511 62.563 149.538 61.7479 150.402C60.9328 151.267 59.9444 151.949 58.8474 152.406C54.1471 154.404 48.8783 154.614 44.0338 152.996C40.1837 151.743 37.6673 148.879 37.3569 144.879C36.8673 138.637 36.7071 132.352 36.759 126.088C36.8148 119.361 37.2841 112.639 37.5532 105.913C37.6018 104.709 37.5603 103.503 37.5603 101.802C35.8322 101.802 34.5255 101.867 33.2286 101.789C28.203 101.475 23.1118 101.515 18.1722 100.673C11.0476 99.4619 6.60551 94.9962 5.27905 87.7831C4.69228 84.5906 4.34311 81.3509 3.98344 78.1211C3.36386 72.558 2.53951 66.9988 2.30257 61.4168C1.71843 47.6337 1.41716 33.8316 1.00564 20.0374C0.909158 16.7859 0.718824 13.5311 0.788396 10.2829C0.902305 8.97763 1.25072 7.70361 1.81689 6.52207C3.03899 3.56855 5.32566 2.80524 8.48137 2.72714C18.6828 2.47445 28.8711 1.73208 39.0719 1.40982C49.2727 1.08755 59.4794 1.04306 69.6836 0.877663C74.0601 0.806779 78.4359 0.694513 82.8104 0.68073C86.8016 0.670885 88.3945 1.76236 89.0561 5.75421C89.8726 10.3926 90.3675 15.082 90.5368 19.7887C90.8997 34.0489 91.6578 48.262 94.0279 62.3523C94.2005 63.3479 94.2937 64.3556 94.3061 65.366C94.3337 70.3993 94.3232 75.4334 94.314 80.4669C94.314 81.2545 94.2484 82.0368 94.2175 82.8218C93.9498 89.2946 90.6221 93.4919 84.6238 95.6854C79.5398 97.4929 74.2189 98.547 68.8304 98.8154C67.7271 98.8916 66.6317 98.9913 65.3694 99.0891ZM69.5228 19.1475C67.8163 22.8663 68.1051 26.1814 67.5479 29.3397C66.8876 33.0808 66.3475 36.8988 65.1194 40.4653C63.598 44.8864 59.232 46.1098 55.1948 43.747C54.1086 43.1413 53.1644 42.3103 52.4254 41.3101C51.6862 40.3097 51.1695 39.1632 50.9096 37.9469C50.2139 34.6712 49.8713 31.3179 49.4164 27.9942C49.1434 25.9996 49.0529 23.9728 48.6492 22.0084C48.5286 21.6553 48.3229 21.3372 48.0504 21.0823C47.7779 20.8274 47.4468 20.6436 47.0864 20.5468C46.608 20.4983 45.7738 21.3199 45.5467 21.925C44.8352 23.8074 44.3692 25.7817 43.745 27.7008C43.0887 29.7171 42.0655 31.3704 39.6659 31.6389C37.2099 31.9165 35.1332 31.1794 33.8396 29.0962C32.9719 27.6975 32.527 26.0338 31.9179 24.4783C31.5057 23.4236 31.1394 22.351 30.7528 21.2865L29.8339 21.4393C29.4999 23.2796 29.2889 25.1401 29.2025 27.0084C29.2557 30.7069 29.7822 34.4065 29.6942 38.0965C29.6053 41.329 29.2024 44.5454 28.4911 47.7C28.2981 48.8257 27.753 49.8611 26.9342 50.6574C26.1155 51.4537 25.0654 51.9699 23.9348 52.1316C21.2077 52.5419 19.2393 51.0395 18.1492 48.8906C16.8681 46.2877 15.886 43.548 15.2219 40.7239C14.4724 37.6851 14.2571 34.5189 13.6723 31.4334C13.3704 29.8405 13.2457 28.0566 11.5877 27.1246C8.13476 28.6217 7.74693 29.0798 7.88147 32.2729C8.10811 37.6549 8.38791 43.0325 8.72087 48.4057C9.02541 53.22 9.4389 58.0275 9.82023 62.8372C10.0499 65.731 10.3552 66.0081 13.3048 66.1531C13.5286 66.1636 13.7537 66.1647 13.9782 66.1615C24.5255 66.0177 35.0781 66.0304 45.6189 65.6884C58.4018 65.2769 71.1755 64.5725 83.9491 63.9758C84.7374 63.8839 85.5191 63.7394 86.2883 63.5429C85.5539 53.0139 84.8332 42.6803 84.104 32.2235C80.1004 32.6226 76.8259 31.7216 73.9636 29.4972C70.8499 27.0773 71.5391 22.947 69.5209 19.1481L69.5228 19.1475ZM9.79595 71.8761C10.1298 76.8668 10.9354 81.8143 12.2021 86.6528C13.2569 90.6624 15.7004 93.0758 19.725 93.8995C21.0342 94.1961 22.3637 94.3937 23.7024 94.4902C28.4077 94.7291 33.117 94.884 37.8249 95.0697C40.5605 95.176 42.2394 96.5793 42.7475 99.2447C43.2251 101.317 43.5271 103.427 43.6499 105.55C43.795 113.735 43.7116 121.925 43.8546 130.11C43.9255 134.142 44.1867 138.183 44.6081 142.191C44.7512 143.545 45.2986 145.276 46.2805 146.038C48.5528 147.797 51.3408 147.528 54.0252 146.811C56.3093 146.2 56.8764 144.296 56.9322 142.367C57.1258 135.652 57.3332 128.928 57.1947 122.218C57.0267 114.145 56.4813 106.084 56.1728 98.0154C56.1375 96.786 56.3111 95.5587 56.6861 94.3865C57.4304 92.0381 59.1054 91.1192 61.5916 91.2577C62.9114 91.3142 64.2337 91.2551 65.5434 91.0818C67.7684 90.8134 69.998 90.5226 72.1935 90.0822C75.8256 89.4397 79.4224 88.6153 82.9718 87.6111C84.3042 87.2009 85.9044 85.9151 86.3441 84.6628C87.9114 80.2089 88.0427 75.5397 87.664 70.4308C85.9621 70.4308 84.6448 70.3829 83.3322 70.438C70.4443 70.9808 57.5603 71.6437 44.6691 72.0598C36.268 72.3309 27.863 72.2961 19.4593 72.304C16.345 72.3053 13.2384 72.0369 9.79135 71.8767L9.79595 71.8761ZM37.92 27.7829L38.7431 27.7671C39.1369 26.7826 39.5779 25.8172 39.9054 24.8136C40.4607 23.1071 40.8099 21.3277 41.4807 19.6764C42.6556 16.8003 44.5838 15.8276 47.6725 16.3658C50.1627 16.799 52.0878 18.1177 53.0283 20.4798C53.5665 21.9488 53.933 23.475 54.1205 25.0282C54.6232 28.4667 54.8667 31.9485 55.4987 35.3615C55.8355 36.8774 56.5002 38.3012 57.4461 39.5327C58.2567 40.6347 59.5182 40.4777 60.1509 39.1683C60.766 37.9717 61.1944 36.6878 61.4209 35.3615C61.9984 31.2574 62.3903 27.1278 62.8917 23.0119C63.1936 20.5369 63.7568 18.1347 65.4803 16.2005C67.859 13.5305 71.0593 13.4733 73.2987 16.2359C74.2163 17.5004 74.9442 18.8917 75.4607 20.3662C75.9202 21.499 76.016 22.7718 76.3907 23.9447C77.4547 27.2697 79.845 27.9089 82.5347 25.7706C83.0815 25.3857 83.5179 24.8635 83.7988 24.2565C84.0797 23.6495 84.1959 22.9791 84.1355 22.313C83.9872 19.4008 83.9826 16.4794 83.7798 13.5718C83.6256 11.377 83.2547 9.19678 82.9561 6.81162C57.1271 4.87608 31.7978 7.15813 6.08965 8.10457C6.54384 13.2509 6.96195 17.9877 7.40235 23.0107C8.23262 22.7704 8.74121 22.6169 9.25316 22.4771C12.989 21.4525 15.6406 22.4659 17.4127 25.8539C18.1715 27.3529 18.7256 28.9469 19.0602 30.5933C19.834 34.2123 20.3636 37.8825 21.1145 41.5062C21.4545 43.147 22.0846 44.7297 22.5827 46.339C24.4539 43.8495 24.559 41.3552 24.3155 38.7712C23.9473 34.8647 23.495 30.9543 23.4038 27.0379C23.3277 23.7786 23.732 20.5001 25.9117 17.8019C28.6684 14.3889 32.6365 14.6588 34.6469 18.5653C35.6038 20.4247 35.9458 22.5952 36.6251 24.6036C36.9901 25.6872 37.481 26.7255 37.9155 27.7835L37.92 27.7829Z"/>
+    </svg>
+  `;
+
+  button.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
+    margin-left: 8px;
+  `;
+
+  button.innerHTML = `
+    ${createIcon}
+    <span>Create Icon</span>
+  `;
+
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#F85D41';
+    button.style.borderColor = '#F85D41';
+    button.style.transform = 'translateY(-1px)';
+  };
+
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+  };
+
+  button.onclick = (e) => {
+    e.preventDefault();
+    openIconArtModal();
+  };
+
+  return button;
+}
+
+function openIconArtModal() {
+  const existingModal = document.querySelector('#yoto-icon-art-modal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-icon-art-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+
+  content.innerHTML = `
+    <style>
+      .mode-select-btn {
+        padding: 20px;
+        background: #ffffff;
+        border: 2px solid #3b82f6;
+        border-radius: 8px;
+        cursor: pointer;
+        width: 200px;
+        text-align: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-style: preserve-3d;
+        transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+      }
+
+      .mode-select-btn:hover {
+        border-color: #f45536;
+        transform: perspective(1000px) rotateX(-5deg) rotateY(5deg) scale(1.05);
+        box-shadow: 0 10px 30px rgba(244, 85, 54, 0.2);
+      }
+
+      .mode-select-btn:active {
+        transform: perspective(1000px) rotateX(-2deg) rotateY(2deg) scale(1.02);
+      }
+
+      .mode-select-btn img {
+        transition: all 0.3s ease;
+      }
+
+      .mode-select-btn:hover img {
+        filter: hue-rotate(-10deg) saturate(1.2);
+      }
+
+      #blank-mode-btn:hover {
+        transform: perspective(1000px) rotateX(-5deg) rotateY(-5deg) scale(1.05);
+      }
+
+      #blank-mode-btn:active {
+        transform: perspective(1000px) rotateX(-2deg) rotateY(-2deg) scale(1.02);
+      }
+    </style>
+
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Create Icon</h2>
+    <p style="margin-bottom: 20px; color: #666;">Choose how you want to create your custom Yoto icon.</p>
+
+    <div id="mode-selection" style="margin-bottom: 20px; display: flex; gap: 20px; justify-content: center;">
+      <button id="image-mode-btn" class="mode-select-btn">
+        <img src="${chrome.runtime.getURL('assets/images/upload-image-150.png')}"
+             style="width: 150px; height: auto; object-fit: contain;"
+             alt="Upload Image">
+      </button>
+      <button id="blank-mode-btn" class="mode-select-btn">
+        <img src="${chrome.runtime.getURL('assets/images/blank-canvas-150.png')}"
+             style="width: 150px; height: auto; object-fit: contain;"
+             alt="Blank Canvas">
+      </button>
+    </div>
+
+    <div id="upload-section" style="margin-bottom: 20px; display: none;">
+      <input type="file" id="artwork-upload" accept="image/*" style="display: none;">
+      <button id="upload-btn" style="
+        padding: 12px 24px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Choose Image</button>
+    </div>
+
+    <div id="editor-section" style="display: none;">
+      <div id="canvas-container" style="
+        position: relative;
+        margin: 20px auto;
+        width: 400px;
+        height: 400px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #f9f9f9;
+      ">
+        <img id="artwork-image" style="
+          position: absolute;
+          cursor: move;
+          user-select: none;
+          -webkit-user-drag: none;
+        ">
+        <div id="grid-overlay" style="
+          position: absolute;
+          width: 400px;
+          height: 400px;
+          border: 2px solid #9ca3af;
+          pointer-events: none;
+          box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5);
+          background: transparent;
+        "></div>
+        <canvas id="grid-lines" style="
+          position: absolute;
+          width: 400px;
+          height: 400px;
+          pointer-events: none;
+        "></canvas>
+        <canvas id="eraser-canvas" style="
+          position: absolute;
+          width: 400px;
+          height: 400px;
+          pointer-events: none;
+          cursor: crosshair;
+          display: none;
+        "></canvas>
+      </div>
+
+      <div id="scale-controls" style="margin: 20px 0; text-align: center;">
+        <label style="display: block; margin-bottom: 10px; color: #666;">Scale: <span id="scale-value">100%</span></label>
+        <input type="range" id="scale-slider" min="10" max="300" value="100" style="width: 300px;">
+      </div>
+
+      <div id="color-palette" style="margin: 20px auto; width: 400px;">
+        <div style="
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          padding: 10px;
+          background: white;
+        ">
+          <div id="preset-colors" style="
+            display: grid;
+            grid-template-columns: repeat(16, 22px);
+            gap: 2px;
+            margin-bottom: 10px;
+            justify-content: center;
+          ">
+            <!-- Row 1 - Grays, greens, reds/oranges -->
+            <button class="color-preset selected" data-color="#FFFFFF" style="width: 22px; height: 22px; background: #FFFFFF; border: 2px solid #3b82f6; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#D0D0D4" style="width: 22px; height: 22px; background: #D0D0D4; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#2E468B" style="width: 22px; height: 22px; background: #2E468B; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#435073" style="width: 22px; height: 22px; background: #435073; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#4E398C" style="width: 22px; height: 22px; background: #4E398C; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#7B95A7" style="width: 22px; height: 22px; background: #7B95A7; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#996CBF" style="width: 22px; height: 22px; background: #996CBF; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#84C5D1" style="width: 22px; height: 22px; background: #84C5D1; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#D0D0D4" style="width: 22px; height: 22px; background: #D0D0D4; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#F1F4F7" style="width: 22px; height: 22px; background: #F1F4F7; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#D02829" style="width: 22px; height: 22px; background: #D02829; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#154237" style="width: 22px; height: 22px; background: #154237; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#235C44" style="width: 22px; height: 22px; background: #235C44; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#317545" style="width: 22px; height: 22px; background: #317545; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#428F42" style="width: 22px; height: 22px; background: #428F42; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#6EA84A" style="width: 22px; height: 22px; background: #6EA84A; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <!-- Row 2 - Greens, reds, oranges, yellows -->
+            <button class="color-preset" data-color="#A3C285" style="width: 22px; height: 22px; background: #A3C285; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#CFDB72" style="width: 22px; height: 22px; background: #CFDB72; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#F6D010" style="width: 22px; height: 22px; background: #F6D010; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#B4241A" style="width: 22px; height: 22px; background: #B4241A; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#B34428" style="width: 22px; height: 22px; background: #B34428; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#D16630" style="width: 22px; height: 22px; background: #D16630; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#E68D3E" style="width: 22px; height: 22px; background: #E68D3E; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#EDAC4A" style="width: 22px; height: 22px; background: #EDAC4A; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#FFCB83" style="width: 22px; height: 22px; background: #FFCB83; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#FFEA63" style="width: 22px; height: 22px; background: #FFEA63; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#5C1E1C" style="width: 22px; height: 22px; background: #5C1E1C; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#7B362A" style="width: 22px; height: 22px; background: #7B362A; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#915237" style="width: 22px; height: 22px; background: #915237; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#A07044" style="width: 22px; height: 22px; background: #A07044; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#C78C58" style="width: 22px; height: 22px; background: #C78C58; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#E0AB72" style="width: 22px; height: 22px; background: #E0AB72; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <!-- Row 3 - Browns, purples, pinks, blues -->
+            <button class="color-preset" data-color="#EBC48A" style="width: 22px; height: 22px; background: #EBC48A; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#F5D9A6" style="width: 22px; height: 22px; background: #F5D9A6; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#5F1A4D" style="width: 22px; height: 22px; background: #5F1A4D; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#8D2975" style="width: 22px; height: 22px; background: #8D2975; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#9A3989" style="width: 22px; height: 22px; background: #9A3989; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#B350BD" style="width: 22px; height: 22px; background: #B350BD; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#CC6B8A" style="width: 22px; height: 22px; background: #CC6B8A; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#E8948F" style="width: 22px; height: 22px; background: #E8948F; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#F7B5AA" style="width: 22px; height: 22px; background: #F7B5AA; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#FD1662" style="width: 22px; height: 22px; background: #FD1662; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#212870" style="width: 22px; height: 22px; background: #212870; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#2C488F" style="width: 22px; height: 22px; background: #2C488F; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#3973AD" style="width: 22px; height: 22px; background: #3973AD; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#534CCC" style="width: 22px; height: 22px; background: #534CCC; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#74C6DA" style="width: 22px; height: 22px; background: #74C6DA; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+            <button class="color-preset" data-color="#A1E2F8" style="width: 22px; height: 22px; background: #A1E2F8; border: 1px solid #ddd; cursor: pointer; border-radius: 2px;"></button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="color" id="color-picker" value="#FFFFFF" style="
+              width: 40px;
+              height: 24px;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+              cursor: pointer;
+            ">
+            <span style="color: #666; font-size: 14px;">Custom Color</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <button id="reset-position" style="
+          padding: 8px 16px;
+          background: #f3f4f6;
+          color: #374151;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          margin-right: 10px;
+        ">Reset</button>
+        <button id="toggle-paint" style="
+          padding: 8px 16px;
+          background: #f3f4f6;
+          color: #374151;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          margin-right: 10px;
+          display: none;
+        ">
+          <span id="paint-text">Paint</span>
+        </button>
+        <button id="toggle-eraser" style="
+          padding: 8px 16px;
+          background: #f3f4f6;
+          color: #374151;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          margin-right: 10px;
+        ">
+          <span id="eraser-text">Eraser</span>
+        </button>
+        <button id="undo-action" style="
+          padding: 8px 16px;
+          background: #f3f4f6;
+          color: #374151;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          margin-right: 10px;
+        ">Undo</button>
+        <button id="preview-icon" style="
+          padding: 8px 16px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+        ">Preview Icon</button>
+      </div>
+
+      <div id="preview-section" style="display: none; margin-top: 20px; padding: 20px; background: #f9f9f9; border-radius: 8px;">
+        <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Icon Preview</h3>
+        <div style="display: flex; align-items: center; gap: 20px;">
+          <canvas id="preview-canvas" width="16" height="16" style="
+            width: 64px;
+            height: 64px;
+            image-rendering: pixelated;
+            border: 1px solid #e0e0e0;
+          "></canvas>
+          <div>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;">Actual size: 16x16 pixels</p>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;">Format: PNG</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+    ">
+      <button id="cancel-art" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        color: #374151;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Cancel</button>
+      <button id="upload-icon" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        display: none;
+      ">Upload Icon to Yoto</button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  initializeIconArtEditor();
+
+  document.getElementById('cancel-art').onclick = () => modal.remove();
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.remove();
+  };
+}
+
+function initializeIconArtEditor() {
+  let imageData = null;
+  let imageScale = 1;
+  let imageX = 0;
+  let imageY = 0;
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let eraserMode = false;
+  let paintMode = true; // Paint mode is now default
+  let erasedPixels = new Set();
+  let eraserHistory = [];
+  let paintedPixels = new Map();
+  let paintHistory = [];
+  let actionHistory = []; // Combined history for undo
+  let selectedColor = '#FFFFFF'; // Default to white
+  let isBlankCanvas = false;
+  let isPainting = false; // Track if we're actively painting/erasing by dragging
+  let lastPaintedPixel = null; // Track last painted pixel to avoid duplicates
+  let currentStrokeActions = [];
+
+  const uploadBtn = document.getElementById('upload-btn');
+  const fileInput = document.getElementById('artwork-upload');
+  const editorSection = document.getElementById('editor-section');
+  const artworkImage = document.getElementById('artwork-image');
+  const canvasContainer = document.getElementById('canvas-container');
+  const gridOverlay = document.getElementById('grid-overlay');
+  const gridCanvas = document.getElementById('grid-lines');
+  const scaleSlider = document.getElementById('scale-slider');
+  const scaleValue = document.getElementById('scale-value');
+  const previewCanvas = document.getElementById('preview-canvas');
+  const uploadIconBtn = document.getElementById('upload-icon');
+  const eraserCanvas = document.getElementById('eraser-canvas');
+  const togglePaintBtn = document.getElementById('toggle-paint');
+  const toggleEraserBtn = document.getElementById('toggle-eraser');
+  const undoBtn = document.getElementById('undo-action');
+  const paintText = document.getElementById('paint-text');
+  const eraserText = document.getElementById('eraser-text');
+  const colorPicker = document.getElementById('color-picker');
+  const colorPresets = document.querySelectorAll('.color-preset');
+  const modeSelection = document.getElementById('mode-selection');
+  const uploadSection = document.getElementById('upload-section');
+  const scaleControls = document.getElementById('scale-controls');
+  const colorPalette = document.getElementById('color-palette');
+
+  function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+  }
+
+  const containerSize = 400;
+  const gridSize = 400;
+  const gridX = 0;
+  const gridY = 0;
+  gridOverlay.style.left = `${gridX}px`;
+  gridOverlay.style.top = `${gridY}px`;
+  gridCanvas.style.left = `${gridX}px`;
+  gridCanvas.style.top = `${gridY}px`;
+  eraserCanvas.style.left = `${gridX}px`;
+  eraserCanvas.style.top = `${gridY}px`;
+
+  const ctx = gridCanvas.getContext('2d');
+  gridCanvas.width = gridSize;
+  gridCanvas.height = gridSize;
+  ctx.strokeStyle = 'rgba(156, 163, 175, 0.3)';
+  ctx.lineWidth = 0.5;
+
+  for (let i = 1; i < 16; i++) {
+    const pos = (i * gridSize) / 16;
+    ctx.beginPath();
+    ctx.moveTo(pos, 0);
+    ctx.lineTo(pos, gridSize);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, pos);
+    ctx.lineTo(gridSize, pos);
+    ctx.stroke();
+  }
+
+  document.getElementById('image-mode-btn').onclick = () => {
+    modeSelection.style.display = 'none';
+    uploadSection.style.display = 'block';
+    isBlankCanvas = false;
+  };
+
+  document.getElementById('blank-mode-btn').onclick = () => {
+    modeSelection.style.display = 'none';
+    editorSection.style.display = 'block';
+    uploadIconBtn.style.display = 'inline-block';
+    scaleControls.style.display = 'none';
+    isBlankCanvas = true;
+    paintMode = true;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, 16, 16);
+
+    artworkImage.style.display = 'none';
+
+    eraserCanvas.style.display = 'block';
+    eraserCanvas.style.pointerEvents = 'auto';
+    colorPalette.style.display = 'block';
+  };
+
+  uploadBtn.onclick = () => fileInput.click();
+
+  fileInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        imageData = img;
+        artworkImage.src = event.target.result;
+
+        // Initial positioning - center the image
+        // Calculate scale to fit the image nicely in the container
+        const initialScale = Math.min(containerSize / img.width, containerSize / img.height);
+        const scalePercent = Math.round(initialScale * 100);
+
+        // Ensure scale is within slider bounds (10-300%)
+        const boundedScalePercent = Math.max(10, Math.min(300, scalePercent));
+        imageScale = boundedScalePercent / 100;
+
+        scaleSlider.value = boundedScalePercent;
+        scaleValue.textContent = `${boundedScalePercent}%`;
+
+        // Center the image initially
+        const scaledWidth = imageData.width * imageScale;
+        const scaledHeight = imageData.height * imageScale;
+        imageX = (containerSize - scaledWidth) / 2;
+        imageY = (containerSize - scaledHeight) / 2;
+
+        updateImagePosition();
+        editorSection.style.display = 'block';
+        uploadIconBtn.style.display = 'inline-block';
+
+        // Initialize without paint mode for image workflow - user needs to position/scale first
+        paintMode = false;
+        eraserMode = false;
+        eraserCanvas.style.display = 'none';
+        eraserCanvas.style.pointerEvents = 'none';
+        artworkImage.style.pointerEvents = 'auto';
+        colorPalette.style.display = 'none';
+
+        // Show the paint button for image mode
+        togglePaintBtn.style.display = 'inline-block';
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  function updateImagePosition() {
+    if (!imageData) return;
+
+    const scaledWidth = imageData.width * imageScale;
+    const scaledHeight = imageData.height * imageScale;
+
+    artworkImage.style.width = `${scaledWidth}px`;
+    artworkImage.style.height = `${scaledHeight}px`;
+    artworkImage.style.left = `${imageX}px`;
+    artworkImage.style.top = `${imageY}px`;
+  }
+
+  // Paint button toggle (only visible for image mode)
+  togglePaintBtn.onclick = () => {
+    paintMode = !paintMode;
+
+    if (paintMode) {
+      // Disable eraser if active
+      if (eraserMode) {
+        eraserMode = false;
+        eraserText.textContent = 'Eraser';
+        toggleEraserBtn.style.background = '#f3f4f6';
+        toggleEraserBtn.style.color = '#374151';
+      }
+
+      paintText.textContent = 'Disable Paint';
+      togglePaintBtn.style.background = '#10b981';
+      togglePaintBtn.style.color = 'white';
+      eraserCanvas.style.display = 'block';
+      eraserCanvas.style.pointerEvents = 'auto';
+      artworkImage.style.pointerEvents = 'none';
+      colorPalette.style.display = 'block';
+      drawPaintedPixels();
+    } else {
+      paintText.textContent = 'Paint';
+      togglePaintBtn.style.background = '#f3f4f6';
+      togglePaintBtn.style.color = '#374151';
+      eraserCanvas.style.display = 'none';
+      eraserCanvas.style.pointerEvents = 'none';
+      artworkImage.style.pointerEvents = 'auto';
+      colorPalette.style.display = 'none';
+    }
+  };
+
+  // Toggle eraser mode
+  toggleEraserBtn.onclick = () => {
+    eraserMode = !eraserMode;
+    if (eraserMode) {
+      // Disable paint mode when eraser is active
+      if (paintMode) {
+        paintMode = false;
+        paintText.textContent = 'Paint';
+        togglePaintBtn.style.background = '#f3f4f6';
+        togglePaintBtn.style.color = '#374151';
+      }
+
+      eraserText.textContent = 'Disable Eraser';
+      toggleEraserBtn.style.background = '#ef4444';
+      toggleEraserBtn.style.color = 'white';
+      eraserCanvas.style.display = 'block';
+      eraserCanvas.style.pointerEvents = 'auto';
+      artworkImage.style.pointerEvents = 'none';
+      colorPalette.style.display = 'none';
+      drawErasedPixels(); // This will now also draw painted pixels
+    } else {
+      eraserText.textContent = 'Eraser';
+      toggleEraserBtn.style.background = '#f3f4f6';
+      toggleEraserBtn.style.color = '#374151';
+
+      if (isBlankCanvas) {
+        // For blank canvas, re-enable paint mode
+        paintMode = true;
+        eraserCanvas.style.display = 'block';
+        eraserCanvas.style.pointerEvents = 'auto';
+        colorPalette.style.display = 'block';
+        drawPaintedPixels();
+      } else {
+        // For image mode, return to positioning mode
+        eraserCanvas.style.display = 'none';
+        eraserCanvas.style.pointerEvents = 'none';
+        artworkImage.style.pointerEvents = 'auto';
+        colorPalette.style.display = 'none';
+      }
+    }
+  };
+
+  // Undo last action (combined for paint and erase)
+  undoBtn.onclick = () => {
+    if (actionHistory.length > 0) {
+      const lastAction = actionHistory.pop();
+
+      if (lastAction.type === 'stroke') {
+        // Undo a whole stroke (multiple pixels)
+        for (let i = lastAction.actions.length - 1; i >= 0; i--) {
+          const action = lastAction.actions[i];
+          if (action.type === 'erase') {
+            erasedPixels.delete(action.pixelKey);
+            // Restore painted pixel if it was painted before
+            if (action.previousPaint) {
+              paintedPixels.set(action.pixelKey, action.previousPaint);
+            }
+          } else if (action.type === 'paint') {
+            if (action.previousColor) {
+              paintedPixels.set(action.pixelKey, action.previousColor);
+            } else {
+              paintedPixels.delete(action.pixelKey);
+            }
+          }
+        }
+      } else if (lastAction.type === 'erase') {
+        erasedPixels.delete(lastAction.pixelKey);
+      } else if (lastAction.type === 'paint') {
+        if (lastAction.previousColor) {
+          paintedPixels.set(lastAction.pixelKey, lastAction.previousColor);
+        } else {
+          paintedPixels.delete(lastAction.pixelKey);
+        }
+      }
+
+      // Redraw based on current mode
+      if (eraserMode) {
+        drawErasedPixels();
+      } else {
+        drawPaintedPixels();
+      }
+    }
+  };
+
+  // Color picker handlers
+  colorPicker.onchange = (e) => {
+    selectedColor = e.target.value;
+    // Remove selection from all presets
+    colorPresets.forEach(p => {
+      p.classList.remove('selected');
+      p.style.border = 'none';
+    });
+  };
+
+  colorPresets.forEach(preset => {
+    preset.onclick = () => {
+      selectedColor = preset.dataset.color;
+      colorPicker.value = selectedColor;
+
+      // Update selection visual
+      colorPresets.forEach(p => {
+        p.classList.remove('selected');
+        p.style.border = 'none';
+      });
+      preset.classList.add('selected');
+      preset.style.border = '2px solid #3b82f6';
+    };
+  });
+
+  // Draw painted pixels
+  function drawPaintedPixels() {
+    const eraserCtx = eraserCanvas.getContext('2d');
+    eraserCanvas.width = gridSize;
+    eraserCanvas.height = gridSize;
+    eraserCtx.clearRect(0, 0, gridSize, gridSize);
+
+    // First draw erased pixels as white
+    erasedPixels.forEach(pixelKey => {
+      const [px, py] = pixelKey.split(',').map(Number);
+      const pixelSize = gridSize / 16;
+      const x = px * pixelSize;
+      const y = py * pixelSize;
+
+      eraserCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      eraserCtx.fillRect(x, y, pixelSize, pixelSize);
+    });
+
+    // Then draw painted pixels
+    paintedPixels.forEach((color, pixelKey) => {
+      const [px, py] = pixelKey.split(',').map(Number);
+      const pixelSize = gridSize / 16;
+      const x = px * pixelSize;
+      const y = py * pixelSize;
+
+      eraserCtx.fillStyle = color;
+      eraserCtx.fillRect(x, y, pixelSize, pixelSize);
+
+      // Add subtle border
+      eraserCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+      eraserCtx.lineWidth = 0.5;
+      eraserCtx.strokeRect(x, y, pixelSize, pixelSize);
+    });
+  }
+
+  // Draw erased pixels (and painted pixels to keep them visible)
+  function drawErasedPixels() {
+    const eraserCtx = eraserCanvas.getContext('2d');
+    eraserCanvas.width = gridSize;
+    eraserCanvas.height = gridSize;
+    eraserCtx.clearRect(0, 0, gridSize, gridSize);
+
+    // First draw painted pixels so they remain visible
+    paintedPixels.forEach((color, pixelKey) => {
+      const [px, py] = pixelKey.split(',').map(Number);
+      const pixelSize = gridSize / 16;
+      const x = px * pixelSize;
+      const y = py * pixelSize;
+
+      eraserCtx.fillStyle = color;
+      eraserCtx.fillRect(x, y, pixelSize, pixelSize);
+
+      // Add subtle border
+      eraserCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+      eraserCtx.lineWidth = 0.5;
+      eraserCtx.strokeRect(x, y, pixelSize, pixelSize);
+    });
+
+    // Then draw white squares for erased pixels
+    eraserCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+
+    erasedPixels.forEach(pixelKey => {
+      const [px, py] = pixelKey.split(',').map(Number);
+      const pixelSize = gridSize / 16;
+      const x = px * pixelSize;
+      const y = py * pixelSize;
+
+      // Fill with white to show erased area
+      eraserCtx.fillRect(x, y, pixelSize, pixelSize);
+
+      // Add subtle border for visibility
+      eraserCtx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
+      eraserCtx.lineWidth = 0.5;
+      eraserCtx.strokeRect(x, y, pixelSize, pixelSize);
+    });
+  }
+
+  // Helper function to paint/erase a pixel
+  function processPixel(x, y, isNewStroke = false) {
+    const pixelSize = gridSize / 16;
+    const px = Math.floor(x / pixelSize);
+    const py = Math.floor(y / pixelSize);
+
+    if (px >= 0 && px < 16 && py >= 0 && py < 16) {
+      const pixelKey = `${px},${py}`;
+
+      // Skip if we just painted this pixel (avoid duplicates while dragging)
+      if (!isNewStroke && lastPaintedPixel === pixelKey) return;
+      lastPaintedPixel = pixelKey;
+
+      if (paintMode) {
+        // Paint mode
+        const previousColor = paintedPixels.get(pixelKey) || null;
+
+        // Only paint if it's not already the selected color
+        if (!paintedPixels.has(pixelKey) || paintedPixels.get(pixelKey) !== selectedColor) {
+          paintedPixels.set(pixelKey, selectedColor);
+          const action = { type: 'paint', pixelKey, previousColor, newColor: selectedColor };
+          currentStrokeActions.push(action);
+          // Remove from erased if it was erased
+          erasedPixels.delete(pixelKey);
+          drawPaintedPixels();
+        }
+      } else if (eraserMode) {
+        // Eraser mode
+        if (!erasedPixels.has(pixelKey)) {
+          // Store previous paint color if there was one
+          const previousPaint = paintedPixels.get(pixelKey) || null;
+
+          // Erase the pixel
+          erasedPixels.add(pixelKey);
+          const action = { type: 'erase', pixelKey, previousPaint };
+          currentStrokeActions.push(action);
+          // Remove paint if it was painted
+          paintedPixels.delete(pixelKey);
+          drawErasedPixels();
+        }
+      }
+    }
+  }
+
+  // Mouse down - start painting/erasing
+  eraserCanvas.onmousedown = (e) => {
+    if (!paintMode && !eraserMode) return;
+
+    isPainting = true;
+    currentStrokeActions = []; // Start new stroke
+    lastPaintedPixel = null;
+
+    const rect = eraserCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    processPixel(x, y, true); // Process the initial pixel
+    e.preventDefault();
+  };
+
+  // Mouse move - continue painting/erasing if mouse is down
+  eraserCanvas.onmousemove = (e) => {
+    if (!isPainting) return;
+
+    const rect = eraserCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    processPixel(x, y);
+    e.preventDefault();
+  };
+
+  // Mouse up - stop painting/erasing and save to history
+  eraserCanvas.onmouseup = (e) => {
+    if (!isPainting) return;
+
+    isPainting = false;
+    lastPaintedPixel = null;
+
+    // Add all actions from this stroke to the main history as a single undo-able group
+    if (currentStrokeActions.length > 0) {
+      if (currentStrokeActions.length === 1) {
+        // Single pixel - add as single action
+        actionHistory.push(currentStrokeActions[0]);
+      } else {
+        // Multiple pixels - add as a group
+        actionHistory.push({ type: 'stroke', actions: currentStrokeActions });
+      }
+    }
+    currentStrokeActions = [];
+  };
+
+  // Mouse leave - stop painting if we leave the canvas
+  eraserCanvas.onmouseleave = (e) => {
+    if (!isPainting) return;
+
+    isPainting = false;
+    lastPaintedPixel = null;
+
+    // Save current stroke to history
+    if (currentStrokeActions.length > 0) {
+      if (currentStrokeActions.length === 1) {
+        actionHistory.push(currentStrokeActions[0]);
+      } else {
+        actionHistory.push({ type: 'stroke', actions: currentStrokeActions });
+      }
+    }
+    currentStrokeActions = [];
+  };
+
+  // Dragging functionality
+  artworkImage.onmousedown = (e) => {
+    if (eraserMode || paintMode) return; // Can't drag in eraser or paint mode
+    isDragging = true;
+    dragStartX = e.clientX - imageX;
+    dragStartY = e.clientY - imageY;
+    artworkImage.style.cursor = 'grabbing';
+    e.preventDefault();
+  };
+
+  document.onmousemove = (e) => {
+    if (!isDragging || eraserMode || paintMode) return; // Can't drag in eraser or paint mode
+    imageX = e.clientX - dragStartX;
+    imageY = e.clientY - dragStartY;
+    updateImagePosition();
+  };
+
+  document.onmouseup = () => {
+    // Stop image dragging
+    if (isDragging && !eraserMode && !paintMode) {
+      isDragging = false;
+      artworkImage.style.cursor = 'move';
+    }
+
+    // Stop painting if mouse is released anywhere
+    if (isPainting) {
+      isPainting = false;
+      lastPaintedPixel = null;
+
+      // Save current stroke to history
+      if (currentStrokeActions.length > 0) {
+        if (currentStrokeActions.length === 1) {
+          actionHistory.push(currentStrokeActions[0]);
+        } else {
+          actionHistory.push({ type: 'stroke', actions: currentStrokeActions });
+        }
+      }
+      currentStrokeActions = [];
+    }
+  };
+
+  // Scale slider
+  scaleSlider.oninput = () => {
+    imageScale = scaleSlider.value / 100;
+    scaleValue.textContent = `${scaleSlider.value}%`;
+    updateImagePosition();
+  };
+
+  // Reset position
+  document.getElementById('reset-position').onclick = () => {
+    imageX = 0;
+    imageY = 0;
+    imageScale = 1;
+    scaleSlider.value = 100;
+    scaleValue.textContent = '100%';
+    updateImagePosition();
+
+    // Clear all editing
+    erasedPixels.clear();
+    paintedPixels.clear();
+    actionHistory = [];
+
+    // Redraw based on current mode
+    if (eraserMode) {
+      drawErasedPixels();
+    } else {
+      drawPaintedPixels();
+    }
+  };
+
+  // Preview icon
+  document.getElementById('preview-icon').onclick = () => {
+    if (!imageData && !isBlankCanvas) return;
+
+    const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
+    // Clear with transparency
+    previewCtx.clearRect(0, 0, 16, 16);
+
+    // For blank canvas mode, just show the painted pixels
+    if (isBlankCanvas) {
+      // White background for blank canvas
+      previewCtx.fillStyle = 'white';
+      previewCtx.fillRect(0, 0, 16, 16);
+    } else if (imageData) {
+      // Calculate the portion of the image that's in the grid
+      const sourceX = (gridX - imageX) / imageScale;
+      const sourceY = (gridY - imageY) / imageScale;
+      const sourceWidth = gridSize / imageScale;
+      const sourceHeight = gridSize / imageScale;
+
+      // Draw the cropped image to the 16x16 canvas
+      previewCtx.drawImage(
+        imageData,
+        sourceX, sourceY, sourceWidth, sourceHeight,
+        0, 0, 16, 16
+      );
+    }
+
+    // Process pixels to convert black to dark gray, apply erased pixels, and painted pixels
+    const imageData16 = previewCtx.getImageData(0, 0, 16, 16);
+    const data = imageData16.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const pixelIndex = i / 4;
+      const px = pixelIndex % 16;
+      const py = Math.floor(pixelIndex / 16);
+      const pixelKey = `${px},${py}`;
+
+      // Check for painted pixels first
+      if (paintedPixels.has(pixelKey)) {
+        const color = paintedPixels.get(pixelKey);
+        const rgb = hexToRgb(color);
+        data[i] = rgb.r;     // Red
+        data[i + 1] = rgb.g; // Green
+        data[i + 2] = rgb.b; // Blue
+        data[i + 3] = 255;   // Alpha (opaque)
+      }
+      // If this pixel is erased, make it transparent
+      else if (erasedPixels.has(pixelKey)) {
+        data[i] = 0;     // Red
+        data[i + 1] = 0; // Green
+        data[i + 2] = 0; // Blue
+        data[i + 3] = 0; // Alpha (transparent)
+      } else if (!isBlankCanvas) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+
+        // If pixel is very dark (near black), lighten it to dark gray
+        if (a > 0 && r < 40 && g < 40 && b < 40) {
+          data[i] = Math.max(40, r);     // Red
+          data[i + 1] = Math.max(40, g); // Green
+          data[i + 2] = Math.max(40, b); // Blue
+        }
+      }
+    }
+
+    previewCtx.putImageData(imageData16, 0, 0);
+
+    document.getElementById('preview-section').style.display = 'block';
+  };
+
+  // Upload icon to Yoto
+  uploadIconBtn.onclick = async () => {
+    if (!imageData && !isBlankCanvas) return;
+
+    uploadIconBtn.disabled = true;
+    uploadIconBtn.textContent = 'Uploading...';
+
+    try {
+      // Create 16x16 canvas with transparent background
+      const iconCanvas = document.createElement('canvas');
+      iconCanvas.width = 16;
+      iconCanvas.height = 16;
+      const iconCtx = iconCanvas.getContext('2d', { alpha: true, willReadFrequently: true });
+
+      // Clear canvas to ensure transparency
+      iconCtx.clearRect(0, 0, 16, 16);
+
+      if (isBlankCanvas) {
+        // For blank canvas, start with white background
+        iconCtx.fillStyle = 'white';
+        iconCtx.fillRect(0, 0, 16, 16);
+      } else if (imageData) {
+        // Calculate the portion of the image that's in the grid
+        const sourceX = (gridX - imageX) / imageScale;
+        const sourceY = (gridY - imageY) / imageScale;
+        const sourceWidth = gridSize / imageScale;
+        const sourceHeight = gridSize / imageScale;
+
+        // Draw the cropped image
+        iconCtx.drawImage(
+          imageData,
+          sourceX, sourceY, sourceWidth, sourceHeight,
+          0, 0, 16, 16
+        );
+      }
+
+      // Process pixels to convert black to dark gray, apply erased pixels, and painted pixels
+      const imageData16 = iconCtx.getImageData(0, 0, 16, 16);
+      const data = imageData16.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const pixelIndex = i / 4;
+        const px = pixelIndex % 16;
+        const py = Math.floor(pixelIndex / 16);
+        const pixelKey = `${px},${py}`;
+
+        // Check for painted pixels first
+        if (paintedPixels.has(pixelKey)) {
+          const color = paintedPixels.get(pixelKey);
+          const rgb = hexToRgb(color);
+          data[i] = rgb.r;     // Red
+          data[i + 1] = rgb.g; // Green
+          data[i + 2] = rgb.b; // Blue
+          data[i + 3] = 255;   // Alpha (opaque)
+        }
+        // If this pixel is erased, make it transparent
+        else if (erasedPixels.has(pixelKey)) {
+          data[i] = 0;     // Red
+          data[i + 1] = 0; // Green
+          data[i + 2] = 0; // Blue
+          data[i + 3] = 0; // Alpha (transparent)
+        } else if (!isBlankCanvas) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+
+          // If pixel is very dark (near black), lighten it to dark gray
+          if (a > 0 && r < 40 && g < 40 && b < 40) {
+            data[i] = Math.max(40, r);     // Red
+            data[i + 1] = Math.max(40, g); // Green
+            data[i + 2] = Math.max(40, b); // Blue
+          }
+        }
+      }
+
+      iconCtx.putImageData(imageData16, 0, 0);
+
+      // Convert to blob
+      iconCanvas.toBlob(async (blob) => {
+        // Send to background script to upload
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64 = reader.result.split(',')[1];
+
+          const response = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_ICON',
+            file: {
+              data: base64,
+              type: 'image/png',
+              name: 'custom-icon.png'
+            }
+          });
+
+          if (response && response.success) {
+            uploadIconBtn.textContent = 'Uploaded!';
+            uploadIconBtn.style.background = '#10b981';
+
+            // Apply the icon to current tracks if on edit page
+            const tracks = extractTracks();
+            if (tracks.length > 0 && response.iconId) {
+              await applyCustomIconToTracks(tracks, response.iconId);
+            }
+
+            setTimeout(() => {
+              document.getElementById('yoto-icon-art-modal').remove();
+              // Refresh the page to make the new icon available immediately
+              window.location.reload();
+            }, 1500);
+          } else {
+            console.error('Icon upload failed:', response?.error || 'Unknown error');
+            uploadIconBtn.textContent = 'Upload Failed';
+            uploadIconBtn.style.background = '#ef4444';
+            setTimeout(() => {
+              uploadIconBtn.textContent = 'Upload Icon to Yoto';
+              uploadIconBtn.style.background = '#3b82f6';
+              uploadIconBtn.disabled = false;
+            }, 2000);
+          }
+        };
+        reader.readAsDataURL(blob);
+      }, 'image/png');
+    } catch (error) {
+      console.error('Error uploading icon:', error);
+      uploadIconBtn.textContent = 'Upload Failed';
+      uploadIconBtn.style.background = '#ef4444';
+      setTimeout(() => {
+        uploadIconBtn.textContent = 'Upload Icon to Yoto';
+        uploadIconBtn.style.background = '#3b82f6';
+        uploadIconBtn.disabled = false;
+      }, 2000);
+    }
+  };
+}
+
+function extractTracks() {
+  // Extract tracks from the page DOM
+  const tracks = [];
+
+  // Try to find track elements on the page
+  const trackElements = document.querySelectorAll(
+    '[class*="track"], [class*="chapter"], div[draggable="true"]'
+  );
+
+  trackElements.forEach((element, index) => {
+    // Look for text content that might be track titles
+    const titleElement = element.querySelector('h3, h4, p, span') || element;
+    const title = titleElement.textContent?.trim();
+
+    if (title && title.length > 0) {
+      tracks.push({
+        key: `chapter-${String(index + 1).padStart(2, '0')}`,
+        id: `track-${index}`,
+        title: title,
+        index: index
+      });
+    }
+  });
+
+  // If no tracks found from DOM, return a default track for the card itself
+  if (tracks.length === 0) {
+    const playlistNameInput = document.querySelector('input[type="text"]');
+    const playlistTitle = playlistNameInput?.value || 'Card Content';
+
+    tracks.push({
+      key: 'chapter-01',
+      id: 'track-0',
+      title: playlistTitle,
+      index: 0
+    });
+  }
+
+  return tracks;
+}
+
+async function applyCustomIconToTracks(tracks, iconId) {
+  const urlMatch = window.location.pathname.match(/\/card\/([^\/]+)/);
+  if (!urlMatch) {
+    return;
+  }
+  const cardId = urlMatch[1];
+
+  // Apply the custom icon to all tracks on the current card
+  for (const track of tracks) {
+    try {
+      await chrome.runtime.sendMessage({
+        action: 'UPDATE_TRACK_ICON',
+        cardId: cardId,
+        trackKey: track.key || track.id,  // Use track key or id
+        iconId: iconId
+      });
+    } catch (error) {
+      console.error('Error applying icon to track:', error);
+    }
+  }
 }
 
 function createButton() {
@@ -520,7 +1764,7 @@ function createButton() {
     display: inline-flex;
     margin-left: 8px;
   `;
-  
+
   const button = document.createElement('button');
   button.id = 'yoto-magic-btn';
   
@@ -891,10 +2135,8 @@ async function handleIconMatch(matchType) {
           });
         });
         
-        // Last resort fallbacks - use card/playlist title only if no tracks found
         if (tracks.length === 0) {
           if (contentResponse.card?.title && contentResponse.card.title !== 'Untitled Playlist') {
-            console.warn('[Icon Match] No individual tracks found, falling back to card title:', contentResponse.card.title);
             tracks.push({
               id: 'card-title',
               title: contentResponse.card.title,
@@ -902,7 +2144,6 @@ async function handleIconMatch(matchType) {
               type: 'card'
             });
           } else if (playlistTitle && playlistTitle !== 'Untitled Playlist') {
-            console.warn('[Icon Match] No individual tracks found, falling back to playlist title:', playlistTitle);
             tracks.push({
               id: 'playlist-title', 
               title: playlistTitle,
@@ -1001,30 +2242,34 @@ function checkAndInjectButton() {
   if (addAudioButton) {
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'flex gap-2 mt-2';
-    
-    // Only add Icon Match button on edit page
-    const button = createButton();
-    buttonContainer.appendChild(button);
-    
+
+    // Add both Icon Match and Icon Art buttons on edit page
+    const iconMatchButton = createButton();
+    const iconArtButton = createIconArtButton();
+    buttonContainer.appendChild(iconMatchButton);
+    buttonContainer.appendChild(iconArtButton);
+
     if (addAudioButton.nextSibling) {
       addAudioButton.parentNode.insertBefore(buttonContainer, addAudioButton.nextSibling);
     } else {
       addAudioButton.parentNode.appendChild(buttonContainer);
     }
-    
+
   } else {
-    const addStreamButton = Array.from(document.querySelectorAll('button')).find(btn => 
+    const addStreamButton = Array.from(document.querySelectorAll('button')).find(btn =>
       btn.textContent?.trim() === 'Add stream'
     );
-    
+
     if (addStreamButton && addStreamButton.parentNode) {
       const buttonContainer = document.createElement('div');
       buttonContainer.className = 'flex gap-2 mt-4';
-      
-      // Only add Icon Match button on edit page
-      const button = createButton();
-      buttonContainer.appendChild(button);
-      
+
+      // Add both Icon Match and Icon Art buttons on edit page
+      const iconMatchButton = createButton();
+      const iconArtButton = createIconArtButton();
+      buttonContainer.appendChild(iconMatchButton);
+      buttonContainer.appendChild(iconArtButton);
+
       const buttonsParent = addStreamButton.parentNode;
       if (buttonsParent.nextSibling) {
         buttonsParent.parentNode.insertBefore(buttonContainer, buttonsParent.nextSibling);
@@ -1067,24 +2312,26 @@ function cleanup() {
   try {
     const elements = [
       '#yoto-magic-btn',
-      '#yoto-magic-preview', 
+      '#yoto-icon-art-btn',
+      '#yoto-icon-art-modal',
+      '#yoto-magic-preview',
       '#yoto-refresh-indicator',
       '#yoto-magic-animation-style',
       '#yoto-magic-spinner-style',
       '#yoto-refresh-styles'
     ];
-    
+
     elements.forEach(selector => {
       const element = document.querySelector(selector);
       if (element) {
-        if (selector === '#yoto-magic-btn' && element.parentElement) {
+        if ((selector === '#yoto-magic-btn' || selector === '#yoto-icon-art-btn') && element.parentElement) {
           element.parentElement.remove();
         } else {
           element.remove();
         }
       }
     });
-    
+
     // Also clean up the import button
     const importBtn = document.querySelector('#yoto-import-btn');
     if (importBtn && importBtn.parentElement) {

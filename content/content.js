@@ -5580,7 +5580,7 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
       <p style="margin: 0 0 8px 0;">${audioFiles.length > 0 ? 'Ready to add to existing card:' : 'Ready to update existing card icons:'}</p>
       <ul style="margin: 8px 0; padding-left: 20px; font-size: 14px;">
         ${audioFiles.length > 0 ? `<li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>` : ''}
-        ${iconFiles.length > 0 ? `<li>${iconFiles.length} icon file${iconFiles.length !== 1 ? 's' : ''}</li>` : ''}
+        ${iconFiles.length > 0 ? `<li>${iconFiles.length} icon file${iconFiles.length !== 1 ? 's' : ''} ${audioFiles.length === 0 ? '(will update existing tracks by number)' : ''}</li>` : ''}
       </ul>
       <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Existing content will be preserved</p>
       <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Cover image will not be changed</p>
