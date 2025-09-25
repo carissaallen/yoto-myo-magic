@@ -583,75 +583,70 @@ async function saveIconsCache() {
 // Fetch icons from yotoicons.com
 async function fetchFromYotoicons(query) {
     try {
-        // Rate limiting
-        await rateLimiter.wait();
-        
-        const searchUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}`;
-        
-        const response = await fetch(searchUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const html = await response.text();
-        
-        // Parse HTML to extract icon information
-        const icons = [];
-        
-        // More comprehensive regex patterns
-        const iconRegex = /<img[^>]+src=["']\/static\/uploads\/(\d+)\.png["'][^>]*>/g;
-        
-        let match;
+        const allIcons = [];
         const seenIds = new Set();
-        
-        while ((match = iconRegex.exec(html)) !== null) {
-            const iconId = match[1];
-            
-            // Skip duplicates
-            if (seenIds.has(iconId)) continue;
-            seenIds.add(iconId);
-            
-            const iconUrl = `https://www.yotoicons.com/static/uploads/${iconId}.png`;
-            
-            // Extract author and title from surrounding context
-            const contextStart = Math.max(0, match.index - 500);
-            const contextEnd = Math.min(html.length, match.index + 500);
-            const context = html.slice(contextStart, contextEnd);
-            
-            // Look for author pattern
-            const authorMatch = context.match(/@([a-zA-Z0-9_-]+)/);
-            const author = authorMatch ? authorMatch[1] : 'unknown';
-            
-            // Look for title or alt text
-            const altMatch = match[0].match(/alt=["']([^"']+)["']/);
-            const titleMatch = context.match(/title=["']([^"']+)["']/);
-            
-            let title = `Icon ${iconId}`;
-            if (altMatch && altMatch[1] && !altMatch[1].includes('.png')) {
-                title = altMatch[1];
-            } else if (titleMatch && titleMatch[1]) {
-                title = titleMatch[1];
-            }
-            
-            icons.push({
-                id: iconId,
-                url: iconUrl,
-                title: `${query} icon ${iconId}`, // Include search term in title
-                author: author,
-                source: 'yotoicons',
-                searchQuery: query // Store original query for reference
+
+        // Try to fetch multiple pages to get more results
+        // The site shows about 20 icons per page, so we'll fetch up to 25 pages for 500 icons
+        for (let page = 1; page <= 25; page++) {
+            // Rate limiting
+            await rateLimiter.wait();
+
+            // Use the correct URL pattern with sort and type parameters
+            const searchUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}&sort=popular&type=singles&page=${page}`;
+
+            const response = await fetch(searchUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+                }
             });
-            
-            // Limit to first 10 results for performance
-            if (icons.length >= 10) break;
+
+            if (!response.ok) {
+                break;
+            }
+
+            const html = await response.text();
+            const pageIcons = [];
+
+            // Use the most comprehensive pattern to catch all icon references
+            const pattern = /\/static\/uploads\/(\d+)\.png/g;
+            let match;
+
+            while ((match = pattern.exec(html)) !== null) {
+                const iconId = match[1];
+
+                // Skip duplicates
+                if (seenIds.has(iconId)) continue;
+                seenIds.add(iconId);
+
+                const iconUrl = `https://www.yotoicons.com/static/uploads/${iconId}.png`;
+
+                // Simple metadata for now
+                pageIcons.push({
+                    id: iconId,
+                    url: iconUrl,
+                    title: `${query} icon ${iconId}`,
+                    author: 'unknown',
+                    source: 'yotoicons',
+                    searchQuery: query
+                });
+
+                // Stop if we have enough total icons (500 max)
+                if (allIcons.length + pageIcons.length >= 500) break;
+            }
+
+            allIcons.push(...pageIcons);
+
+            if (pageIcons.length === 0) {
+                break;
+            }
+
+            if (allIcons.length >= 500) {
+                break;
+            }
         }
-        
-        return icons;
+
+        return allIcons.slice(0, 500);
     } catch (error) {
         return [];
     }
@@ -692,7 +687,7 @@ async function downloadAndUploadIcon(yotoIcon) {
                         // Update cache with dataUrl
                         cached.dataUrl = dataUrl;
                         yotoIconsCache.set(cacheKey, cached);
-                        saveIconsCache().catch(console.warn);
+                        saveIconsCache().catch(() => {});
                         
                         return {
                             title: `${yotoIcon.title} (cached)`,
@@ -839,12 +834,12 @@ async function searchIcons(query) {
             }
         }
 
-        // If no public Yoto icons found, search yotoicons.com and upload results
+        // If no public Yoto icons found, search yotoicons.com but DON'T upload yet
         if (yotoMatches.length === 0) {
             try {
                 // Try yotoicons.com with original query first
                 let yotoIconsResults = await fetchFromYotoicons(query);
-                
+
                 // If no results and word appears plural, try singular on yotoicons.com
                 if (yotoIconsResults.length === 0 && Utils.isPlural(query)) {
                     const singular = Utils.singularize(query);
@@ -852,21 +847,11 @@ async function searchIcons(query) {
                         yotoIconsResults = await fetchFromYotoicons(singular);
                     }
                 }
-                
+
                 if (yotoIconsResults.length > 0) {
-                    // Download and upload icons in parallel, but limit concurrency
-                    const uploadPromises = yotoIconsResults.slice(0, 5).map(icon => 
-                        downloadAndUploadIcon(icon)
-                    );
-                    
-                    const uploadResults = await Promise.allSettled(uploadPromises);
-                    
-                    // Process successful uploads
-                    uploadResults.forEach(result => {
-                        if (result.status === 'fulfilled' && result.value) {
-                            allIcons.push(result.value);
-                        }
-                    });
+                    // Add yotoicons results directly without uploading
+                    // They already have their public URLs from fetchFromYotoicons
+                    allIcons = allIcons.concat(yotoIconsResults);
                 }
             } catch (error) {
                 // Silently continue if yotoicons.com fails
@@ -949,29 +934,29 @@ async function searchIconsByCategory(category) {
     try {
         // Search for icons using the category as a query
         const searchResult = await searchIcons(category);
-        
-        // If we have enough icons from the initial search, return them
-        if (searchResult.icons && searchResult.icons.length >= 20) {
-            return { icons: searchResult.icons.slice(0, 50) };
+
+        // Return up to 500 icons if we have them from the initial search
+        if (searchResult.icons && searchResult.icons.length >= 50) {
+            return { icons: searchResult.icons.slice(0, 500) };
         }
-        
+
         // If not enough icons, try related terms
         const relatedTerms = getRelatedTerms(category);
         let allIcons = searchResult.icons || [];
-        
+
         for (const term of relatedTerms) {
-            if (allIcons.length >= 50) break;
-            
+            if (allIcons.length >= 500) break;
+
             const additionalResults = await searchIcons(term);
             if (additionalResults.icons) {
-                // Filter out duplicates based on mediaId
-                const existingIds = new Set(allIcons.map(i => i.mediaId));
-                const newIcons = additionalResults.icons.filter(i => !existingIds.has(i.mediaId));
+                // Filter out duplicates based on mediaId or id
+                const existingIds = new Set(allIcons.map(i => i.mediaId || i.id));
+                const newIcons = additionalResults.icons.filter(i => !existingIds.has(i.mediaId || i.id));
                 allIcons = allIcons.concat(newIcons);
             }
         }
-        
-        return { icons: allIcons.slice(0, 50) };
+
+        return { icons: allIcons.slice(0, 500) };
     } catch (error) {
         return { error: error.message };
     }
@@ -1020,8 +1005,8 @@ async function applyCategoryIcons(cardId, selectedIcons) {
         for (const icon of selectedIcons) {
             let processedIcon = icon;
             
-            // Upload icon if it's from yotoicons.com
-            if (icon.source === 'yotoicons-uploaded' || (icon.url && icon.url.includes('yotoicons.com'))) {
+            // Upload icon if it's from yotoicons.com (not already uploaded)
+            if (icon.source === 'yotoicons' || icon.source === 'yotoicons-uploaded' || (icon.url && icon.url.includes('yotoicons.com'))) {
                 const uploadResult = await downloadAndUploadIcon({
                     id: icon.originalIconId || icon.id,
                     url: icon.url,
@@ -1029,7 +1014,7 @@ async function applyCategoryIcons(cardId, selectedIcons) {
                     author: icon.author,
                     searchQuery: icon.searchQuery || ''
                 });
-                
+
                 if (uploadResult) {
                     processedIcon = uploadResult;
                 }
@@ -1454,20 +1439,6 @@ async function uploadIcon(iconFileData) {
         // Extract filename without extension for the query parameter
         const filename = iconFileData.name ? iconFileData.name.split('.')[0] : 'icon';
 
-        // Log GIF upload details for debugging
-        const isGif = iconFileData.type === 'image/gif';
-        if (isGif) {
-            console.log('[Ghost GIF Upload]', {
-                filename: filename,
-                type: iconFileData.type,
-                autoConvert: true,
-                dataSize: bytes.length,
-                // Check for GIF header (should be 'GIF89a' or 'GIF87a')
-                gifHeader: String.fromCharCode(...bytes.slice(0, 6))
-            });
-        }
-
-        // Upload the icon - send binary data directly in body
         const response = await makeAuthenticatedRequest(
             `/media/displayIcons/user/me/upload?autoConvert=true&filename=${encodeURIComponent(filename)}`,
             {
@@ -1511,18 +1482,15 @@ async function uploadAudioFile(audioFileData) {
         });
 
         if (uploadUrlResponse.needsAuth) {
-            console.error('[Upload Audio] Authentication required');
             return { error: 'Authentication required. Please log in again.' };
         }
 
         if (uploadUrlResponse.error) {
-            console.error('[Upload Audio] Failed to get upload URL:', uploadUrlResponse.error);
             return { error: uploadUrlResponse.error };
         }
 
         const { upload } = uploadUrlResponse;
         if (!upload?.uploadUrl || !upload?.uploadId) {
-            console.error('[Upload Audio] Invalid upload URL response:', uploadUrlResponse);
             return { error: 'Failed to get upload URL - invalid response structure' };
         }
 
@@ -1537,7 +1505,6 @@ async function uploadAudioFile(audioFileData) {
         });
 
         if (!uploadResponse.ok) {
-            console.error('[Upload Audio] Failed to upload to S3:', uploadResponse.status, uploadResponse.statusText);
             return { error: `Failed to upload audio file: ${uploadResponse.status} ${uploadResponse.statusText}` };
         }
 
@@ -1559,7 +1526,6 @@ async function uploadAudioFile(audioFileData) {
                 if (transcodeResponse.error.includes('403') ||
                     transcodeResponse.error.includes('forbidden') ||
                     transcodeResponse.error.includes('not allowed')) {
-                    console.error('[Upload Audio] Upload rejected by server:', transcodeResponse.error);
                     return { error: `Upload rejected: ${transcodeResponse.error}. The file may contain copyrighted content.` };
                 }
             }
@@ -1578,7 +1544,6 @@ async function uploadAudioFile(audioFileData) {
         }
 
         if (!transcodedAudio) {
-            console.error('[Upload Audio] Transcoding timed out after', maxAttempts, 'seconds');
             return { error: `Transcoding timed out after ${maxAttempts} seconds. The file may be too large or in an unsupported format.` };
         }
         
@@ -2124,8 +2089,6 @@ async function getBestPodcasts(genreId = null, page = 1) {
         return result;
 
     } catch (error) {
-        console.error('Error fetching best podcasts:', error);
-        // Fall back to static data if API fails
         return { 
             podcasts: staticPodcastData.popularKidsPodcasts,
             has_next: false,
@@ -2241,9 +2204,9 @@ async function importPodcastEpisodes(podcast, episodes) {
                 let audioUrl = episode.audio;
                 
                 
-                // Listen Notes URLs often redirect to the actual podcast host
+                // Non-Listen Notes URLs may fail due to CORS
                 if (!audioUrl.includes('listennotes.com')) {
-                    console.warn(`Non-Listen Notes URL detected: ${audioUrl}. This may fail due to CORS.`);
+                    // May fail due to CORS
                 }
                 
                 // Download the audio
@@ -2744,7 +2707,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         // Return true to indicate we'll respond asynchronously
                         return true;
                     } catch (error) {
-                        console.error('[Service Worker] Timer audio upload error:', error);
                         sendResponse({ error: error.message || 'Failed to upload timer audio' });
                     }
                     break;
@@ -2754,7 +2716,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                         // Check if we have the required data
                         if (!request.file || !request.file.data) {
-                            console.error('[Service Worker] Missing file data');
                             sendResponse({ error: 'Missing file data' });
                             break;
                         }
@@ -2763,8 +2724,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         const base64Size = request.file.data.length;
                         const estimatedFileSize = base64Size * 0.75; // Rough estimate of original file size
 
-                        if (base64Size > 150 * 1024 * 1024) { // 150MB base64 limit (~112MB file)
-                            console.error(`[Service Worker] File too large: ${(estimatedFileSize / 1024 / 1024).toFixed(2)}MB`);
+                        if (base64Size > 150 * 1024 * 1024) {
                             sendResponse({
                                 error: `File "${request.file.name}" is too large (${(estimatedFileSize / 1024 / 1024).toFixed(2)}MB). Maximum file size is 100MB. Please split the file or use smaller files.`
                             });
@@ -2809,7 +2769,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             }
 
                         } catch (decodeError) {
-                            console.error('[Service Worker] Failed to decode base64:', decodeError);
                             sendResponse({ error: `Failed to process file "${request.file.name}": ${decodeError.message}. The file may be corrupted or too large.` });
                             break;
                         }
@@ -2822,7 +2781,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                         sendResponse(uploadResult);
                     } catch (error) {
-                        console.error('[Service Worker] Upload audio error:', error);
                         sendResponse({ error: error.message || 'Upload failed' });
                     }
                     break;
@@ -2897,7 +2855,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     await TokenManager.clearAllAuthData();
 
                     if (yotoIconsCache.size > 0) {
-                        console.warn('Icon cache not empty after logout!', yotoIconsCache.size);
                         yotoIconsCache.clear();
                     }
 

@@ -1942,15 +1942,16 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
     iconDiv.appendChild(orderBadge);
     
     iconDiv.addEventListener('click', () => {
-      const iconIndex = selectedIcons.findIndex(i => i.mediaId === icon.mediaId);
-      
+      const iconId = icon.mediaId || icon.id;
+      const iconIndex = selectedIcons.findIndex(i => (i.mediaId || i.id) === iconId);
+
       if (iconIndex >= 0) {
         selectedIcons.splice(iconIndex, 1);
         iconDiv.style.borderColor = 'transparent';
         iconDiv.style.backgroundColor = 'white';
         orderBadge.style.display = 'none';
-        selectedIconElements.delete(icon.mediaId);
-        
+        selectedIconElements.delete(iconId);
+
         updateOrderBadges();
       } else {
         selectedIcons.push(icon);
@@ -1958,7 +1959,7 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
         iconDiv.style.backgroundColor = '#eff6ff';
         orderBadge.style.display = 'flex';
         orderBadge.textContent = selectedIcons.length;
-        selectedIconElements.set(icon.mediaId, orderBadge);
+        selectedIconElements.set(iconId, orderBadge);
       }
       
       document.getElementById('selected-count').textContent = selectedIcons.length;
@@ -1970,7 +1971,8 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
   
   function updateOrderBadges() {
     selectedIcons.forEach((icon, index) => {
-      const badge = selectedIconElements.get(icon.mediaId);
+      const iconId = icon.mediaId || icon.id;
+      const badge = selectedIconElements.get(iconId);
       if (badge) {
         badge.textContent = index + 1;
       }
