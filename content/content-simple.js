@@ -1941,7 +1941,6 @@ async function handleIconMatch(matchType) {
   const puzzlePieceIcon = button.querySelector('svg').outerHTML;
   
   if (matchType === 'general') {
-    // Check cached auth status first
     const now = Date.now();
     if (!authCached || now - authCacheTime > AUTH_CACHE_DURATION) {
       const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
@@ -1985,14 +1984,12 @@ async function handleIconMatch(matchType) {
         return;
       }
 
-      // First verify we can access this card (detects account switches)
       const verifyResponse = await chrome.runtime.sendMessage({
         action: 'VERIFY_CARD_ACCESS',
         cardId: cardId
       });
 
       if (verifyResponse.needsAuth) {
-        // Account mismatch detected - need to re-authenticate
         button.innerHTML = `
           ${puzzlePieceIcon}
           <span>Re-authenticating...</span>
@@ -2011,7 +2008,6 @@ async function handleIconMatch(matchType) {
           return;
         }
 
-        // Now continue with icon matching after successful re-auth
       } else if (!verifyResponse.success) {
         alert(`Error: ${verifyResponse.error}`);
         button.disabled = false;
@@ -2023,7 +2019,6 @@ async function handleIconMatch(matchType) {
         return;
       }
 
-      // Now fetch content for icon matching
       button.innerHTML = `
         ${puzzlePieceIcon}
         <span>Fetching content...</span>
@@ -2092,7 +2087,6 @@ async function handleIconMatch(matchType) {
         
         const foundTracks = new Set();
         
-        // Process all candidates to find track titles
         trackCandidates.forEach((element, index) => {
           let value = '';
           let elementType = '';
@@ -2116,17 +2110,14 @@ async function handleIconMatch(matchType) {
             return;
           }
           
-          // Skip very short content (likely placeholders)
           if (value.length <= 1) {
             return;
           }
           
-          // Skip very long content (probably not track titles)
           if (value.length > 100) {
             return;
           }
           
-          // Skip common placeholder values
           if (value.toLowerCase() === 'x' || value.toLowerCase() === 'untitled' || value === '...') {
             return;
           }
@@ -2197,7 +2188,6 @@ async function handleIconMatch(matchType) {
       }
       
       try {
-        // Check cache first
         const cacheKey = JSON.stringify(tracks.map(t => t.title));
         let response;
         
@@ -2209,10 +2199,8 @@ async function handleIconMatch(matchType) {
             tracks: tracks
           });
           
-          // Cache successful responses
           if (response.matches && response.matches.length > 0) {
             iconMatchCache.set(cacheKey, response);
-            // Clear old cache entries if too many
             if (iconMatchCache.size > 10) {
               const firstKey = iconMatchCache.keys().next().value;
               iconMatchCache.delete(firstKey);
@@ -2373,7 +2361,6 @@ async function handleImportClick() {
     return;
   }
   
-  // Create file input for folder selection
   const input = document.createElement('input');
   input.type = 'file';
   input.webkitdirectory = true;
@@ -2384,16 +2371,14 @@ async function handleImportClick() {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     
-    // Extract folder name from the first file's path
     let folderName = 'Imported Playlist';
     if (files[0] && files[0].webkitRelativePath) {
       const pathParts = files[0].webkitRelativePath.split('/');
       if (pathParts.length > 0) {
-        folderName = pathParts[0]; // Get the root folder name
+        folderName = pathParts[0];
       }
     }
     
-    // Sort files into audio and images
     const audioFiles = files.filter(f => 
       /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
     ).sort((a, b) => a.name.localeCompare(b.name));
@@ -2426,7 +2411,6 @@ async function handleImportClick() {
 }
 
 function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist') {
-  // Remove existing modal if any
   const existing = document.querySelector('#yoto-import-modal');
   if (existing) existing.remove();
   
@@ -2539,11 +2523,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     startButton.textContent = 'Importing...';
     
     try {
-      // Get current card ID from URL (optional - only if editing existing card)
       const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
       let cardId = urlMatch ? urlMatch[1] : null;
-      
-      // Clean up cardId - remove /edit if present
+
       if (cardId && cardId.includes('/')) {
         cardId = cardId.split('/')[0];
       }
@@ -2740,7 +2722,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         
         modal.appendChild(successContent);
         
-        // Add animation style if not already present
         if (!document.getElementById('yoto-spin-animation')) {
           const style = document.createElement('style');
           style.id = 'yoto-spin-animation';
@@ -3176,15 +3157,16 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
     iconDiv.appendChild(orderBadge);
     
     iconDiv.addEventListener('click', () => {
-      const iconIndex = selectedIcons.findIndex(i => i.mediaId === icon.mediaId);
-      
+      const iconId = icon.mediaId || icon.id;
+      const iconIndex = selectedIcons.findIndex(i => (i.mediaId || i.id) === iconId);
+
       if (iconIndex >= 0) {
         selectedIcons.splice(iconIndex, 1);
         iconDiv.style.borderColor = 'transparent';
         iconDiv.style.backgroundColor = 'white';
         orderBadge.style.display = 'none';
-        selectedIconElements.delete(icon.mediaId);
-        
+        selectedIconElements.delete(iconId);
+
         updateOrderBadges();
       } else {
         selectedIcons.push(icon);
@@ -3192,7 +3174,7 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
         iconDiv.style.backgroundColor = '#eff6ff';
         orderBadge.style.display = 'flex';
         orderBadge.textContent = selectedIcons.length;
-        selectedIconElements.set(icon.mediaId, orderBadge);
+        selectedIconElements.set(iconId, orderBadge);
       }
       
       document.getElementById('selected-count').textContent = selectedIcons.length;
@@ -3204,7 +3186,8 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
   
   function updateOrderBadges() {
     selectedIcons.forEach((icon, index) => {
-      const badge = selectedIconElements.get(icon.mediaId);
+      const iconId = icon.mediaId || icon.id;
+      const badge = selectedIconElements.get(iconId);
       if (badge) {
         badge.textContent = index + 1;
       }

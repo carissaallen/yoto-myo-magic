@@ -5584,7 +5584,14 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
       </ul>
       <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Existing content will be preserved</p>
       <p style="color: #10b981; font-size: 13px; margin: 8px 0;">✓ Cover image will not be changed</p>
-      ${audioFiles.length === 0 && iconFiles.length > 0 ? '<p style="color: #3b82f6; font-size: 13px; margin: 8px 0;">ℹ Icons will be applied to tracks based on filename numbers</p>' : ''}
+      ${audioFiles.length === 0 && iconFiles.length > 0 ? `<p style="color: #3b82f6; font-size: 13px; margin: 8px 0; display: flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;">
+          <circle cx="12" cy="12" r="10" stroke="#3b82f6" stroke-width="2"/>
+          <path d="M12 16V12" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="8" r="1" fill="#3b82f6"/>
+        </svg>
+        <span>Icons will be applied to tracks based on filename numbers</span>
+      </p>` : ''}
     </div>
 
     <div style="margin: 20px 0;">
