@@ -1646,8 +1646,12 @@ function initializeIconArtEditor() {
           const base64 = reader.result.split(',')[1];
 
           const response = await chrome.runtime.sendMessage({
-            action: 'UPLOAD_CUSTOM_ICON',
-            imageData: base64
+            action: 'UPLOAD_ICON',
+            file: {
+              data: base64,
+              type: 'image/png',
+              name: 'custom-icon.png'
+            }
           });
 
           if (response && response.success) {
@@ -1662,6 +1666,8 @@ function initializeIconArtEditor() {
 
             setTimeout(() => {
               document.getElementById('yoto-icon-art-modal').remove();
+              // Refresh the page to make the new icon available immediately
+              window.location.reload();
             }, 1500);
           } else {
             console.error('Icon upload failed:', response?.error || 'Unknown error');
