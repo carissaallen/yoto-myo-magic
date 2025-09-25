@@ -212,7 +212,6 @@ function showIconPreview(matches) {
   modal.appendChild(content);
   document.body.appendChild(modal);
   
-  // Add animation styles if not present
   if (!document.querySelector('#yoto-magic-animation-style')) {
     const style = document.createElement('style');
     style.id = 'yoto-magic-animation-style';
@@ -247,7 +246,6 @@ function showIconPreview(matches) {
     document.head.appendChild(style);
   }
   
-  // Add event listeners for navigation buttons
   const navButtons = content.querySelectorAll('.icon-nav-button');
   navButtons.forEach(button => {
     button.addEventListener('click', function() {
@@ -256,7 +254,6 @@ function showIconPreview(matches) {
       cycleIcon(trackId, action);
     });
     
-    // Add hover effects
     button.addEventListener('mouseenter', function() {
       this.style.background = '#d0d0d0';
     });
@@ -266,24 +263,20 @@ function showIconPreview(matches) {
     });
   });
 
-  // Add event listeners
   document.querySelector('#cancel-preview').onclick = () => {
     modal.remove();
   };
   
   document.querySelector('#apply-icons').onclick = async () => {
     
-    // Disable the button while applying
     const applyButton = document.querySelector('#apply-icons');
     applyButton.disabled = true;
     applyButton.textContent = 'Applying...';
     
     try {
-      // Get the card ID from the URL
       const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
       let cardId = urlMatch ? urlMatch[1] : null;
-      
-      // If the URL has edit at the end, remove it from cardId
+
       if (cardId && cardId.includes('/')) {
         cardId = cardId.split('/')[0];
       }
@@ -297,7 +290,6 @@ function showIconPreview(matches) {
         return;
       }
       
-      // Build selected icon matches based on user selection
       const selectedMatches = matches.map(match => {
         if (!match.iconOptions || match.iconOptions.length === 0) return null;
         
@@ -309,7 +301,7 @@ function showIconPreview(matches) {
         }
         
         return {
-          trackId: match.trackId, // Use original trackId for the API call
+          trackId: match.trackId,
           trackTitle: match.trackTitle,
           suggestedIcon: selectedIcon.url,
           iconId: selectedIcon.iconId,
@@ -326,8 +318,7 @@ function showIconPreview(matches) {
         return;
       }
       
-      
-      // Send request to background script to update the card
+
       const response = await chrome.runtime.sendMessage({
         action: 'UPDATE_CARD_ICONS',
         cardId: cardId,
@@ -451,7 +442,6 @@ function showIconPreview(matches) {
     }
   };
   
-  // Close on background click
   modal.onclick = (e) => {
     if (e.target === modal) {
       modal.remove();
@@ -707,7 +697,6 @@ async function handleIconMatch(matchType) {
   const puzzlePieceIcon = button.querySelector('svg').outerHTML;
   
   if (matchType === 'general') {
-    // Check cached auth status first
     const now = Date.now();
     if (!authCached || now - authCacheTime > AUTH_CACHE_DURATION) {
       const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
@@ -751,14 +740,12 @@ async function handleIconMatch(matchType) {
         return;
       }
 
-      // First verify we can access this card (detects account switches)
       const verifyResponse = await chrome.runtime.sendMessage({
         action: 'VERIFY_CARD_ACCESS',
         cardId: cardId
       });
 
       if (verifyResponse.needsAuth) {
-        // Account mismatch detected - need to re-authenticate
         button.innerHTML = `
           ${puzzlePieceIcon}
           <span>Re-authenticating...</span>
@@ -777,7 +764,6 @@ async function handleIconMatch(matchType) {
           return;
         }
 
-        // Now continue with icon matching after successful re-auth
       } else if (!verifyResponse.success) {
         alert(`Error: ${verifyResponse.error}`);
         button.disabled = false;
@@ -789,7 +775,6 @@ async function handleIconMatch(matchType) {
         return;
       }
 
-      // Now fetch content for icon matching
       button.innerHTML = `
         ${puzzlePieceIcon}
         <span>Fetching content...</span>
@@ -805,10 +790,8 @@ async function handleIconMatch(matchType) {
       
       const tracks = [];
       
-      // Handle API errors gracefully
       if (contentResponse.error) {
         if (contentResponse.error.includes('403')) {
-          // Continue to DOM parsing fallback below
         } else if (contentResponse.error.includes('401')) {
           alert('Authentication required. Please refresh the page and try again.');
           button.disabled = false;
@@ -817,7 +800,6 @@ async function handleIconMatch(matchType) {
           return;
         } else {
           console.error('[Icon Match] API error:', contentResponse.error);
-          // Continue to DOM parsing fallback below
         }
       }
       
@@ -861,7 +843,6 @@ async function handleIconMatch(matchType) {
         
         const foundTracks = new Set();
         
-        // Process all candidates to find track titles
         trackCandidates.forEach((element, index) => {
           let value = '';
           let elementType = '';
@@ -885,17 +866,14 @@ async function handleIconMatch(matchType) {
             return;
           }
           
-          // Skip very short content (likely placeholders)
           if (value.length <= 1) {
             return;
           }
           
-          // Skip very long content (probably not track titles)
           if (value.length > 100) {
             return;
           }
           
-          // Skip common placeholder values
           if (value.toLowerCase() === 'x' || value.toLowerCase() === 'untitled' || value === '...') {
             return;
           }
@@ -969,7 +947,6 @@ async function handleIconMatch(matchType) {
       }
       
       try {
-        // Check cache first
         const cacheKey = JSON.stringify(tracks.map(t => t.title));
         let response;
         
@@ -981,10 +958,8 @@ async function handleIconMatch(matchType) {
             tracks: tracks
           });
           
-          // Cache successful responses
           if (response.matches && response.matches.length > 0) {
             iconMatchCache.set(cacheKey, response);
-            // Clear old cache entries if too many
             if (iconMatchCache.size > 10) {
               const firstKey = iconMatchCache.keys().next().value;
               iconMatchCache.delete(firstKey);
@@ -1139,7 +1114,6 @@ async function handleImportClick() {
     return;
   }
   
-  // Create file input for folder selection
   const input = document.createElement('input');
   input.type = 'file';
   input.webkitdirectory = true;
@@ -1150,16 +1124,14 @@ async function handleImportClick() {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     
-    // Extract folder name from the first file's path
     let folderName = 'Imported Playlist';
     if (files[0] && files[0].webkitRelativePath) {
       const pathParts = files[0].webkitRelativePath.split('/');
       if (pathParts.length > 0) {
-        folderName = pathParts[0]; // Get the root folder name
+        folderName = pathParts[0];
       }
     }
     
-    // Sort files into audio and images
     const audioFiles = files.filter(f => 
       /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
     ).sort((a, b) => a.name.localeCompare(b.name));
@@ -1192,7 +1164,6 @@ async function handleImportClick() {
 }
 
 function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist') {
-  // Remove existing modal if any
   const existing = document.querySelector('#yoto-import-modal');
   if (existing) existing.remove();
   
@@ -1305,11 +1276,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     startButton.textContent = 'Importing...';
     
     try {
-      // Get current card ID from URL (optional - only if editing existing card)
       const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
       let cardId = urlMatch ? urlMatch[1] : null;
-      
-      // Clean up cardId - remove /edit if present
+
       if (cardId && cardId.includes('/')) {
         cardId = cardId.split('/')[0];
       }
@@ -1506,7 +1475,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         
         modal.appendChild(successContent);
         
-        // Add animation style if not already present
         if (!document.getElementById('yoto-spin-animation')) {
           const style = document.createElement('style');
           style.id = 'yoto-spin-animation';
