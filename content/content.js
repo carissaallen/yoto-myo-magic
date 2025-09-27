@@ -10,8 +10,9 @@ let state = {
 
 const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+
 function init() {
-  
+
   // Check auth status with caching
   const now = Date.now();
   if (!state.authenticated || now - state.authCacheTime > AUTH_CACHE_DURATION) {
@@ -35,7 +36,6 @@ function init() {
           }
         } catch (error) {
           state.authenticated = false;
-          console.error('[Auth] Silent auth error:', error);
           chrome.runtime.sendMessage({
             action: 'TRACK_ERROR',
             error: error.message,
@@ -1540,6 +1540,299 @@ function showBulkImportOptionsModal() {
 
 }
 
+// Pizza icon generation function
+async function generatePizzaTimerIcon(progress, totalSegments, currentSegment) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, 16, 16);
+
+  try {
+    const img = new Image();
+    img.src = chrome.runtime.getURL('assets/timer/icons/pizza.png');
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+
+    // Draw the full pizza
+    ctx.drawImage(img, 0, 0, 16, 16);
+
+    // Remove slices evenly based on progress
+    // Pizza typically has 8 slices, but we'll divide based on totalSegments
+    const slicesToRemove = currentSegment;
+    if (slicesToRemove > 0) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = 'black';
+
+      const centerX = 8;
+      const centerY = 8;
+      const radius = 10; // Slightly larger to ensure we remove the crust too
+      const sliceAngle = (2 * Math.PI) / totalSegments;
+
+      // Remove slices starting from top and going clockwise
+      for (let i = 0; i < slicesToRemove; i++) {
+        const startAngle = -Math.PI / 2 + (i * sliceAngle);
+        const endAngle = startAngle + sliceAngle;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        // Make the arc slightly larger to ensure complete removal including crust
+        ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  } catch (e) {
+    // Fallback: use the old pie/pizza generation
+    const pizzaRadius = 7.5;
+    const centerX = 8;
+    const centerY = 8;
+
+    if (progress > 0) {
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + (2 * Math.PI * progress);
+      ctx.arc(centerX, centerY, pizzaRadius, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = '#D2691E';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, pizzaRadius - 1.2, startAngle, endAngle);
+      ctx.closePath();
+      ctx.fillStyle = '#FFD700';
+      ctx.fill();
+
+      // Add pepperoni dots
+      const numDots = Math.ceil(progress * 6);
+      for (let i = 0; i < numDots; i++) {
+        const angle = startAngle + (i / 6) * 2 * Math.PI;
+        const dotRadius = 0.7;
+        const dotDistance = pizzaRadius - 3.5;
+        const dotX = centerX + Math.cos(angle) * dotDistance;
+        const dotY = centerY + Math.sin(angle) * dotDistance;
+
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, dotRadius, 0, 2 * Math.PI);
+        ctx.fillStyle = '#DC143C';
+        ctx.fill();
+      }
+
+      // Draw slice lines
+      const totalSlices = totalSegments;
+      const remainingSlices = Math.ceil(progress * totalSlices);
+
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 0.5;
+
+      for (let i = 0; i <= remainingSlices; i++) {
+        const angle = startAngle + (i / totalSlices) * 2 * Math.PI;
+        if (angle <= endAngle) {
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(
+            centerX + Math.cos(angle) * (pizzaRadius - 1.2),
+            centerY + Math.sin(angle) * (pizzaRadius - 1.2)
+          );
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  return canvas.toDataURL('image/png');
+}
+
+// Flower icon generation functions
+async function generateFlowerBouquetIcon(fullness) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, 16, 16);
+
+  try {
+    const img = new Image();
+    img.src = chrome.runtime.getURL('assets/timer/icons/flower-bouquet.png');
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+
+    // Draw the bouquet with varying opacity based on fullness
+    // Start with low opacity and increase as timer progresses
+    ctx.globalAlpha = 0.3 + (fullness * 0.7); // 30% to 100% opacity
+    ctx.drawImage(img, 0, 0, 16, 16);
+
+    // Add more flowers by drawing additional layers
+    if (fullness > 0.33) {
+      ctx.globalAlpha = fullness * 0.5;
+      ctx.drawImage(img, 1, 0, 16, 16);
+    }
+    if (fullness > 0.66) {
+      ctx.globalAlpha = fullness * 0.3;
+      ctx.drawImage(img, -1, 0, 16, 16);
+    }
+  } catch (e) {
+    // Fallback: draw simple flowers
+    ctx.fillStyle = '#FF69B4';
+    const flowerCount = Math.ceil(fullness * 3);
+    for (let i = 0; i < flowerCount; i++) {
+      ctx.beginPath();
+      ctx.arc(5 + i * 3, 8, 2, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+  }
+
+  return canvas.toDataURL('image/png');
+}
+
+async function generateFlowerBlueIcon(petalCount, maxPetals) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, 16, 16);
+
+  const centerX = 8;
+  const centerY = 8;
+  const pinkPalette = [
+    '#FF0A54', // Bright pink-red
+    '#FF477E', // Pink
+    '#FF5C8A', // Light pink
+    '#FF7096', // Lighter pink
+    '#FF85A1', // Even lighter pink
+    '#FF99AC', // Soft pink
+    '#FBB1BD', // Very light pink
+    '#F9BEC7', // Pale pink
+    '#F7CAD0', // Very pale pink
+    '#FAE0E4'  // Almost white pink
+  ];
+  if (petalCount > 0) {
+    const angleStep = (2 * Math.PI) / maxPetals;
+
+    for (let i = 0; i < petalCount; i++) {
+      const angle = i * angleStep - Math.PI / 2;
+
+      // Use a few shades of pink for the petals
+      const colorIndex = i % 3;
+      if (colorIndex === 0) {
+        ctx.fillStyle = '#FF5C8A';
+      } else if (colorIndex === 1) {
+        ctx.fillStyle = '#FF85A1';
+      } else {
+        ctx.fillStyle = '#FBB1BD';
+      }
+
+      // Draw proper petal shape matching flower-blue.png style
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(angle);
+
+      // Draw petal using pixel-perfect shape
+      // Main petal body (oval shape)
+      ctx.beginPath();
+      ctx.ellipse(0, -5, 2.5, 3.5, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Connect petal to center with smaller oval
+      ctx.beginPath();
+      ctx.ellipse(0, -2.5, 2, 2, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 2, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#FFA500';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 0.8, 0, 2 * Math.PI);
+  ctx.fill();
+
+  return canvas.toDataURL('image/png');
+}
+
+async function generateFlowerRedIcon(petalCount, maxPetals) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 16;
+  canvas.height = 16;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, 16, 16);
+
+  const centerX = 8;
+  const centerY = 8;
+  const pinkPalette = [
+    '#FF0A54', // Bright pink-red
+    '#FF477E', // Pink
+    '#FF5C8A', // Light pink
+    '#FF7096', // Lighter pink
+    '#FF85A1', // Even lighter pink
+    '#FF99AC', // Soft pink
+    '#FBB1BD', // Very light pink
+    '#F9BEC7', // Pale pink
+    '#F7CAD0', // Very pale pink
+    '#FAE0E4'  // Almost white pink
+  ];
+  if (petalCount > 0) {
+    const angleStep = (2 * Math.PI) / maxPetals;
+
+    for (let i = 0; i < petalCount; i++) {
+      const angle = i * angleStep - Math.PI / 2;
+
+      // Use a few shades of pink for the petals
+      const colorIndex = i % 3;
+      if (colorIndex === 0) {
+        ctx.fillStyle = '#FF5C8A';
+      } else if (colorIndex === 1) {
+        ctx.fillStyle = '#FF85A1';
+      } else {
+        ctx.fillStyle = '#FBB1BD';
+      }
+
+      // Draw proper petal shape matching flower-blue.png style
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(angle);
+
+      // Draw petal using pixel-perfect shape
+      // Main petal body (oval shape)
+      ctx.beginPath();
+      ctx.ellipse(0, -5, 2.5, 3.5, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      // Connect petal to center with smaller oval
+      ctx.beginPath();
+      ctx.ellipse(0, -2.5, 2, 2, 0, 0, 2 * Math.PI);
+      ctx.fill();
+
+      ctx.restore();
+    }
+  }
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 2, 0, 2 * Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#FFA500';
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, 0.8, 0, 2 * Math.PI);
+  ctx.fill();
+
+  return canvas.toDataURL('image/png');
+}
+
 function showVisualTimerModal() {
   const existingModal = document.getElementById('yoto-visual-timer-modal');
   if (existingModal) existingModal.remove();
@@ -1628,10 +1921,7 @@ function showVisualTimerModal() {
           box-sizing: border-box;
         ">
         <p style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-          • 1-2 min: 15-second segments<br>
-          • 3-15 min: 1-minute segments<br>
-          • 16-30 min: 5-minute segments<br>
-          • 31+ min: 10-minute segments
+          Timer segments are optimized for clear visual countdown.
         </p>
       </div>
 
@@ -1663,7 +1953,7 @@ function showVisualTimerModal() {
             transition: all 0.2s;
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="circle" style="margin-right: 8px;">
-            <span>Circle Progress</span>
+            <span>Circle</span>
           </label>
           <label style="
             display: flex;
@@ -1686,8 +1976,20 @@ function showVisualTimerModal() {
             cursor: pointer;
             transition: all 0.2s;
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
-            <input type="radio" name="icon-style" value="pie" style="margin-right: 8px;">
-            <span>Pie Chart</span>
+            <input type="radio" name="icon-style" value="pizza" style="margin-right: 8px;">
+            <span>Pizza</span>
+          </label>
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
+            <input type="radio" name="icon-style" value="flower" style="margin-right: 8px;">
+            <span>Flower Bloom</span>
           </label>
           <label style="
             display: flex;
@@ -1742,6 +2044,7 @@ function showVisualTimerModal() {
           <option value="spooky-alarm.mp3">Spooky Sound</option>
         </select>
       </div>
+
 
       <!-- Status Message -->
       <div id="timer-status" style="display: none; padding: 12px; border-radius: 6px; font-size: 14px;"></div>
@@ -1880,6 +2183,7 @@ async function createVisualTimer() {
 
   const iconStyle = document.querySelector('input[name="icon-style"]:checked').value;
   const alarmSound = document.getElementById('timer-alarm-sound').value;
+  const alwaysPlayFromStart = true; // Always play timers from start
   const statusDiv = document.getElementById('timer-status');
   const submitButton = document.querySelector('#visual-timer-form button[type="submit"]');
 
@@ -1893,75 +2197,132 @@ async function createVisualTimer() {
   submitButton.style.cursor = 'not-allowed';
 
   try {
-    // Calculate segments based on duration
     let segmentDuration, numSegments, silentFiles;
 
-    // Handle predefined durations
-    if (duration <= 2) {
-      // 1-2 minutes: 15-second increments
-      segmentDuration = 15; // seconds
-      numSegments = (duration * 60) / 15; // 4 segments per minute
+    // New segment calculation for better visual timer experience
+    if (duration === 1) {
+      numSegments = 5;
+      segmentDuration = 12;
+      silentFiles = ['silent-12s.wav'];
+    } else if (duration === 2) {
+      numSegments = 8;
+      segmentDuration = 15;
       silentFiles = ['silent-15s.wav'];
-    } else if (duration <= 15) {
-      // 3-15 minutes: 1-minute increments
-      segmentDuration = 60;
+    } else if (duration === 3) {
+      numSegments = 8;
+      segmentDuration = 22.5;
+      silentFiles = [];
+      for (let i = 0; i < numSegments; i++) {
+        silentFiles.push('silent-15s.wav');
+        silentFiles.push('silent-7.5s.wav');
+      }
+    } else if (duration === 4) {
+      numSegments = 8;
+      segmentDuration = 30;
+      silentFiles = ['silent-30s.wav'];
+    } else if (duration >= 5 && duration <= 10) {
       numSegments = duration;
+      segmentDuration = 60;
       silentFiles = ['silent-1m.wav'];
-    } else if (duration <= 30) {
-      // 16-30 minutes: 5-minute increments
-      segmentDuration = 300;
-      numSegments = Math.ceil(duration / 5);
-      silentFiles = ['silent-5m.wav'];
+    } else if (duration >= 11 && duration <= 20) {
+      numSegments = 10;
+      segmentDuration = (duration * 60) / 10;
 
-      // Handle remainder (e.g., 17 minutes = 3x5min + 1x2min)
-      const remainder = duration % 5;
-      if (remainder > 0) {
-        // We'll need to mix 5-minute and 1-minute segments
-        numSegments = Math.floor(duration / 5) + remainder;
-        silentFiles = [];
-        for (let i = 0; i < Math.floor(duration / 5); i++) {
+      const segmentMinutes = Math.floor(segmentDuration / 60);
+      const segmentSeconds = segmentDuration % 60;
+
+      silentFiles = [];
+      for (let i = 0; i < numSegments; i++) {
+        for (let j = 0; j < segmentMinutes; j++) {
+          silentFiles.push('silent-1m.wav');
+        }
+        if (segmentSeconds === 30) {
+          silentFiles.push('silent-30s.wav');
+        } else if (segmentSeconds === 15) {
+          silentFiles.push('silent-15s.wav');
+        } else if (segmentSeconds > 0) {
+          const whole30s = Math.floor(segmentSeconds / 30);
+          const remainder = segmentSeconds % 30;
+          for (let j = 0; j < whole30s; j++) {
+            silentFiles.push('silent-30s.wav');
+          }
+          if (remainder === 15) {
+            silentFiles.push('silent-15s.wav');
+          } else if (remainder > 0) {
+            const whole15s = Math.floor(remainder / 15);
+            for (let j = 0; j < whole15s; j++) {
+              silentFiles.push('silent-15s.wav');
+            }
+          }
+        }
+      }
+    } else if (duration === 25) {
+      numSegments = 5;
+      segmentDuration = 300;
+      silentFiles = ['silent-5m.wav'];
+    } else if (duration === 30) {
+      numSegments = 6;
+      segmentDuration = 300;
+      silentFiles = ['silent-5m.wav'];
+    } else if (duration >= 31 && duration < 50) {
+      numSegments = 8;
+      segmentDuration = (duration * 60) / 8;
+
+      silentFiles = [];
+      const minutesPerSegment = duration / 8;
+      const wholeFives = Math.floor(minutesPerSegment / 5);
+      const remainder = minutesPerSegment - (wholeFives * 5);
+
+      for (let i = 0; i < numSegments; i++) {
+        for (let j = 0; j < wholeFives; j++) {
           silentFiles.push('silent-5m.wav');
         }
-        for (let i = 0; i < remainder; i++) {
+        const wholeMinutes = Math.floor(remainder);
+        for (let j = 0; j < wholeMinutes; j++) {
           silentFiles.push('silent-1m.wav');
+        }
+        const fractionalMinutes = remainder % 1;
+        if (fractionalMinutes >= 0.5) {
+          silentFiles.push('silent-30s.wav');
+        } else if (fractionalMinutes >= 0.25) {
+          silentFiles.push('silent-15s.wav');
+        }
+      }
+    } else if (duration >= 50) {
+      numSegments = Math.max(5, Math.ceil(duration / 10));
+      segmentDuration = (duration * 60) / numSegments;
+
+      silentFiles = [];
+      const minutesPerSegment = duration / numSegments;
+      const wholeTens = Math.floor(minutesPerSegment / 10);
+      let remainderMinutes = minutesPerSegment - (wholeTens * 10);
+
+      for (let i = 0; i < numSegments; i++) {
+        for (let j = 0; j < wholeTens; j++) {
+          silentFiles.push('silent-10m.wav');
+        }
+
+        if (remainderMinutes >= 5) {
+          silentFiles.push('silent-5m.wav');
+          remainderMinutes -= 5;
+        }
+
+        const wholeMinutes = Math.floor(remainderMinutes);
+        for (let j = 0; j < wholeMinutes; j++) {
+          silentFiles.push('silent-1m.wav');
+        }
+
+        const fractionalMinutes = remainderMinutes % 1;
+        if (fractionalMinutes >= 0.5) {
+          silentFiles.push('silent-30s.wav');
+        } else if (fractionalMinutes >= 0.25) {
+          silentFiles.push('silent-15s.wav');
         }
       }
     } else {
-      // 31+ minutes: 10-minute increments
-      segmentDuration = 600;
-      numSegments = Math.ceil(duration / 10);
-      silentFiles = ['silent-10m.wav'];
-
-      // Handle remainder
-      const remainder = duration % 10;
-      if (remainder > 0) {
-        numSegments = Math.floor(duration / 10);
-        if (remainder >= 5) {
-          numSegments += 1; // Add a 5-minute segment
-          silentFiles = [];
-          for (let i = 0; i < Math.floor(duration / 10); i++) {
-            silentFiles.push('silent-10m.wav');
-          }
-          silentFiles.push('silent-5m.wav');
-          if (remainder > 5) {
-            // Add 1-minute segments for the remainder
-            for (let i = 0; i < (remainder - 5); i++) {
-              silentFiles.push('silent-1m.wav');
-              numSegments++;
-            }
-          }
-        } else {
-          // remainder < 5, use 1-minute segments
-          silentFiles = [];
-          for (let i = 0; i < Math.floor(duration / 10); i++) {
-            silentFiles.push('silent-10m.wav');
-          }
-          for (let i = 0; i < remainder; i++) {
-            silentFiles.push('silent-1m.wav');
-            numSegments++;
-          }
-        }
-      }
+      numSegments = Math.min(10, Math.max(5, duration));
+      segmentDuration = (duration * 60) / numSegments;
+      silentFiles = ['silent-1m.wav'];
     }
 
     statusDiv.textContent = 'Loading audio files...';
@@ -2027,37 +2388,48 @@ async function createVisualTimer() {
           reader.readAsDataURL(treeBlob);
         });
       } else if (iconStyle === 'ghost') {
+        // For now, use the static ghost PNGs with progressive fill
+        // TODO: In the future, create animated GIFs with different fill levels
         const pngUrl = chrome.runtime.getURL(`assets/icons/timer/ghost/ghost-${numSegments}-${i}.png`);
         const pngResponse = await fetch(pngUrl);
 
         if (!pngResponse.ok) {
-          console.error(`Failed to fetch ghost PNG: ${pngUrl}`);
           throw new Error(`Ghost PNG not found: ghost-${numSegments}-${i}.png`);
         }
 
         const pngBlob = await pngResponse.blob();
-
-
         const reader = new FileReader();
         iconDataUrl = await new Promise((resolve) => {
           reader.onloadend = () => resolve(reader.result);
           reader.readAsDataURL(pngBlob);
         });
+      } else if (iconStyle === 'flower') {
+        const currentPetals = i;
+
+        try {
+          if (numSegments <= 6) {
+            iconDataUrl = await generateFlowerBlueIcon(currentPetals, numSegments);
+          } else {
+            iconDataUrl = await generateFlowerRedIcon(currentPetals, numSegments);
+          }
+        } catch (error) {
+          // Fallback to simple progress-based icon
+          iconDataUrl = generateTimerIcon(progress, 'circle');
+        }
+      } else if (iconStyle === 'pizza') {
+        iconDataUrl = await generatePizzaTimerIcon(progress, numSegments, i);
       } else if (iconStyle === 'dots') {
-        // Use special dots function with rainbow colors and segment count
         iconDataUrl = generateDotsTimerIcon(progress, numSegments);
       } else if (iconStyle === 'blocks') {
-        // Use special blocks function with blue dots and segment count
         iconDataUrl = generateBlocksTimerIcon(progress, numSegments);
       } else {
-        // Use regular icon generator for other styles
         iconDataUrl = generateTimerIcon(progress, iconStyle);
       }
 
       // Convert data URL to base64
       const iconBase64 = iconDataUrl.split(',')[1];
 
-      const isGifStyle = false;
+      // All icons are PNGs now
       const iconType = 'image/png';
       const iconExtension = 'png';
 
@@ -2072,7 +2444,6 @@ async function createVisualTimer() {
       });
 
       if (iconResponse.error) {
-        console.error(`Failed to upload icon ${i + 1}:`, iconResponse.error);
         uploadedIcons.push(null); // Use default icon if upload fails
       } else {
         uploadedIcons.push(iconResponse.iconId);
@@ -2083,26 +2454,45 @@ async function createVisualTimer() {
 
     // Upload silent tracks
     const uploadedTracks = [];
-    let currentTime = duration * 60; // Start with total seconds
+    const totalSeconds = duration * 60;
+    const secondsPerSegment = totalSeconds / numSegments;
 
     for (let i = 0; i < numSegments; i++) {
-      // Get the appropriate audio file for this segment
+      const currentTime = totalSeconds - (i * secondsPerSegment);
       const audioFileName = silentFiles.length === 1 ? silentFiles[0] : silentFiles[i];
       const audioData = audioCache[audioFileName];
 
-      // Calculate duration for this specific segment
       let trackDuration;
       if (audioFileName === 'silent-10m.wav') {
         trackDuration = 600;
       } else if (audioFileName === 'silent-5m.wav') {
         trackDuration = 300;
+      } else if (audioFileName === 'silent-2m.wav') {
+        trackDuration = 120;
       } else if (audioFileName === 'silent-1m.wav') {
         trackDuration = 60;
+      } else if (audioFileName === 'silent-30s.wav') {
+        trackDuration = 30;
+      } else if (audioFileName === 'silent-22.5s.wav') {
+        trackDuration = 22.5;
       } else if (audioFileName === 'silent-15s.wav') {
         trackDuration = 15;
+      } else if (audioFileName === 'silent-12s.wav') {
+        trackDuration = 12;
+      } else if (audioFileName === 'silent-7.5s.wav') {
+        trackDuration = 7.5;
+      } else {
+        // Fallback - try to parse from filename
+        const match = audioFileName.match(/silent-(\d+(?:\.\d+)?)(s|m)\.wav/);
+        if (match) {
+          const value = parseFloat(match[1]);
+          const unit = match[2];
+          trackDuration = unit === 'm' ? value * 60 : value;
+        } else {
+          trackDuration = 60; // Default fallback
+        }
       }
 
-      // Calculate remaining time for title
       const displayMinutes = Math.floor(currentTime / 60);
       const displaySeconds = currentTime % 60;
 
@@ -2112,10 +2502,11 @@ async function createVisualTimer() {
       } else if (displaySeconds === 0) {
         trackTitle = displayMinutes === 1 ? '1 minute left' : `${displayMinutes} minutes left`;
       } else {
-        trackTitle = `${displayMinutes}:${displaySeconds.toString().padStart(2, '0')} left`;
+        trackTitle = displayMinutes === 1
+          ? `1 minute ${displaySeconds} second${displaySeconds === 1 ? '' : 's'} left`
+          : `${displayMinutes} minutes ${displaySeconds} second${displaySeconds === 1 ? '' : 's'} left`;
       }
 
-      // Handle upload based on file size
       let uploadResponse;
 
       if (audioData.isLarge) {
@@ -2149,7 +2540,6 @@ async function createVisualTimer() {
       }
 
       if (uploadResponse.error) {
-        console.error(`Upload error for track ${i + 1}:`, uploadResponse.error);
         throw new Error(`Failed to upload track ${i + 1}: ${uploadResponse.error}`);
       }
 
@@ -2162,9 +2552,6 @@ async function createVisualTimer() {
         title: trackTitle,
         transcodedAudio: uploadResponse.transcodedAudio
       });
-
-      // Decrement time for next iteration
-      currentTime -= trackDuration;
 
       // Update progress
       const progress = Math.round(((i + 1) / (numSegments + (alarmSound ? 1 : 0))) * 100);
@@ -2250,6 +2637,43 @@ async function createVisualTimer() {
     } else if (iconStyle === 'tree-lights') {
       const treeIcon = 'yoto:#rJatTQ_Y6mlIATEti0EEDFxBws4uUpnDuiWo9rw03KY';
       uploadedIcons.push(treeIcon);
+    } else if (iconStyle === 'flower') {
+      // Generate the full flower for the alarm track
+      try {
+        // Generate a full flower icon (all petals)
+        let fullFlowerDataUrl;
+        if (numSegments <= 6) {
+          fullFlowerDataUrl = await generateFlowerBlueIcon(numSegments, numSegments);
+        } else {
+          fullFlowerDataUrl = await generateFlowerRedIcon(numSegments, numSegments);
+        }
+        const base64Data = fullFlowerDataUrl.split(',')[1];
+
+        const celebrationIconResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_ICON',
+          file: {
+            data: base64Data,
+            type: 'image/png',
+            name: 'flower-celebration.png'
+          }
+        });
+
+        if (celebrationIconResponse.error) {
+          // Fallback to a default celebration icon
+          const fallbackIcon = 'yoto:#tNXOIzQIPO6OjSzmT5WFofHhK3-KRGYvnlBxE1oF0-4'; // celebrate
+          uploadedIcons.push(fallbackIcon);
+        } else {
+          uploadedIcons.push(celebrationIconResponse.iconId);
+        }
+      } catch (error) {
+        // Fallback to a default celebration icon
+        const fallbackIcon = 'yoto:#tNXOIzQIPO6OjSzmT5WFofHhK3-KRGYvnlBxE1oF0-4'; // celebrate
+        uploadedIcons.push(fallbackIcon);
+      }
+    } else if (iconStyle === 'pizza') {
+      // Use the specified Yoto pizza icon for the alarm track
+      const pizzaAlarmIcon = 'yoto:#AnKy11MQUYBPjOm8DqkyhGRy1Xat3MvDXEjoGoAx7aI';
+      uploadedIcons.push(pizzaAlarmIcon);
     } else {
       const celebrationIcons = [
         'yoto:#tNXOIzQIPO6OjSzmT5WFofHhK3-KRGYvnlBxE1oF0-4', // celebrate
@@ -2293,7 +2717,6 @@ async function createVisualTimer() {
         coverUrl = uploadCoverResponse.url;
       }
     } catch (coverError) {
-      console.warn('Failed to upload timer cover:', coverError);
     }
 
     statusDiv.textContent = 'Creating timer card...';
@@ -2305,7 +2728,8 @@ async function createVisualTimer() {
       audioTracks: uploadedTracks,
       iconIds: uploadedIcons, // Pass the uploaded icon IDs
       coverUrl: coverUrl,
-      isVisualTimer: true // Flag to indicate this is a Visual Timer
+      isVisualTimer: true, // Flag to indicate this is a Visual Timer
+      alwaysPlayFromStart: true // Always play timers from start
     });
 
     if (createResponse.error) {
@@ -2335,7 +2759,6 @@ async function createVisualTimer() {
     }, 2000);
 
   } catch (error) {
-    console.error('Timer creation error:', error);
     statusDiv.style.backgroundColor = '#fee2e2';
     statusDiv.style.color = '#991b1b';
     statusDiv.textContent = `Error: ${error.message}`;
@@ -2415,7 +2838,6 @@ async function extractZipContents(zip) {
         const content = await zipEntry.async('base64');
         files[entryName] = content;
       } catch (error) {
-        console.error(`Error extracting ${entryName}:`, error);
       }
     }
   }
@@ -4496,11 +4918,9 @@ async function processBulkZipFile(file, importMode = 'separate') {
         } else {
           // Log detailed info about what was in the ZIP to help diagnose issues
           const fileList = Object.keys(nestedContents.files).filter(f => !nestedContents.files[f].dir);
-          console.warn(`No audio files found in nested ZIP: ${playlistName}. Files in ZIP: ${fileList.join(', ')}`);
           failedZips.push({ name: playlistName, reason: 'No audio files found' });
         }
       } catch (error) {
-        console.error('Error processing nested ZIP:', path, error);
         const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
         failedZips.push({ name: playlistName, reason: error.message || 'Failed to extract' });
       }
@@ -4587,7 +5007,6 @@ async function processBulkZipFile(file, importMode = 'separate') {
               rootCoverImage.fileSize = blob.size;
               break;
             } catch (err) {
-              console.warn('Failed to extract root cover image:', err);
             }
           }
         }
@@ -4755,7 +5174,6 @@ async function mergePlaylists(playlists, mergedName, rootCoverImage = null) {
 
     return mergedPlaylist;
   } catch (error) {
-    console.error('Error merging playlists:', error);
     return null;
   }
 }
@@ -4802,7 +5220,6 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
         file.size = blob.size; // Ensure both size properties are set
         allAudioFiles.push(file);
       } catch (err) {
-        console.error(`[Extract ZIP] Failed to extract audio file ${path}:`, err);
       }
     } else if (imageExtensions.includes(ext)) {
       try {
@@ -4813,7 +5230,6 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
         file.size = blob.size; // Ensure both size properties are set
         allImageFiles.push(file);
       } catch (err) {
-        console.error(`[Extract ZIP] Failed to extract image file ${path}:`, err);
       }
     }
   }
@@ -5221,9 +5637,7 @@ async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000, time
       const result = await Promise.race([uploadFn(), timeoutPromise]);
       return { status: 'fulfilled', value: result };
     } catch (error) {
-      console.error(`[Upload Retry] Attempt ${attempt + 1} failed:`, error.message);
       if (attempt === maxRetries - 1) {
-        console.error(`[Upload Retry] All ${maxRetries} attempts failed`);
         return { status: 'rejected', reason: error };
       }
       // Exponential backoff
@@ -5962,7 +6376,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
           });
         }
       } catch (trackError) {
-        console.error('Failed to track error:', trackError);
       }
       
       // If extension context is lost, stop processing
@@ -6013,7 +6426,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
       });
     }
   } catch (error) {
-    console.error('Failed to track analytics:', error);
   }
   
   // Show success modal and auto-refresh if successful
@@ -6084,7 +6496,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   
   // Log file details for debugging
   if (audioFiles.length === 0) {
-    console.error(`[Bulk Import] No audio files for "${playlistName}"`);
     throw new Error('No audio files to upload');
   }
   
@@ -6147,7 +6558,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
           base64Data = await convertFileToBase64(file);
         } catch (convError) {
           const fileName = file.name || 'unknown';
-          console.error(`[Bulk Import] Failed to convert ${fileName} to base64:`, convError);
           throw new Error(`Failed to convert ${fileName}: ${convError.message}`);
         }
         
@@ -6157,12 +6567,10 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
         });
         
         if (!uploadResult) {
-          console.error(`[Bulk Import] No response for ${file.name}`);
           throw new Error('No response from extension. Please refresh and try again.');
         }
         
         if (uploadResult.error) {
-          console.error(`[Bulk Import] Upload failed for ${file.name}:`, uploadResult.error);
           throw new Error(`Audio upload failed: ${uploadResult.error}`);
         }
         
@@ -6190,7 +6598,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
       if (result.status === 'fulfilled') {
         uploadedTracks[result.value.originalIndex] = result.value;
       } else {
-        console.error(`[Bulk Import] Batch upload failed:`, result.reason);
       }
     }
     
@@ -6264,7 +6671,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
         if (result.status === 'fulfilled') {
           uploadedIconIds[result.value.index] = result.value.iconId;
         } else {
-          console.error(`[Bulk Import] Icon batch upload failed:`, result.reason);
         }
       }
       
@@ -6301,13 +6707,10 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
         uploadedCoverUrl = coverResult.url || coverResult.coverUrl || coverResult.imageUrl;
         if (uploadedCoverUrl) {
         } else {
-          console.error(`[Bulk Import] Cover upload succeeded but no URL returned:`, coverResult);
         }
       } else if (coverResult && coverResult.error) {
-        console.error(`[Bulk Import] Cover upload error: ${coverResult.error}`);
       }
     } catch (error) {
-      console.error('[Bulk Import] Cover upload failed:', error);
       // Continue without cover image
     }
   } else {
@@ -6354,7 +6757,6 @@ async function fileToBase64(file) {
 async function convertFileToBase64(file) {
   return new Promise((resolve, reject) => {
     if (!file || !(file instanceof Blob)) {
-      console.error('[convertFileToBase64] Invalid file object:', file);
       reject(new Error('Invalid file object provided'));
       return;
     }
@@ -6391,12 +6793,10 @@ async function convertFileToBase64(file) {
         name: fileName
       });
       } catch (error) {
-        console.error('[convertFileToBase64] Error during conversion:', error);
         reject(error);
       }
     };
     reader.onerror = (error) => {
-      console.error('[convertFileToBase64] FileReader error:', error);
       reject(error);
     };
     reader.readAsArrayBuffer(file);
@@ -6673,7 +7073,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             const base64Size = base64Data.data.length;
 
             if (base64Size > MAX_MESSAGE_SIZE) {
-              console.warn(`[Chunked Upload] File too large for single message (${(base64Size / 1024 / 1024).toFixed(2)}MB base64).`);
 
               // For very large files, provide helpful instructions
               throw new Error(`File "${audioFile.name}" is too large (${(audioFile.size / 1024 / 1024).toFixed(1)}MB). Maximum is 40MB. Please compress it using online-audio-converter.com (select Standard Quality, 64 kbps or 128 kbps) or other audio software.`);
@@ -6696,7 +7095,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
                   break;
                 }
               } catch (error) {
-                console.warn(`[Chunked Upload] Message send failed for ${audioFile.name}, attempt ${retryCount + 1}:`, error);
               }
 
               if (retryCount < maxRetries) {
@@ -6710,7 +7108,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
 
             // Check if response is still undefined after retries
             if (response === undefined) {
-              console.error(`[Chunked Upload Error] No response received for ${audioFile.name} after ${maxRetries + 1} attempts`);
               throw new Error(`Upload failed for "${audioFile.name}". The file may be too large. Try refreshing the page and importing smaller batches of files.`);
             }
 
@@ -6733,21 +7130,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               transcodedAudio: result.value.response.transcodedAudio
             };
           } else if (result.status === 'rejected') {
-            console.error(`[Upload Error] Audio upload rejected:`, result.reason);
             throw new Error(`Failed to upload audio: ${result.reason}`);
           } else if (result.value && result.value.response && result.value.response.error) {
-            console.error(`[Upload Error] Audio upload error response:`, result.value.response.error);
             throw new Error(`Failed to upload audio: ${result.value.response.error}`);
           } else {
-            console.error(`[Upload Error] Unexpected audio upload result:`, {
-              status: result.status,
-              hasValue: !!result.value,
-              hasResponse: !!(result.value && result.value.response),
-              hasAudioFile: !!(result.value && result.value.audioFile),
-              responseKeys: result.value?.response ? Object.keys(result.value.response) : 'no response',
-              fullResult: result
-            });
-
             // Check for specific error conditions
             if (result.value && result.value.response) {
               const response = result.value.response;
@@ -6809,7 +7195,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             const base64Size = base64.data.length;
 
             if (base64Size > MAX_MESSAGE_SIZE) {
-              console.error(`[Upload Error] File too large for Chrome message passing: ${audioFile.name} (${(base64Size / 1024 / 1024).toFixed(2)}MB base64)`);
               throw new Error(`File "${audioFile.name}" is too large (${(audioFile.size / 1024 / 1024).toFixed(1)}MB). Maximum is 40MB. Please compress it using online-audio-converter.com (select Standard Quality, 64 kbps or 128 kbps) or other audio software.`);
             }
 
@@ -6831,7 +7216,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
                   break;
                 }
               } catch (error) {
-                console.warn(`[Upload] Message send failed for ${audioFile.name}, attempt ${retryCount + 1}:`, error);
               }
 
               if (retryCount < maxRetries) {
@@ -6845,14 +7229,12 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
 
             // Check if response is still undefined after retries
             if (response === undefined) {
-              console.error(`[Upload Error] No response received for ${audioFile.name} after ${maxRetries + 1} attempts - service worker may have crashed`);
               throw new Error(`Upload failed for "${audioFile.name}". The file may be too large. Try refreshing the page and importing smaller batches of files.`);
             }
 
             updateProgress();
             return { response, audioFile, index };
           }).catch(error => {
-            console.error(`[Upload Error] Failed to process file ${audioFile.name}:`, error);
             throw error;
           })
         );
@@ -6894,10 +7276,8 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
                   transcodedAudio: response.transcodedAudio
                 };
               } else if (!response) {
-                console.error(`[Upload Error] No response for ${audioFile.name}`);
                 throw new Error(`Failed to upload ${audioFile.name}: No response from server`);
               } else {
-                console.error(`[Upload Error] Upload failed for ${audioFile.name}:`, response);
                 throw new Error(`Failed to upload ${audioFile.name}: ${response.error || 'Unknown error'}`);
               }
             }
@@ -7184,7 +7564,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     return new Promise((resolve, reject) => {
       // Add validation
       if (!file) {
-        console.error('[fileToBase64] No file provided');
         reject(new Error('No file provided'));
         return;
       }
@@ -7193,7 +7572,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       // Check for very large files that might cause issues
       const MAX_SIZE = 100 * 1024 * 1024; // 100MB limit
       if (file.size > MAX_SIZE) {
-        console.error(`[fileToBase64] File too large: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
         reject(new Error(`File too large: ${file.name} exceeds 100MB limit`));
         return;
       }
@@ -7236,12 +7614,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             name: file.name
           });
         } catch (error) {
-          console.error(`[fileToBase64] Error processing ${file.name}:`, error);
           reject(error);
         }
       };
       reader.onerror = (error) => {
-        console.error(`[fileToBase64] FileReader error for ${file.name}:`, error);
         reject(error);
       };
       reader.readAsArrayBuffer(file);
