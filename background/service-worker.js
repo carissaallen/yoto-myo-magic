@@ -390,8 +390,7 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             throw new Error(`API request failed: ${response.status} - ${errorText}`);
         }
 
-        const responseJson = await response.json();
-        return responseJson;
+        return await response.json();
     } catch (error) {
         throw error;
     }
@@ -422,7 +421,9 @@ async function getMyCards() {
 
 async function getCardContent(cardId) {
     try {
-        return await makeAuthenticatedRequest(`/content/${cardId}`);
+        const response = await makeAuthenticatedRequest(`/content/${cardId}`);
+
+        return response;
     } catch (contentError) {
         return {error: `Could not fetch card content: ${contentError.message}`};
     }
@@ -1693,7 +1694,7 @@ async function updatePlaylistContent(cardId, existingChapters, newTracks, newIco
 }
 
 // Create playlist with uploaded content
-async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl = null, isVisualTimer = false) {
+async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl = null, isVisualTimer = false, alwaysPlayFromStart = null) {
     try {
         const chapters = audioTracks.map((audio, index) => {
             const chapterKey = String(index + 1).padStart(2, '0');
@@ -1777,13 +1778,25 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             };
         }
         
+        let configSettings = {
+            resumeTimeout: 2592000 // Default: 30 days
+        };
+
+        // If alwaysPlayFromStart is explicitly set, use it
+        if (alwaysPlayFromStart !== null) {
+            configSettings.resumeTimeout = alwaysPlayFromStart ? 0 : 2592000;
+        } else if (isVisualTimer) {
+            configSettings.resumeTimeout = 0; // Default for timers: always play from start
+        }
+
+        if (configSettings.resumeTimeout === 0) {
+        }
+
         const content = {
             content: {
                 chapters,
                 playbackType: 'linear',
-                config: {
-                    resumeTimeout: 2592000
-                }
+                config: configSettings
             },
             metadata: metadata,
             title: title,
@@ -2810,7 +2823,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         request.audioTracks,
                         request.iconIds,
                         request.coverUrl,
-                        request.isVisualTimer
+                        request.isVisualTimer,
+                        request.alwaysPlayFromStart
                     ));
                     break;
 

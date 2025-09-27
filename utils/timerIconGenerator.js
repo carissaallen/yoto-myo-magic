@@ -10,7 +10,7 @@ function generateTimerIcon(progress, style = 'pie') {
   const centerY = 8;
   const radius = 6;
 
-  if (style === 'pie') {
+  if (style === 'pie' || style === 'pizza') {
     const pizzaRadius = 7.5;
 
     if (progress > 0) {
@@ -94,11 +94,21 @@ function generateTimerIcon(progress, style = 'pie') {
     ctx.stroke();
 
     if (progress > 0) {
+      // Create rainbow gradient for the progress arc
+      const gradient = ctx.createConicGradient(-Math.PI / 2, centerX, centerY);
+      gradient.addColorStop(0, '#FF0000');     // Red
+      gradient.addColorStop(0.17, '#FF8C00');   // Orange
+      gradient.addColorStop(0.33, '#FFD700');   // Gold
+      gradient.addColorStop(0.5, '#00FF00');    // Green
+      gradient.addColorStop(0.67, '#00CED1');   // Turquoise
+      gradient.addColorStop(0.83, '#0000FF');   // Blue
+      gradient.addColorStop(1, '#8B008B');      // Purple
+
       ctx.beginPath();
       const startAngle = -Math.PI / 2;
       const endAngle = startAngle + (2 * Math.PI * progress);
       ctx.arc(centerX, centerY, largeRadius, startAngle, endAngle);
-      ctx.strokeStyle = '#4CAF50';
+      ctx.strokeStyle = gradient;
       ctx.lineWidth = 2;
       ctx.lineCap = 'round';
       ctx.stroke();
@@ -147,24 +157,28 @@ async function generateTimerIconSet(totalMinutes, style = 'pie') {
 function getTimerSegments(totalMinutes) {
   const segments = [];
   let numSegments;
-
-  switch(totalMinutes) {
-    case 2:
-      numSegments = 8; // 15-second increments
-      break;
-    case 5:
-    case 10:
-    case 15:
-      numSegments = totalMinutes; // 1-minute increments
-      break;
-    case 30:
-      numSegments = 6; // 5-minute increments
-      break;
-    case 60:
-      numSegments = 6; // 10-minute increments
-      break;
-    default:
-      numSegments = totalMinutes;
+  if (totalMinutes === 1) {
+    numSegments = 5;
+  } else if (totalMinutes === 2) {
+    numSegments = 8;
+  } else if (totalMinutes === 3) {
+    numSegments = 8;
+  } else if (totalMinutes === 4) {
+    numSegments = 8;
+  } else if (totalMinutes >= 5 && totalMinutes <= 10) {
+    numSegments = totalMinutes;
+  } else if (totalMinutes >= 11 && totalMinutes <= 20) {
+    numSegments = 10;
+  } else if (totalMinutes === 25) {
+    numSegments = 5;
+  } else if (totalMinutes === 30) {
+    numSegments = 6;
+  } else if (totalMinutes >= 31 && totalMinutes < 50) {
+    numSegments = 8;
+  } else if (totalMinutes >= 50) {
+    numSegments = Math.max(5, Math.ceil(totalMinutes / 10));
+  } else {
+    numSegments = Math.min(10, Math.max(5, totalMinutes));
   }
 
   for (let i = 0; i < numSegments; i++) {
