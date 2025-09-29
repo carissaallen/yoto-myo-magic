@@ -1859,13 +1859,399 @@ function showVisualTimerModal() {
     padding: 32px;
     max-width: 500px;
     width: 90%;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  `;
+
+  // Timer type selection modal
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 20px; font-weight: 600;">Visual Timer Settings</h2>
+
+    <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 14px;">Select a timer type to get started.</p>
+
+    <div style="margin-bottom: 16px;">
+      <label style="display: block; margin-bottom: 12px; font-weight: 500; color: #374151; font-size: 14px;">
+        Timer Type:
+      </label>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <label style="
+          display: flex;
+          align-items: center;
+          padding: 12px 16px;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+          background-color: white;
+        " onmouseover="this.style.borderColor='#3b82f6'; this.style.backgroundColor='#f0f9ff'"
+           onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white'">
+          <input type="radio" name="timer-type" value="ready-made" style="margin-right: 12px;">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: #1f2937; font-size: 14px; margin-bottom: 2px;">Ready-Made Timers</div>
+            <div style="color: #6b7280; font-size: 12px;">Pre-configured timers for common activities</div>
+          </div>
+        </label>
+
+        <label style="
+          display: flex;
+          align-items: center;
+          padding: 12px 16px;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+          background-color: white;
+        " onmouseover="this.style.borderColor='#3b82f6'; this.style.backgroundColor='#f0f9ff'"
+           onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white'">
+          <input type="radio" name="timer-type" value="custom" style="margin-right: 12px;">
+          <div style="flex: 1;">
+            <div style="font-weight: 500; color: #1f2937; font-size: 14px; margin-bottom: 2px;">Custom Timer</div>
+            <div style="color: #6b7280; font-size: 12px;">Create your own timer with custom settings</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; justify-content: center; margin-top: 24px;">
+      <button id="timer-next-btn" disabled style="
+        padding: 10px 24px;
+        background-color: #10b981;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: not-allowed;
+        opacity: 0.5;
+        transition: all 0.2s;
+      ">
+        Continue
+      </button>
+
+      <button id="timer-cancel-btn" style="
+        padding: 10px 24px;
+        background-color: white;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      " onmouseover="this.style.backgroundColor='#f9fafb'" onmouseout="this.style.backgroundColor='white'">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  // Handle radio button selection
+  const radioInputs = content.querySelectorAll('input[name="timer-type"]');
+  const nextBtn = document.getElementById('timer-next-btn');
+  let selectedType = null;
+
+  radioInputs.forEach(input => {
+    input.addEventListener('change', () => {
+      selectedType = input.value;
+      nextBtn.disabled = false;
+      nextBtn.style.cursor = 'pointer';
+      nextBtn.style.opacity = '1';
+
+      // Update label styling
+      content.querySelectorAll('label').forEach(label => {
+        if (label.querySelector('input[name="timer-type"]')) {
+          const radio = label.querySelector('input[name="timer-type"]');
+          if (radio.checked) {
+            label.style.borderColor = '#3b82f6';
+            label.style.backgroundColor = '#f0f9ff';
+          } else {
+            label.style.borderColor = '#e5e7eb';
+            label.style.backgroundColor = 'white';
+          }
+        }
+      });
+    });
+  });
+
+  // Handle Continue button
+  nextBtn.addEventListener('click', () => {
+    if (selectedType === 'ready-made') {
+      modal.remove();
+      showReadyMadeTimerModal();
+    } else if (selectedType === 'custom') {
+      modal.remove();
+      showCustomTimerModal();
+    }
+  });
+
+  // Handle cancel
+  document.getElementById('timer-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+// New function for Ready-Made Timer modal
+function showReadyMadeTimerModal() {
+  const existingModal = document.getElementById('yoto-ready-timer-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-ready-timer-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background-color: white;
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   `;
 
   content.innerHTML = `
-    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">Create Visual Timer</h2>
+    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">Ready-Made Timers</h2>
+
+    <form id="ready-timer-form" style="display: flex; flex-direction: column; gap: 20px;">
+      <!-- Timer Selection -->
+      <div>
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          Select Timer
+        </label>
+        <select id="ready-timer-type" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          background-color: white;
+          cursor: pointer;
+        ">
+          <option value="">Choose a timer...</option>
+          <option value="toothbrush">🦷 Toothbrush Timer (2 min 5 sec)</option>
+        </select>
+      </div>
+
+      <!-- Timer Details (shown after selection) -->
+      <div id="timer-details" style="display: none;">
+        <div style="padding: 16px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+          <h3 style="margin: 0 0 12px 0; color: #0369a1; font-size: 16px; font-weight: 600;">Timer Details</h3>
+          <div id="timer-info" style="color: #0c4a6e; font-size: 14px; line-height: 1.6;"></div>
+        </div>
+      </div>
+
+      <!-- Sound Options (for future use) -->
+      <div id="sound-options" style="display: none;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          Timer Sound
+        </label>
+        <select id="timer-sound" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          background-color: white;
+          cursor: pointer;
+        ">
+          <option value="silent" selected>Silent</option>
+          <!-- Future music options will go here -->
+        </select>
+      </div>
+
+      <!-- Alarm Sound -->
+      <div id="alarm-options" style="display: none;">
+        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+          End Alarm Sound
+        </label>
+        <select id="ready-timer-alarm-sound" style="
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          background-color: white;
+          cursor: pointer;
+        ">
+          <option value="">No alarm</option>
+          <option value="friendly-alarm.mp3" selected>Friendly Chime</option>
+          <option value="soft-alarm.mp3">Soft Bell</option>
+          <option value="happy-alarm.mp3">Happy Tune</option>
+          <option value="sunshine-alarm.mp3">Sunshine Melody</option>
+          <option value="calm-alarm.mp3">Calm Bells</option>
+          <option value="calm-christmas-alarm.mp3">Christmas Bells</option>
+          <option value="spooky-alarm.mp3">Spooky Sound</option>
+        </select>
+      </div>
+
+      <!-- Status Message -->
+      <div id="ready-timer-status" style="display: none; padding: 12px; border-radius: 6px; font-size: 14px;"></div>
+
+      <!-- Buttons -->
+      <div style="display: flex; gap: 12px; margin-top: 8px;">
+        <button type="button" id="ready-timer-back-btn" style="
+          padding: 12px 24px;
+          background-color: #f3f4f6;
+          color: #4b5563;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
+          Back
+        </button>
+        <button type="submit" id="ready-timer-create-btn" disabled style="
+          flex: 1;
+          padding: 12px 24px;
+          background-color: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+          opacity: 0.5;
+        ">
+          Create Timer
+        </button>
+        <button type="button" id="ready-timer-cancel-btn" style="
+          padding: 12px 24px;
+          background-color: #f3f4f6;
+          color: #4b5563;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
+          Cancel
+        </button>
+      </div>
+    </form>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  // Handle timer selection
+  const timerSelect = document.getElementById('ready-timer-type');
+  const timerDetails = document.getElementById('timer-details');
+  const timerInfo = document.getElementById('timer-info');
+  const alarmOptions = document.getElementById('alarm-options');
+  const createBtn = document.getElementById('ready-timer-create-btn');
+
+  timerSelect.addEventListener('change', () => {
+    if (timerSelect.value === 'toothbrush') {
+      timerDetails.style.display = 'block';
+      alarmOptions.style.display = 'block';
+      timerInfo.innerHTML = `
+        <div>• Duration: 2 minutes 5 seconds</div>
+        <div>• Segments: 5 second intro, then 15 second segments</div>
+        <div>• Perfect for morning and bedtime routines</div>
+      `;
+      createBtn.disabled = false;
+      createBtn.style.opacity = '1';
+      createBtn.style.cursor = 'pointer';
+      createBtn.onmouseover = function() { this.style.backgroundColor='#2563eb'; };
+      createBtn.onmouseout = function() { this.style.backgroundColor='#3b82f6'; };
+    } else {
+      timerDetails.style.display = 'none';
+      alarmOptions.style.display = 'none';
+      createBtn.disabled = true;
+      createBtn.style.opacity = '0.5';
+      createBtn.style.cursor = 'not-allowed';
+      createBtn.onmouseover = null;
+      createBtn.onmouseout = null;
+    }
+  });
+
+  // Handle form submission
+  document.getElementById('ready-timer-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (timerSelect.value === 'toothbrush') {
+      await createToothbrushTimer();
+    }
+  });
+
+  // Handle back button
+  document.getElementById('ready-timer-back-btn').addEventListener('click', () => {
+    modal.remove();
+    showVisualTimerModal();
+  });
+
+  // Handle cancel
+  document.getElementById('ready-timer-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+// Rename the existing function for custom timers
+function showCustomTimerModal() {
+  const existingModal = document.getElementById('yoto-custom-timer-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-custom-timer-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background-color: white;
+    border-radius: 12px;
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  `;
+
+  content.innerHTML = `
+    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">Custom Visual Timer</h2>
 
     <form id="visual-timer-form" style="display: flex; flex-direction: column; gap: 20px;">
       <!-- Card Title -->
@@ -1901,6 +2287,7 @@ function showVisualTimerModal() {
           <option value="5" selected>5 minutes</option>
           <option value="10">10 minutes</option>
           <option value="15">15 minutes</option>
+          <option value="20">20 minutes</option>
           <option value="30">30 minutes</option>
           <option value="60">60 minutes</option>
           <option value="custom">Custom duration...</option>
@@ -2164,6 +2551,354 @@ function showVisualTimerModal() {
   });
 }
 
+async function createToothbrushTimer() {
+  const alarmSound = document.getElementById('ready-timer-alarm-sound').value;
+  const statusDiv = document.getElementById('ready-timer-status');
+  const submitButton = document.querySelector('#ready-timer-form button[type="submit"]');
+
+  // Show initial status
+  statusDiv.style.display = 'block';
+  statusDiv.style.backgroundColor = '#dbeafe';
+  statusDiv.style.color = '#1e40af';
+  statusDiv.textContent = 'Preparing toothbrush timer tracks...';
+  submitButton.disabled = true;
+  submitButton.style.opacity = '0.5';
+  submitButton.style.cursor = 'not-allowed';
+
+  try {
+    // Toothbrush timer configuration: 2 minutes 5 seconds total
+    // 1 x 5 second intro + 8 x 15 second segments
+    const tracks = [];
+
+    // First track: intro composite audio - "Get Your Toothbrush Ready!"
+    tracks.push({
+      title: "Get Your Toothbrush Ready!",
+      duration: 5, // Approximately 4.38 seconds, but keeping 5 for consistency
+      silentFile: 'toothbrush-intro-composite.wav'
+    });
+
+    // Middle tracks: 8 x 15 seconds each
+    // Total time after 5 second intro = 2:00 minutes
+    // Each track is 15 seconds, countdown shows time remaining
+    const brushingTitles = [
+      "Top Left Front (2:00)",      // 15 sec track, 2:00 remaining
+      "Top Left Back (1:45)",       // 15 sec track, 1:45 remaining
+      "Top Right Front (1:30)",     // 15 sec track, 1:30 remaining
+      "Top Right Back (1:15)",      // 15 sec track, 1:15 remaining
+      "Bottom Left Front (1:00)",   // 15 sec track, 1:00 remaining
+      "Bottom Left Back (0:45)",    // 15 sec track, 0:45 remaining
+      "Bottom Right Front (0:30)",  // 15 sec track, 0:30 remaining
+      "Bottom Right Back (0:15)"    // 15 sec track, 0:15 remaining (renamed to Sparkly Smile!)
+    ];
+
+    for (let i = 0; i < 8; i++) {
+      // Tracks 2-7 have boing at the end, track 8 doesn't (to avoid boing->alarm)
+      const audioFile = i < 7 ? `toothbrush-track-${i + 2}.wav` : 'toothbrush-track-8.wav';
+
+      tracks.push({
+        title: brushingTitles[i],
+        duration: 15,
+        silentFile: audioFile
+      });
+    }
+
+    // Last track will be renamed to "Sparkly Teeth!" after all icons are generated
+
+    statusDiv.textContent = 'Loading audio files...';
+
+    // Load all audio files (including the composite intro and all track files)
+    const audioCache = {};
+    const uniqueFiles = [
+      'toothbrush-intro-composite.wav',
+      'toothbrush-track-2.wav',
+      'toothbrush-track-3.wav',
+      'toothbrush-track-4.wav',
+      'toothbrush-track-5.wav',
+      'toothbrush-track-6.wav',
+      'toothbrush-track-7.wav',
+      'toothbrush-track-8.wav'
+    ];
+
+    for (const fileName of uniqueFiles) {
+      const audioUrl = chrome.runtime.getURL(`assets/audio/timer/${fileName}`);
+      console.log('Attempting to load audio from:', audioUrl);
+
+      try {
+        const audioResponse = await fetch(audioUrl);
+        if (!audioResponse.ok) {
+          throw new Error(`Failed to load audio file: ${fileName} - Status: ${audioResponse.status}`);
+        }
+
+        const audioBlob = await audioResponse.blob();
+        console.log(`Successfully loaded ${fileName}, size: ${audioBlob.size} bytes`);
+
+        // Check file size before converting to base64
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
+        if (audioBlob.size > MAX_SIZE) {
+          audioCache[fileName] = { blob: audioBlob, isLarge: true };
+        } else {
+          const audioBase64 = await blobToBase64(audioBlob);
+          audioCache[fileName] = { base64: audioBase64, isLarge: false };
+        }
+      } catch (audioError) {
+        console.error(`Error loading ${fileName}:`, audioError);
+        throw new Error(`Failed to load audio file ${fileName}: ${audioError.message}`);
+      }
+    }
+
+    // Load alarm audio if selected
+    let alarmAudioBase64 = null;
+    if (alarmSound) {
+      const alarmUrl = chrome.runtime.getURL(`assets/audio/alarms/${alarmSound}`);
+
+      const alarmResponse = await fetch(alarmUrl);
+      if (!alarmResponse.ok) {
+        throw new Error(`Failed to load alarm file: ${alarmSound}`);
+      }
+
+      const alarmBlob = await alarmResponse.blob();
+      alarmAudioBase64 = await blobToBase64(alarmBlob);
+    }
+
+    statusDiv.textContent = 'Generating timer icons...';
+
+    // For now, we'll use a default icon style for toothbrush timer
+    // Later you can provide specific toothbrush-themed icons
+    const iconStyle = 'blocks'; // Or create a special toothbrush icon set
+
+    // Import the icon generator functions
+    console.log('Importing icon generator module...');
+    let generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon;
+    try {
+      const module = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
+      generateTimerIcon = module.generateTimerIcon;
+      generateDotsTimerIcon = module.generateDotsTimerIcon;
+      generateBlocksTimerIcon = module.generateBlocksTimerIcon;
+      console.log('Icon generator module loaded successfully');
+    } catch (importError) {
+      console.error('Failed to import icon generator:', importError);
+      throw new Error(`Failed to import icon generator: ${importError.message}`);
+    }
+
+    // Generate and upload icons for each track
+    const uploadedIcons = [];
+    const totalTracks = tracks.length;
+
+    for (let i = 0; i < totalTracks; i++) {
+      statusDiv.textContent = `Uploading icon ${i + 1} of ${totalTracks}...`;
+
+      let iconBase64;
+
+      if (i === 0) {
+        // First track - use toothbrush icon
+        const toothbrushUrl = chrome.runtime.getURL('assets/timer/icons/toothbrush.png');
+        const toothbrushResponse = await fetch(toothbrushUrl);
+        const toothbrushBlob = await toothbrushResponse.blob();
+        const toothbrushDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(toothbrushBlob);
+        });
+        iconBase64 = toothbrushDataUrl.split(',')[1];
+      } else if (i === totalTracks - 1) {
+        // Last track - use happy teeth icon
+        const happyTeethUrl = chrome.runtime.getURL('assets/timer/icons/happy-teeth.png');
+        const happyTeethResponse = await fetch(happyTeethUrl);
+        const happyTeethBlob = await happyTeethResponse.blob();
+        const happyTeethDataUrl = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(happyTeethBlob);
+        });
+        iconBase64 = happyTeethDataUrl.split(',')[1];
+      } else {
+        // Tracks 2-8 - use generated tooth icons with decreasing plaque
+        const trackNum = i + 1; // Track numbers are 1-based
+        const toothIconUrl = chrome.runtime.getURL(`assets/timer/icons/tooth-track-${trackNum}.png`);
+
+        try {
+          const toothIconResponse = await fetch(toothIconUrl);
+          if (toothIconResponse.ok) {
+            const toothIconBlob = await toothIconResponse.blob();
+            const toothIconDataUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(toothIconBlob);
+            });
+            iconBase64 = toothIconDataUrl.split(',')[1];
+          } else {
+            // Fallback to generated countdown icon if tooth icon not found
+            const progress = 1 - (i / totalTracks);
+            const iconDataUrl = generateBlocksTimerIcon(progress);
+            iconBase64 = iconDataUrl.split(',')[1];
+          }
+        } catch (err) {
+          // Fallback to generated countdown icon
+          console.log(`Could not load tooth-track-${trackNum}.png, using fallback`);
+          const progress = 1 - (i / totalTracks);
+          const iconDataUrl = generateBlocksTimerIcon(progress);
+          iconBase64 = iconDataUrl.split(',')[1];
+        }
+      }
+
+      // Upload icon
+      console.log(`Uploading icon ${i + 1}...`);
+      const uploadResponse = await chrome.runtime.sendMessage({
+        action: 'UPLOAD_ICON',
+        file: {
+          data: iconBase64,
+          type: 'image/png',
+          name: `timer-icon-${i}.png`
+        }
+      });
+
+      if (uploadResponse.error) {
+        throw new Error(`Failed to upload icon ${i + 1}: ${uploadResponse.error}`);
+      }
+
+      uploadedIcons.push(uploadResponse.iconId);
+    }
+
+    // Rename the last track to "Sparkly Smile!"
+    tracks[tracks.length - 1].title = "Sparkly Smile!";
+
+    statusDiv.textContent = 'Uploading cover art...';
+
+    // Load and upload the toothbrush timer cover image
+    let coverUrl = null;
+    try {
+      const coverPath = chrome.runtime.getURL('assets/timer/covers/toothbrush-timer-cover.png');
+      const coverResponse = await fetch(coverPath);
+      if (!coverResponse.ok) {
+        throw new Error(`Failed to fetch toothbrush cover: ${coverResponse.status}`);
+      }
+
+      const coverBlob = await coverResponse.blob();
+      const coverBase64 = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(coverBlob);
+      });
+
+      const base64Data = coverBase64.split(',')[1];
+
+      const uploadCoverResponse = await chrome.runtime.sendMessage({
+        action: 'UPLOAD_COVER',
+        file: {
+          data: base64Data,
+          type: 'image/png',
+          name: 'toothbrush-timer-cover.png'
+        }
+      });
+
+      if (uploadCoverResponse && !uploadCoverResponse.error) {
+        coverUrl = uploadCoverResponse.url;
+      }
+    } catch (coverError) {
+      console.error('Cover upload error:', coverError);
+      // Continue without cover
+    }
+
+    statusDiv.textContent = 'Uploading audio tracks...';
+
+    // Upload audio tracks
+    const audioTracks = [];
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
+      const audioData = audioCache[track.silentFile];
+
+      if (!audioData) {
+        throw new Error(`Audio file not found in cache: ${track.silentFile}`);
+      }
+
+      let audioResponse;
+
+      if (audioData.isLarge) {
+        // For large files, have the service worker load and upload directly
+        audioResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_TIMER_AUDIO',
+          fileName: track.silentFile,
+          trackName: `track-${i}.wav`
+        });
+      } else {
+        // For smaller files, use the regular upload with base64
+        audioResponse = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_AUDIO',
+          file: {
+            data: audioData.base64,
+            type: 'audio/wav',
+            name: track.silentFile
+          }
+        });
+      }
+
+      if (audioResponse.error) {
+        throw new Error(`Failed to upload audio track ${i + 1}: ${audioResponse.error}`);
+      }
+
+      audioTracks.push({
+        title: track.title,
+        transcodedAudio: audioResponse.transcodedAudio
+      });
+    }
+
+    // Add alarm to the last track if selected
+    if (alarmAudioBase64 && audioTracks.length > 0) {
+      const alarmResponse = await chrome.runtime.sendMessage({
+        action: 'UPLOAD_AUDIO',
+        file: {
+          data: alarmAudioBase64,
+          type: 'audio/mp3',
+          name: alarmSound
+        }
+      });
+
+      if (alarmResponse.error) {
+        throw new Error(`Failed to upload alarm: ${alarmResponse.error}`);
+      }
+
+      // Replace the last track's audio with the alarm
+      audioTracks[audioTracks.length - 1].transcodedAudio = alarmResponse.transcodedAudio;
+    }
+
+    statusDiv.textContent = 'Creating timer card...';
+
+    // Create the playlist - pass audioTracks and iconIds separately
+    const createResponse = await chrome.runtime.sendMessage({
+      action: 'CREATE_PLAYLIST',
+      title: "Toothbrush Timer",
+      audioTracks: audioTracks,
+      iconIds: uploadedIcons,
+      coverUrl: coverUrl,
+      isVisualTimer: true,
+      alwaysPlayFromStart: true
+    });
+
+    if (!createResponse.error) {
+      statusDiv.style.backgroundColor = '#dcfce7';
+      statusDiv.style.color = '#166534';
+      statusDiv.textContent = 'Toothbrush timer created successfully! Refreshing...';
+
+      // Close modal and refresh page after a short delay
+      setTimeout(() => {
+        document.getElementById('yoto-ready-timer-modal').remove();
+        window.location.reload();
+      }, 1500);
+    } else {
+      throw new Error(createResponse.error || 'Failed to create timer card');
+    }
+
+  } catch (error) {
+    console.error('Error creating toothbrush timer:', error);
+    statusDiv.style.backgroundColor = '#fee2e2';
+    statusDiv.style.color = '#991b1b';
+    statusDiv.textContent = `Error: ${error.message}`;
+    submitButton.disabled = false;
+    submitButton.style.opacity = '1';
+    submitButton.style.cursor = 'pointer';
+  }
+}
+
 async function createVisualTimer() {
   const timerName = document.getElementById('timer-name').value || 'Visual Timer';
   const durationSelect = document.getElementById('timer-duration');
@@ -2404,18 +3139,8 @@ async function createVisualTimer() {
           reader.readAsDataURL(pngBlob);
         });
       } else if (iconStyle === 'flower') {
-        const currentPetals = i;
-
-        try {
-          if (numSegments <= 6) {
-            iconDataUrl = await generateFlowerBlueIcon(currentPetals, numSegments);
-          } else {
-            iconDataUrl = await generateFlowerRedIcon(currentPetals, numSegments);
-          }
-        } catch (error) {
-          // Fallback to simple progress-based icon
-          iconDataUrl = generateTimerIcon(progress, 'circle');
-        }
+        // Use the flower style from timerIconGenerator
+        iconDataUrl = generateTimerIcon(progress, 'flower');
       } else if (iconStyle === 'pizza') {
         iconDataUrl = await generatePizzaTimerIcon(progress, numSegments, i);
       } else if (iconStyle === 'dots') {
@@ -2461,6 +3186,10 @@ async function createVisualTimer() {
       const currentTime = totalSeconds - (i * secondsPerSegment);
       const audioFileName = silentFiles.length === 1 ? silentFiles[0] : silentFiles[i];
       const audioData = audioCache[audioFileName];
+
+      if (!audioData) {
+        throw new Error(`Audio file not found in cache: ${audioFileName}`);
+      }
 
       let trackDuration;
       if (audioFileName === 'silent-10m.wav') {
@@ -2586,49 +3315,73 @@ async function createVisualTimer() {
     } else {
       // No alarm selected - add a silent final track
       // Use the first silent file that was loaded (could be 15s, 1m, 5m, or 10m)
-      const silentFileName = silentFiles[0] || 'silent-1m.wav';
-      const silentAudioObj = audioCache[silentFileName];
+      const silentFileName = silentFiles && silentFiles.length > 0 ? silentFiles[0] : 'silent-1m.wav';
+
+      // If the file isn't in cache, try to load it
+      let silentAudioObj = audioCache[silentFileName];
 
       if (!silentAudioObj) {
-        throw new Error(`Silent audio not found in cache: ${silentFileName}`);
+        // Try to load the fallback file
+        const fallbackUrl = chrome.runtime.getURL(`assets/audio/timer/${silentFileName}`);
+        try {
+          const fallbackResponse = await fetch(fallbackUrl);
+          if (fallbackResponse.ok) {
+            const fallbackBlob = await fallbackResponse.blob();
+            const MAX_SIZE = 10 * 1024 * 1024;
+            if (fallbackBlob.size > MAX_SIZE) {
+              silentAudioObj = { blob: fallbackBlob, isLarge: true };
+            } else {
+              const fallbackBase64 = await blobToBase64(fallbackBlob);
+              silentAudioObj = { base64: fallbackBase64, isLarge: false };
+            }
+            audioCache[silentFileName] = silentAudioObj;
+          }
+        } catch (error) {
+          console.error(`Failed to load fallback silent file: ${silentFileName}`, error);
+        }
       }
 
-      let silentResponse;
-
-      // Handle based on file size (same as timer segments)
-      if (silentAudioObj.isLarge) {
-        // For large files, have the service worker load and upload directly
-        silentResponse = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_TIMER_AUDIO',
-          fileName: silentFileName,
-          trackName: 'timer-complete-silent.wav'
-        });
+      if (!silentAudioObj) {
+        console.warn(`Silent audio not found, skipping final silent track: ${silentFileName}`);
+        // Skip adding a silent final track if we can't load the audio
       } else {
-        // For smaller files, use the regular upload with base64
-        const silentAudioData = silentAudioObj.base64;
+        let silentResponse;
 
-        if (!silentAudioData) {
-          throw new Error(`No base64 data for silent track: ${silentFileName}`);
+        // Handle based on file size (same as timer segments)
+        if (silentAudioObj.isLarge) {
+          // For large files, have the service worker load and upload directly
+          silentResponse = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_TIMER_AUDIO',
+            fileName: silentFileName,
+            trackName: 'timer-complete-silent.wav'
+          });
+        } else {
+          // For smaller files, use the regular upload with base64
+          const silentAudioData = silentAudioObj.base64;
+
+          if (!silentAudioData) {
+            throw new Error(`No base64 data for silent track: ${silentFileName}`);
+          }
+
+          silentResponse = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_AUDIO',
+            file: {
+              data: silentAudioData,
+              type: 'audio/wav',
+              name: silentFileName
+            }
+          });
         }
 
-        silentResponse = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_AUDIO',
-          file: {
-            data: silentAudioData,
-            type: 'audio/wav',
-            name: silentFileName
-          }
+        if (silentResponse.error) {
+          throw new Error(`Failed to upload silent track: ${silentResponse.error}`);
+        }
+
+        uploadedTracks.push({
+          title: "Timer Complete",
+          transcodedAudio: silentResponse.transcodedAudio
         });
       }
-
-      if (silentResponse.error) {
-        throw new Error(`Failed to upload silent track: ${silentResponse.error}`);
-      }
-
-      uploadedTracks.push({
-        title: "Timer Complete",
-        transcodedAudio: silentResponse.transcodedAudio
-      });
     }
 
     if (iconStyle === 'ghost') {
@@ -2640,13 +3393,8 @@ async function createVisualTimer() {
     } else if (iconStyle === 'flower') {
       // Generate the full flower for the alarm track
       try {
-        // Generate a full flower icon (all petals)
-        let fullFlowerDataUrl;
-        if (numSegments <= 6) {
-          fullFlowerDataUrl = await generateFlowerBlueIcon(numSegments, numSegments);
-        } else {
-          fullFlowerDataUrl = await generateFlowerRedIcon(numSegments, numSegments);
-        }
+        // Generate a full flower icon (all petals visible - progress = 1)
+        const fullFlowerDataUrl = generateTimerIcon(1, 'flower');
         const base64Data = fullFlowerDataUrl.split(',')[1];
 
         const celebrationIconResponse = await chrome.runtime.sendMessage({
