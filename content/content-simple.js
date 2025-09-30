@@ -596,7 +596,7 @@ function openIconArtModal() {
     border-radius: 12px;
     padding: 24px;
     width: 90%;
-    max-width: 600px;
+    max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -674,8 +674,9 @@ function openIconArtModal() {
       ">Choose Image</button>
     </div>
 
-    <div id="editor-section" style="display: none;">
-      <div id="canvas-container" style="
+    <div id="positioning-section" style="display: none;">
+      <p style="margin-bottom: 10px; color: #666; text-align: center;">Position and scale your image, then click "Convert to Pixel Art"</p>
+      <div id="positioning-container" style="
         position: relative;
         margin: 20px auto;
         width: 400px;
@@ -685,7 +686,7 @@ function openIconArtModal() {
         overflow: hidden;
         background: #f9f9f9;
       ">
-        <img id="artwork-image" style="
+        <img id="positioning-image" style="
           position: absolute;
           cursor: move;
           user-select: none;
@@ -706,19 +707,105 @@ function openIconArtModal() {
           height: 400px;
           pointer-events: none;
         "></canvas>
-        <canvas id="eraser-canvas" style="
-          position: absolute;
-          width: 400px;
-          height: 400px;
-          pointer-events: none;
-          cursor: crosshair;
-          display: none;
-        "></canvas>
       </div>
 
       <div id="scale-controls" style="margin: 20px 0; text-align: center;">
         <label style="display: block; margin-bottom: 10px; color: #666;">Scale: <span id="scale-value">100%</span></label>
         <input type="range" id="scale-slider" min="10" max="300" value="100" style="width: 300px;">
+      </div>
+
+      <div style="text-align: center;">
+        <button id="convert-to-pixel" style="
+          padding: 12px 24px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">Convert to Pixel Art</button>
+      </div>
+    </div>
+
+    <div id="editor-section" style="display: none;">
+      <div style="display: flex; gap: 20px; align-items: start; justify-content: center;">
+        <!-- Original image reference on the left -->
+        <div id="reference-section" style="display: none;">
+          <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; text-align: center;">Original</p>
+          <div style="
+            width: 200px;
+            height: 200px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f9f9f9;
+            position: relative;
+          ">
+            <img id="reference-image" style="
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+            ">
+          </div>
+          <button id="reset-grid" style="
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #6b7280;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+          ">Reset Grid</button>
+        </div>
+
+        <!-- Pixelated grid for editing on the right -->
+        <div>
+          <p id="pixel-edit-label" style="margin: 0 0 10px 0; color: #666; font-size: 14px; text-align: center; display: none;">Touch up your pixel art</p>
+          <div id="canvas-container" style="
+            position: relative;
+            margin: 0 auto;
+            width: 400px;
+            height: 400px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f9f9f9;
+          ">
+            <img id="artwork-image" style="
+              position: absolute;
+              cursor: move;
+              user-select: none;
+              -webkit-user-drag: none;
+              display: none;
+            ">
+            <canvas id="pixelated-canvas" width="400" height="400" style="
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 400px;
+              height: 400px;
+              image-rendering: pixelated;
+              display: none;
+            "></canvas>
+            <canvas id="eraser-canvas" style="
+              position: absolute;
+              width: 400px;
+              height: 400px;
+              pointer-events: none;
+              cursor: crosshair;
+              display: none;
+            "></canvas>
+            <canvas id="grid-lines" style="
+              position: absolute;
+              width: 400px;
+              height: 400px;
+              pointer-events: none;
+            "></canvas>
+          </div>
+        </div>
       </div>
 
       <div id="color-palette" style="margin: 20px auto; width: 400px;">
@@ -938,13 +1025,20 @@ function initializeIconArtEditor() {
 
   const uploadBtn = document.getElementById('upload-btn');
   const fileInput = document.getElementById('artwork-upload');
+  const positioningSection = document.getElementById('positioning-section');
+  const positioningImage = document.getElementById('positioning-image');
   const editorSection = document.getElementById('editor-section');
   const artworkImage = document.getElementById('artwork-image');
+  const pixelatedCanvas = document.getElementById('pixelated-canvas');
+  const referenceSection = document.getElementById('reference-section');
+  const referenceImage = document.getElementById('reference-image');
+  const pixelEditLabel = document.getElementById('pixel-edit-label');
   const canvasContainer = document.getElementById('canvas-container');
   const gridOverlay = document.getElementById('grid-overlay');
   const gridCanvas = document.getElementById('grid-lines');
   const scaleSlider = document.getElementById('scale-slider');
   const scaleValue = document.getElementById('scale-value');
+  const convertToPixelBtn = document.getElementById('convert-to-pixel');
   const previewCanvas = document.getElementById('preview-canvas');
   const uploadIconBtn = document.getElementById('upload-icon');
   const eraserCanvas = document.getElementById('eraser-canvas');
@@ -1037,7 +1131,7 @@ function initializeIconArtEditor() {
       const img = new Image();
       img.onload = () => {
         imageData = img;
-        artworkImage.src = event.target.result;
+        positioningImage.src = event.target.result;
 
         // Initial positioning - center the image
         // Calculate scale to fit the image nicely in the container
@@ -1057,20 +1151,19 @@ function initializeIconArtEditor() {
         imageX = (containerSize - scaledWidth) / 2;
         imageY = (containerSize - scaledHeight) / 2;
 
-        updateImagePosition();
-        editorSection.style.display = 'block';
-        uploadIconBtn.style.display = 'inline-block';
+        updatePositioningImage();
+        uploadSection.style.display = 'none';
+        positioningSection.style.display = 'block';
 
-        // Initialize without paint mode for image workflow - user needs to position/scale first
+        // Widen the modal for image positioning
+        const modalContent = document.querySelector('#yoto-icon-art-modal > div');
+        if (modalContent) {
+          modalContent.style.maxWidth = '800px';
+        }
+
+        // Initialize positioning mode
         paintMode = false;
         eraserMode = false;
-        eraserCanvas.style.display = 'none';
-        eraserCanvas.style.pointerEvents = 'none';
-        artworkImage.style.pointerEvents = 'auto';
-        colorPalette.style.display = 'none';
-
-        // Show the paint button for image mode
-        togglePaintBtn.style.display = 'inline-block';
       };
       img.src = event.target.result;
     };
@@ -1087,6 +1180,18 @@ function initializeIconArtEditor() {
     artworkImage.style.height = `${scaledHeight}px`;
     artworkImage.style.left = `${imageX}px`;
     artworkImage.style.top = `${imageY}px`;
+  }
+
+  function updatePositioningImage() {
+    if (!imageData) return;
+
+    const scaledWidth = imageData.width * imageScale;
+    const scaledHeight = imageData.height * imageScale;
+
+    positioningImage.style.width = `${scaledWidth}px`;
+    positioningImage.style.height = `${scaledHeight}px`;
+    positioningImage.style.left = `${imageX}px`;
+    positioningImage.style.top = `${imageY}px`;
   }
 
   // Paint button toggle (only visible for image mode)
@@ -1417,7 +1522,7 @@ function initializeIconArtEditor() {
     currentStrokeActions = [];
   };
 
-  // Dragging functionality
+  // Dragging functionality for both images
   artworkImage.onmousedown = (e) => {
     if (eraserMode || paintMode) return; // Can't drag in eraser or paint mode
     isDragging = true;
@@ -1427,18 +1532,40 @@ function initializeIconArtEditor() {
     e.preventDefault();
   };
 
+  positioningImage.onmousedown = (e) => {
+    isDragging = true;
+    dragStartX = e.clientX - imageX;
+    dragStartY = e.clientY - imageY;
+    positioningImage.style.cursor = 'grabbing';
+    e.preventDefault();
+  };
+
   document.onmousemove = (e) => {
-    if (!isDragging || eraserMode || paintMode) return; // Can't drag in eraser or paint mode
-    imageX = e.clientX - dragStartX;
-    imageY = e.clientY - dragStartY;
-    updateImagePosition();
+    if (!isDragging) return;
+
+    // Positioning mode - allow dragging
+    if (positioningSection.style.display !== 'none') {
+      imageX = e.clientX - dragStartX;
+      imageY = e.clientY - dragStartY;
+      updatePositioningImage();
+    }
+    // Editor mode - only allow dragging if not in paint/eraser mode
+    else if (!eraserMode && !paintMode) {
+      imageX = e.clientX - dragStartX;
+      imageY = e.clientY - dragStartY;
+      updateImagePosition();
+    }
   };
 
   document.onmouseup = () => {
     // Stop image dragging
-    if (isDragging && !eraserMode && !paintMode) {
+    if (isDragging) {
       isDragging = false;
-      artworkImage.style.cursor = 'move';
+      if (positioningSection.style.display !== 'none') {
+        positioningImage.style.cursor = 'move';
+      } else if (!eraserMode && !paintMode) {
+        artworkImage.style.cursor = 'move';
+      }
     }
 
     // Stop painting if mouse is released anywhere
@@ -1462,8 +1589,133 @@ function initializeIconArtEditor() {
   scaleSlider.oninput = () => {
     imageScale = scaleSlider.value / 100;
     scaleValue.textContent = `${scaleSlider.value}%`;
-    updateImagePosition();
+
+    if (positioningSection.style.display !== 'none') {
+      updatePositioningImage();
+    } else {
+      updateImagePosition();
+    }
   };
+
+  const resetGridBtn = document.getElementById('reset-grid');
+  if (resetGridBtn) {
+    resetGridBtn.onclick = () => {
+      const modalContent = document.querySelector('#yoto-icon-art-modal > div');
+      if (modalContent) {
+        modalContent.style.maxWidth = '800px';
+      }
+
+      positioningSection.style.display = 'block';
+      editorSection.style.display = 'none';
+
+      referenceSection.style.display = 'none';
+      pixelEditLabel.style.display = 'none';
+
+      pixelatedCanvas.style.display = 'none';
+
+      erasedPixels.clear();
+      paintedPixels.clear();
+      actionHistory = [];
+
+      paintMode = false;
+      eraserMode = false;
+      eraserCanvas.style.display = 'none';
+      eraserCanvas.style.pointerEvents = 'none';
+      colorPalette.style.display = 'none';
+    };
+  }
+
+  if (convertToPixelBtn) {
+    convertToPixelBtn.onclick = () => {
+      if (!imageData) return;
+
+      const modalContent = document.querySelector('#yoto-icon-art-modal > div');
+      if (modalContent) {
+        modalContent.style.maxWidth = '1100px';
+      }
+
+      positioningSection.style.display = 'none';
+      editorSection.style.display = 'block';
+
+      referenceSection.style.display = 'block';
+      pixelEditLabel.style.display = 'block';
+
+      const pixCanvas = pixelatedCanvas;
+      const pixCtx = pixCanvas.getContext('2d');
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 16;
+      tempCanvas.height = 16;
+      const tempCtx = tempCanvas.getContext('2d');
+
+      const scaledWidth = imageData.width * imageScale;
+      const scaledHeight = imageData.height * imageScale;
+
+      const sourceX = Math.max(0, (containerSize / 2 - imageX) / imageScale - (gridSize / 2) / imageScale);
+      const sourceY = Math.max(0, (containerSize / 2 - imageY) / imageScale - (gridSize / 2) / imageScale);
+      const sourceWidth = gridSize / imageScale;
+      const sourceHeight = gridSize / imageScale;
+
+      tempCtx.imageSmoothingEnabled = true;
+      tempCtx.imageSmoothingQuality = 'high';
+
+      tempCtx.drawImage(
+        imageData,
+        sourceX, sourceY, sourceWidth, sourceHeight,
+        0, 0, 16, 16
+      );
+
+      const imageData16 = tempCtx.getImageData(0, 0, 16, 16);
+      const data = imageData16.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const factor = 1.1; // Contrast factor (1.0 = no change)
+        data[i] = Math.min(255, Math.max(0, factor * (data[i] - 128) + 128));     // R
+        data[i + 1] = Math.min(255, Math.max(0, factor * (data[i + 1] - 128) + 128)); // G
+        data[i + 2] = Math.min(255, Math.max(0, factor * (data[i + 2] - 128) + 128)); // B
+
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const gray = 0.2989 * r + 0.5870 * g + 0.1140 * b;
+        const satFactor = 1.15; // Saturation factor
+
+        data[i] = Math.min(255, Math.max(0, gray + satFactor * (r - gray)));
+        data[i + 1] = Math.min(255, Math.max(0, gray + satFactor * (g - gray)));
+        data[i + 2] = Math.min(255, Math.max(0, gray + satFactor * (b - gray)));
+      }
+
+      tempCtx.putImageData(imageData16, 0, 0);
+
+      const refCanvas = document.createElement('canvas');
+      refCanvas.width = 200;
+      refCanvas.height = 200;
+      const refCtx = refCanvas.getContext('2d');
+
+      refCtx.drawImage(
+        imageData,
+        sourceX, sourceY, sourceWidth, sourceHeight,
+        0, 0, 200, 200
+      );
+
+      referenceImage.src = refCanvas.toDataURL();
+
+      pixCtx.imageSmoothingEnabled = false;
+      pixCtx.clearRect(0, 0, containerSize, containerSize);
+      pixCtx.drawImage(tempCanvas, 0, 0, 16, 16, 0, 0, containerSize, containerSize);
+
+      pixelatedCanvas.style.display = 'block';
+      artworkImage.style.display = 'none';
+
+      paintMode = true;
+      eraserMode = false;
+      eraserCanvas.style.display = 'block';
+      eraserCanvas.style.pointerEvents = 'auto';
+      colorPalette.style.display = 'block';
+      togglePaintBtn.style.display = 'none'; // Hide paint toggle since we're in edit mode
+      uploadIconBtn.style.display = 'inline-block';
+    };
+  }
 
   // Reset position
   document.getElementById('reset-position').onclick = () => {
@@ -1472,7 +1724,12 @@ function initializeIconArtEditor() {
     imageScale = 1;
     scaleSlider.value = 100;
     scaleValue.textContent = '100%';
-    updateImagePosition();
+
+    if (positioningSection.style.display !== 'none') {
+      updatePositioningImage();
+    } else {
+      updateImagePosition();
+    }
 
     // Clear all editing
     erasedPixels.clear();
@@ -1500,6 +1757,9 @@ function initializeIconArtEditor() {
       // White background for blank canvas
       previewCtx.fillStyle = 'white';
       previewCtx.fillRect(0, 0, 16, 16);
+    } else if (pixelatedCanvas.style.display !== 'none') {
+      previewCtx.imageSmoothingEnabled = false;
+      previewCtx.drawImage(pixelatedCanvas, 0, 0, containerSize, containerSize, 0, 0, 16, 16);
     } else if (imageData) {
       // Calculate the portion of the image that's in the grid
       const sourceX = (gridX - imageX) / imageScale;
@@ -1581,6 +1841,9 @@ function initializeIconArtEditor() {
         // For blank canvas, start with white background
         iconCtx.fillStyle = 'white';
         iconCtx.fillRect(0, 0, 16, 16);
+      } else if (pixelatedCanvas.style.display !== 'none') {
+        iconCtx.imageSmoothingEnabled = false;
+        iconCtx.drawImage(pixelatedCanvas, 0, 0, containerSize, containerSize, 0, 0, 16, 16);
       } else if (imageData) {
         // Calculate the portion of the image that's in the grid
         const sourceX = (gridX - imageX) / imageScale;
