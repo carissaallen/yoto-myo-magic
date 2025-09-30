@@ -320,6 +320,7 @@ function checkAndInjectImportButton() {
       const updateButton = createUpdateButton();
       const bulkImportButton = createBulkImportButton();
       const podcastButton = createPodcastButton();
+      const audioSplitterButton = createAudioSplitterButton();
       const visualTimerButton = createVisualTimerButton();
 
       buttonContainer.appendChild(importButton);
@@ -328,6 +329,7 @@ function checkAndInjectImportButton() {
       if (podcastButton) {
         buttonContainer.appendChild(podcastButton);
       }
+      buttonContainer.appendChild(audioSplitterButton);
       buttonContainer.appendChild(visualTimerButton);
       
       // Insert after the target element (either heading or descriptive text)
@@ -753,6 +755,65 @@ function createPodcastButton() {
   }
 }
 
+function createAudioSplitterButton() {
+  const button = document.createElement('button');
+  button.id = 'yoto-audio-splitter-btn';
+
+  const splitterIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="5" width="18" height="4" rx="1"/>
+      <rect x="3" y="11" width="18" height="4" rx="1"/>
+      <rect x="3" y="17" width="18" height="4" rx="1"/>
+      <path d="M9 7L9 7" stroke-linecap="round"/>
+      <path d="M15 13L15 13" stroke-linecap="round"/>
+      <path d="M12 19L12 19" stroke-linecap="round"/>
+    </svg>
+  `;
+
+  button.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
+  `;
+
+  button.innerHTML = `
+    ${splitterIcon}
+    <span>Audio Splitter</span>
+  `;
+
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#1e40af';
+    button.style.borderColor = '#1e40af';
+    button.style.transform = 'translateY(-1px)';
+  };
+
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+  };
+
+  button.addEventListener('click', handleAudioSplitterClick);
+
+  return button;
+}
+
 function createVisualTimerButton() {
   const button = document.createElement('button');
   button.id = 'yoto-visual-timer-btn';
@@ -863,6 +924,32 @@ async function handleUpdateClick() {
         authenticated: state.authenticated
       }
     });
+  }
+}
+
+async function handleAudioSplitterClick() {
+  try {
+    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+
+    if (!authResponse || !authResponse.authenticated) {
+      showNotification('Please authenticate to use Audio Splitter', 'info');
+      showAuthBanner();
+      return;
+    }
+
+    // Load audio splitter UI if not already loaded
+    if (!window.showAudioSplitterModal) {
+      const script = document.createElement('script');
+      script.src = chrome.runtime.getURL('lib/audioSplitterUI.js');
+      script.onload = () => {
+        window.showAudioSplitterModal();
+      };
+      document.head.appendChild(script);
+    } else {
+      window.showAudioSplitterModal();
+    }
+  } catch (error) {
+    showNotification('Error opening Audio Splitter', 'error');
   }
 }
 

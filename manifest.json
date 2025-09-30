@@ -79,6 +79,8 @@
         "assets/timer/icons/*.png",
         "assets/timer/icons/*.gif",
         "lib/*.js",
+        "lib/audioSplitter.js",
+        "lib/audioSplitterUI.js",
         "utils/timerIconGenerator.js",
         "callback.html",
         "callback.js"
