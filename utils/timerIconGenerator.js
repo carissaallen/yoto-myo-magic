@@ -133,6 +133,52 @@ function generateTimerIcon(progress, style = 'pie') {
     const img = new Image();
     img.src = iconDataUrl;
     return iconDataUrl;
+  } else if (style === 'flower') {
+    const petalCount = 8;
+    const activePetals = Math.ceil(petalCount * (1 - progress)); // Bloom as timer progresses
+
+    ctx.clearRect(0, 0, 16, 16);
+
+    if (activePetals > 0) {
+      const angleStep = (2 * Math.PI) / petalCount;
+
+      for (let i = 0; i < activePetals; i++) {
+        const angle = i * angleStep - Math.PI / 2;
+
+        const colorIndex = i % 3;
+        if (colorIndex === 0) {
+          ctx.fillStyle = '#FF5C8A';
+        } else if (colorIndex === 1) {
+          ctx.fillStyle = '#FF85A1';
+        } else {
+          ctx.fillStyle = '#FBB1BD';
+        }
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.rotate(angle);
+
+        ctx.beginPath();
+        ctx.ellipse(0, -5, 2.5, 3.5, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.ellipse(0, -2.5, 2, 2, 0, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 2, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFA500';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 0.8, 0, 2 * Math.PI);
+    ctx.fill();
   }
 
   return canvas.toDataURL('image/png');

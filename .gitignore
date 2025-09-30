@@ -43,6 +43,8 @@ tmp/
 temp/
 *.tmp
 test-*.html
+test-files/
+temp_ghost_frames/
 *-screenshot.png
 *-preview.png
 *-comparison.png
@@ -58,6 +60,5 @@ coverage/
 # Feature planning and bug tracking
 features-and-bugs/
 
-# Optional: Lock files (some prefer not to commit these)
 # package-lock.json
 # yarn.lock
