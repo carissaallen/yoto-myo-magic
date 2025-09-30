@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Yoto MYO Magic",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Transform how you create Yoto MYO cards with smart imports, automatic icon matching, and more delightful shortcuts.",
 
   "permissions": [
