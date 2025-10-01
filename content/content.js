@@ -2391,7 +2391,7 @@ async function createToothbrushTimer() {
     // First track: intro composite audio - "Get Your Toothbrush Ready!"
     tracks.push({
       title: "Get Your Toothbrush Ready!",
-      duration: 5, // Approximately 4.38 seconds, but keeping 5 for consistency
+      duration: 5,
       silentFile: 'toothbrush-intro-composite.wav'
     });
 
