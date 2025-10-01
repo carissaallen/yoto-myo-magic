@@ -937,21 +937,75 @@ async function handleAudioSplitterClick() {
       return;
     }
 
-    // Load audio splitter UI if not already loaded
-    if (!window.showAudioSplitterModal) {
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL('lib/audioSplitterUI.js');
-      script.onload = () => {
-        window.showAudioSplitterModal();
-      };
-      document.head.appendChild(script);
-    } else {
-      window.showAudioSplitterModal();
-    }
+    // Load and show audio splitter modal
+    loadAndShowAudioSplitter();
   } catch (error) {
     showNotification('Error opening Audio Splitter', 'error');
   }
 }
+
+function loadAndShowAudioSplitter() {
+  // Check if already loaded
+  if (window.audioSplitterLoaded) {
+    // Load the launcher script to call the function
+    const launcherScript = document.createElement('script');
+    launcherScript.src = chrome.runtime.getURL('lib/audioSplitterLauncher.js');
+    document.head.appendChild(launcherScript);
+    return;
+  }
+
+  window.audioSplitterLoaded = true;
+
+  // Create a meta tag to pass the URL (avoids inline script)
+  const metaTag = document.createElement('meta');
+  metaTag.name = 'audio-splitter-url';
+  metaTag.content = chrome.runtime.getURL('lib/audioSplitter.js');
+  document.head.appendChild(metaTag);
+
+  // Load the audio splitter UI script
+  const uiScript = document.createElement('script');
+  uiScript.src = chrome.runtime.getURL('lib/audioSplitterUI.js');
+
+  uiScript.onload = () => {
+    // After UI script loads, load the launcher script
+    const launcherScript = document.createElement('script');
+    launcherScript.src = chrome.runtime.getURL('lib/audioSplitterLauncher.js');
+    document.head.appendChild(launcherScript);
+  };
+
+  uiScript.onerror = () => {
+    showNotification('Error loading Audio Splitter', 'error');
+    window.audioSplitterLoaded = false;
+  };
+
+  document.head.appendChild(uiScript);
+}
+
+// Listen for messages from the page context (audio splitter UI)
+window.addEventListener('message', (event) => {
+  // Only handle messages from our own page
+  if (event.source !== window) return;
+
+  switch (event.data.type) {
+    case 'YOTO_SHOW_NOTIFICATION':
+      if (typeof showNotification === 'function') {
+        showNotification(event.data.message, event.data.notificationType);
+      }
+      break;
+
+    case 'YOTO_SHOW_IMPORT_MODAL':
+      if (typeof showImportModal === 'function') {
+        showImportModal(
+          event.data.audioFiles,
+          event.data.trackIcons || [],
+          event.data.coverImage || null,
+          event.data.defaultName || 'Imported Playlist',
+          event.data.sourceType || 'audio-splitter'
+        );
+      }
+      break;
+  }
+});
 
 async function handleImportClick() {
   try {

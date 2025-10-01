@@ -81,6 +81,7 @@
         "lib/*.js",
         "lib/audioSplitter.js",
         "lib/audioSplitterUI.js",
+        "lib/audioSplitterLauncher.js",
         "utils/timerIconGenerator.js",
         "callback.html",
         "callback.js"
