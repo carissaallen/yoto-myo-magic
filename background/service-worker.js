@@ -1268,7 +1268,7 @@ async function updateCardIcons(cardId, iconMatches) {
                         processedMatch.iconId = uploadResult.iconId;
                     }
                 } catch (error) {
-                    console.log('[Icon Match] Failed to upload icon:', error);
+                    console.error('[Icon Match] Failed to upload icon:', error);
                 }
             }
 
@@ -2235,10 +2235,6 @@ async function importPodcastEpisodes(podcast, episodes) {
         if (!isValid) {
             return { error: 'Not authenticated. Please log in first.' };
         }
-        
-        // Track domains we've encountered for debugging
-        const encounteredDomains = new Set();
-
         // Create a new playlist for the podcast
         const playlistName = `${podcast.title} - Podcast`;
         
@@ -2542,25 +2538,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     });
                     break;
 
-                case 'DEBUG_TOKENS':
-                    const debugTokens = await TokenManager.getTokens();
-                    if (debugTokens && debugTokens.access_token) {
-                        try {
-                            // Decode the JWT payload to see scopes
-                            const payload = JSON.parse(atob(debugTokens.access_token.split('.')[1]));
-                            sendResponse({
-                                success: true,
-                                scopes: payload.scope || payload.scp || 'No scopes found',
-                                audience: payload.aud,
-                                expiry: new Date(payload.exp * 1000).toISOString()
-                            });
-                        } catch (error) {
-                            sendResponse({success: false, error: 'Could not decode token'});
-                        }
-                    } else {
-                        sendResponse({success: false, error: 'No tokens found'});
-                    }
-                    break;
 
                 case 'CLEAR_AUTH':
                     await TokenManager.clearAllAuthData();

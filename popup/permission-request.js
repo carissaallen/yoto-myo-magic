@@ -28,12 +28,10 @@ document.getElementById('grant-permission').addEventListener('click', async () =
         const domains = await loadRequiredDomains();
         
         // Request permission for specific domains or fall back to all_urls
-        const permissionRequest = domains.length > 0 
+        const permissionRequest = domains.length > 0
             ? { origins: domains }
             : { origins: ['<all_urls>'] };
-        
-        console.log('Requesting permissions:', permissionRequest);
-        
+
         const granted = await chrome.permissions.request(permissionRequest);
         
         if (granted) {

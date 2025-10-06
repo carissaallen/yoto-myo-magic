@@ -2439,7 +2439,6 @@ async function createToothbrushTimer() {
 
     for (const fileName of uniqueFiles) {
       const audioUrl = chrome.runtime.getURL(`assets/audio/timer/${fileName}`);
-      console.log('Attempting to load audio from:', audioUrl);
 
       try {
         const audioResponse = await fetch(audioUrl);
@@ -2448,7 +2447,6 @@ async function createToothbrushTimer() {
         }
 
         const audioBlob = await audioResponse.blob();
-        console.log(`Successfully loaded ${fileName}, size: ${audioBlob.size} bytes`);
 
         // Check file size before converting to base64
         const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
@@ -2485,14 +2483,12 @@ async function createToothbrushTimer() {
     const iconStyle = 'blocks'; // Or create a special toothbrush icon set
 
     // Import the icon generator functions
-    console.log('Importing icon generator module...');
     let generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon;
     try {
       const module = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
       generateTimerIcon = module.generateTimerIcon;
       generateDotsTimerIcon = module.generateDotsTimerIcon;
       generateBlocksTimerIcon = module.generateBlocksTimerIcon;
-      console.log('Icon generator module loaded successfully');
     } catch (importError) {
       console.error('Failed to import icon generator:', importError);
       throw new Error(`Failed to import icon generator: ${importError.message}`);
@@ -2552,7 +2548,6 @@ async function createToothbrushTimer() {
           }
         } catch (err) {
           // Fallback to generated countdown icon
-          console.log(`Could not load tooth-track-${trackNum}.png, using fallback`);
           const progress = 1 - (i / totalTracks);
           const iconDataUrl = generateBlocksTimerIcon(progress);
           iconBase64 = iconDataUrl.split(',')[1];
@@ -2560,7 +2555,6 @@ async function createToothbrushTimer() {
       }
 
       // Upload icon
-      console.log(`Uploading icon ${i + 1}...`);
       const uploadResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_ICON',
         file: {
@@ -2941,8 +2935,6 @@ async function createVisualTimer() {
           reader.readAsDataURL(treeBlob);
         });
       } else if (iconStyle === 'ghost') {
-        // For now, use the static ghost PNGs with progressive fill
-        // TODO: In the future, create animated GIFs with different fill levels
         const pngUrl = chrome.runtime.getURL(`assets/icons/timer/ghost/ghost-${numSegments}-${i}.png`);
         const pngResponse = await fetch(pngUrl);
 
@@ -5471,10 +5463,9 @@ async function processBulkZipFile(file, importMode = 'separate') {
         
         const nestedZip = new JSZip();
         const nestedContents = await nestedZip.loadAsync(nestedZipBlob);
-        
-        // Log the contents of the nested ZIP for debugging
+
         const nestedFileCount = Object.keys(nestedContents.files).length;
-        
+
         const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
         
         const playlist = await extractPlaylistFromZip(nestedContents, playlistName);
@@ -7059,8 +7050,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   if (!chrome.runtime?.id) {
     throw new Error('Extension context lost. Please refresh the page and try again.');
   }
-  
-  // Log file details for debugging
+
   if (audioFiles.length === 0) {
     throw new Error('No audio files to upload');
   }
@@ -7634,8 +7624,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           audioFiles,
           async (audioFile, index) => {
             const base64Data = await fileToBase64(audioFile);
-
-            // Log file info for debugging
 
             // Check if base64 data is too large for a single message
             const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
