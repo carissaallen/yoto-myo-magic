@@ -2439,7 +2439,6 @@ async function createToothbrushTimer() {
 
     for (const fileName of uniqueFiles) {
       const audioUrl = chrome.runtime.getURL(`assets/audio/timer/${fileName}`);
-      console.log('Attempting to load audio from:', audioUrl);
 
       try {
         const audioResponse = await fetch(audioUrl);
@@ -2448,7 +2447,6 @@ async function createToothbrushTimer() {
         }
 
         const audioBlob = await audioResponse.blob();
-        console.log(`Successfully loaded ${fileName}, size: ${audioBlob.size} bytes`);
 
         // Check file size before converting to base64
         const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
@@ -2485,14 +2483,12 @@ async function createToothbrushTimer() {
     const iconStyle = 'blocks'; // Or create a special toothbrush icon set
 
     // Import the icon generator functions
-    console.log('Importing icon generator module...');
     let generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon;
     try {
       const module = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
       generateTimerIcon = module.generateTimerIcon;
       generateDotsTimerIcon = module.generateDotsTimerIcon;
       generateBlocksTimerIcon = module.generateBlocksTimerIcon;
-      console.log('Icon generator module loaded successfully');
     } catch (importError) {
       console.error('Failed to import icon generator:', importError);
       throw new Error(`Failed to import icon generator: ${importError.message}`);
@@ -2552,7 +2548,6 @@ async function createToothbrushTimer() {
           }
         } catch (err) {
           // Fallback to generated countdown icon
-          console.log(`Could not load tooth-track-${trackNum}.png, using fallback`);
           const progress = 1 - (i / totalTracks);
           const iconDataUrl = generateBlocksTimerIcon(progress);
           iconBase64 = iconDataUrl.split(',')[1];
@@ -2560,7 +2555,6 @@ async function createToothbrushTimer() {
       }
 
       // Upload icon
-      console.log(`Uploading icon ${i + 1}...`);
       const uploadResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_ICON',
         file: {
@@ -2941,8 +2935,6 @@ async function createVisualTimer() {
           reader.readAsDataURL(treeBlob);
         });
       } else if (iconStyle === 'ghost') {
-        // For now, use the static ghost PNGs with progressive fill
-        // TODO: In the future, create animated GIFs with different fill levels
         const pngUrl = chrome.runtime.getURL(`assets/icons/timer/ghost/ghost-${numSegments}-${i}.png`);
         const pngResponse = await fetch(pngUrl);
 
@@ -5471,10 +5463,9 @@ async function processBulkZipFile(file, importMode = 'separate') {
         
         const nestedZip = new JSZip();
         const nestedContents = await nestedZip.loadAsync(nestedZipBlob);
-        
-        // Log the contents of the nested ZIP for debugging
+
         const nestedFileCount = Object.keys(nestedContents.files).length;
-        
+
         const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
         
         const playlist = await extractPlaylistFromZip(nestedContents, playlistName);
@@ -7059,8 +7050,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   if (!chrome.runtime?.id) {
     throw new Error('Extension context lost. Please refresh the page and try again.');
   }
-  
-  // Log file details for debugging
+
   if (audioFiles.length === 0) {
     throw new Error('No audio files to upload');
   }
@@ -7071,24 +7061,23 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   const totalSizeMB = totalSize / (1024 * 1024);
   
   
-  // Determine parallel upload count based on file characteristics
   let parallelCount = 1;
   let delayBetweenBatches = 500;
-  
-  if (avgFileSize < 5 * 1024 * 1024) { // Average < 5MB
+
+  if (avgFileSize < 5 * 1024 * 1024) { // Average < 5MB (small files)
     if (audioFiles.length <= 10) {
-      parallelCount = 3; // Small playlist, small files - more parallel
-      delayBetweenBatches = 200;
+      parallelCount = 4;
+      delayBetweenBatches = 100;
     } else {
-      parallelCount = 2; // Many small files - moderate parallel
-      delayBetweenBatches = 300;
+      parallelCount = 3;
+      delayBetweenBatches = 200;
     }
-  } else if (avgFileSize < 15 * 1024 * 1024) { // Average < 15MB
-    parallelCount = 2; // Medium files - moderate parallel
-    delayBetweenBatches = 400;
+  } else if (avgFileSize < 15 * 1024 * 1024) { // Average < 15MB (med files)
+    parallelCount = 2;
+    delayBetweenBatches = 300;
   } else {
-    parallelCount = 1; // Large files - sequential
-    delayBetweenBatches = 500;
+    parallelCount = 1; // Large files
+    delayBetweenBatches = 400;
   }
   
   
@@ -7131,12 +7120,16 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
           action: 'UPLOAD_AUDIO',
           file: base64Data
         });
-        
+
         if (!uploadResult) {
           throw new Error('No response from extension. Please refresh and try again.');
         }
-        
+
         if (uploadResult.error) {
+          if (uploadResult.error.includes('Failed to fetch')) {
+            const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+            throw new Error(`Network error uploading ${file.name} (${fileSizeMB}MB). The file may be too large or the connection was interrupted.`);
+          }
           throw new Error(`Audio upload failed: ${uploadResult.error}`);
         }
         
@@ -7187,8 +7180,8 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   if (trackIcons.length > 0) {
     
     // Icons are usually small, so we can be more aggressive with parallelism
-    const iconParallelCount = Math.min(4, trackIcons.length); // Up to 4 parallel icon uploads
-    const iconDelayBetweenBatches = 100; // Short delay for icons
+    const iconParallelCount = Math.min(6, trackIcons.length); // Increased to 6 parallel icon uploads
+    const iconDelayBetweenBatches = 50; // Reduced delay for faster processing
     
     for (let batchStart = 0; batchStart < trackIcons.length; batchStart += iconParallelCount) {
       const batch = trackIcons.slice(batchStart, Math.min(batchStart + iconParallelCount, trackIcons.length));
@@ -7569,18 +7562,18 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       };
       
       // Automatically choose upload strategy based on file count
-      // Use chunked strategy for 10+ audio files for better performance
-      const uploadStrategy = audioFiles.length >= 10 ? 'chunked' : 'parallel';
-      
-      
+      // Use chunked strategy for 5+ audio files for better performance (lowered threshold)
+      const uploadStrategy = audioFiles.length >= 5 ? 'chunked' : 'parallel';
+
+
       let uploadedCoverUrl = null;
       const uploadedIconIds = [];
       const uploadedTracks = [];
-      
+
       if (uploadStrategy === 'chunked') {
-        // CHUNKED UPLOAD (For playlists with 10+ audio files)
+        // CHUNKED UPLOAD (For playlists with 5+ audio files)
         statusText.textContent = 'Uploading files...';
-        const chunkSize = 8; // Upload 8 files at a time for better throughput
+        const chunkSize = 5; // Upload 5 files at a time for better balance between speed and stability
         
         // Upload cover first if exists
         if (coverImage) {
@@ -7631,8 +7624,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           audioFiles,
           async (audioFile, index) => {
             const base64Data = await fileToBase64(audioFile);
-
-            // Log file info for debugging
 
             // Check if base64 data is too large for a single message
             const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
@@ -7737,17 +7728,18 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           uploadTypes.push('cover');
         }
         
-        // 2. Prepare all icon uploads in parallel
-        const iconPromises = trackIcons.map((iconFile, index) => 
-          fileToBase64(iconFile).then(base64 => 
-            chrome.runtime.sendMessage({
-              action: 'UPLOAD_ICON',
-              file: base64
-            }).then(response => {
-              updateProgress();
-              return { response, iconFile, index };
-            })
-          )
+        // 2. Pre-convert all icons to base64 in parallel, then upload
+        const iconBase64Promises = trackIcons.map(file => fileToBase64(file));
+        const iconBase64Results = await Promise.all(iconBase64Promises);
+
+        const iconPromises = iconBase64Results.map((base64, index) =>
+          chrome.runtime.sendMessage({
+            action: 'UPLOAD_ICON',
+            file: base64
+          }).then(response => {
+            updateProgress();
+            return { response, iconFile: trackIcons[index], index };
+          })
         );
         uploadPromises.push(...iconPromises);
         uploadTypes.push(...Array(iconPromises.length).fill('icon'));
@@ -8148,14 +8140,13 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           const arrayBuffer = reader.result;
           const bytes = new Uint8Array(arrayBuffer);
 
-          // Use chunked approach for large files to avoid memory issues
-          const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+          // Use optimized chunked approach for large files to avoid memory issues
+          const CHUNK_SIZE = 0x8000; // 32KB chunks - optimal for String.fromCharCode.apply
           let binary = '';
 
           for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-            const chunk = bytes.slice(i, Math.min(i + CHUNK_SIZE, bytes.length));
-            const chunkBinary = Array.from(chunk, byte => String.fromCharCode(byte)).join('');
-            binary += chunkBinary;
+            const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+            binary += String.fromCharCode.apply(null, chunk);
           }
 
           const base64 = btoa(binary);

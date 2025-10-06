@@ -428,7 +428,8 @@ function showIconPreview(matches) {
           
           modal.remove();
         } else {
-          alert('Failed to apply icons: ' + (response.error || 'Unknown error'));
+          const errorMessage = response.error || 'Unknown error occurred';
+          alert('Failed to apply icons: ' + errorMessage);
         }
         
         applyButton.disabled = false;
@@ -1035,7 +1036,8 @@ function initializeIconArtEditor() {
   const pixelEditLabel = document.getElementById('pixel-edit-label');
   const canvasContainer = document.getElementById('canvas-container');
   const gridOverlay = document.getElementById('grid-overlay');
-  const gridCanvas = document.getElementById('grid-lines');
+  const gridCanvases = document.querySelectorAll('#grid-lines');
+  const gridCanvas = gridCanvases[1] || gridCanvases[0];  // Use the second one if available
   const scaleSlider = document.getElementById('scale-slider');
   const scaleValue = document.getElementById('scale-value');
   const convertToPixelBtn = document.getElementById('convert-to-pixel');
@@ -1077,20 +1079,26 @@ function initializeIconArtEditor() {
   const ctx = gridCanvas.getContext('2d');
   gridCanvas.width = gridSize;
   gridCanvas.height = gridSize;
-  ctx.strokeStyle = 'rgba(156, 163, 175, 0.3)';
-  ctx.lineWidth = 0.5;
 
-  for (let i = 1; i < 16; i++) {
-    const pos = (i * gridSize) / 16;
-    ctx.beginPath();
-    ctx.moveTo(pos, 0);
-    ctx.lineTo(pos, gridSize);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, pos);
-    ctx.lineTo(gridSize, pos);
-    ctx.stroke();
+  function drawGrid() {
+    ctx.clearRect(0, 0, gridSize, gridSize);
+    ctx.strokeStyle = 'rgba(200, 200, 200, 0.4)';  // Lighter gray with less opacity
+    ctx.lineWidth = 1;
+
+    for (let i = 1; i < 16; i++) {
+      const pos = (i * gridSize) / 16;
+      ctx.beginPath();
+      ctx.moveTo(pos, 0);
+      ctx.lineTo(pos, gridSize);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, pos);
+      ctx.lineTo(gridSize, pos);
+      ctx.stroke();
+    }
   }
+
+  drawGrid();
 
   document.getElementById('image-mode-btn').onclick = () => {
     modeSelection.style.display = 'none';
@@ -1109,15 +1117,22 @@ function initializeIconArtEditor() {
     const canvas = document.createElement('canvas');
     canvas.width = 16;
     canvas.height = 16;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, 16, 16);
+    const ctxTemp = canvas.getContext('2d');
+    ctxTemp.fillStyle = 'white';
+    ctxTemp.fillRect(0, 0, 16, 16);
 
     artworkImage.style.display = 'none';
 
     eraserCanvas.style.display = 'block';
     eraserCanvas.style.pointerEvents = 'auto';
     colorPalette.style.display = 'block';
+
+    // Ensure grid is visible on top
+    gridCanvas.style.zIndex = '10';
+    gridCanvas.style.pointerEvents = 'none';
+
+    // Redraw the grid for blank canvas mode
+    drawGrid();
   };
 
   uploadBtn.onclick = () => fileInput.click();
@@ -2817,21 +2832,25 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       // Step 2: Upload icons in parallel batches
       statusText.textContent = 'Uploading icons...';
       progressBar.style.width = '10%';
-      
+
       const iconIds = [];
-      const BATCH_SIZE = 3; // Upload 3 icons at a time
-      
+      const BATCH_SIZE = 5; // Upload 5 icons at a time for better parallelism
+
+      // Pre-convert all icons to base64 in parallel for faster processing
+      const iconBase64Promises = trackIcons.map(file => fileToBase64(file));
+      const iconBase64Results = await Promise.all(iconBase64Promises);
+
       for (let i = 0; i < trackIcons.length; i += BATCH_SIZE) {
-        const batch = trackIcons.slice(i, Math.min(i + BATCH_SIZE, trackIcons.length));
+        const batch = iconBase64Results.slice(i, Math.min(i + BATCH_SIZE, trackIcons.length));
         statusText.textContent = `Uploading icons ${i + 1}-${Math.min(i + BATCH_SIZE, trackIcons.length)} of ${trackIcons.length}...`;
-        
-        const batchPromises = batch.map(async (iconFile, batchIndex) => {
+
+        const batchPromises = batch.map(async (iconBase64, batchIndex) => {
           try {
             const response = await chrome.runtime.sendMessage({
               action: 'UPLOAD_ICON',
-              file: await fileToBase64(iconFile)
+              file: iconBase64
             });
-            
+
             if (response.success && response.iconId) {
               return { index: i + batchIndex, iconId: response.iconId };
             }
@@ -2841,45 +2860,70 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             return null;
           }
         });
-        
+
         const results = await Promise.all(batchPromises);
         results.forEach(result => {
           if (result) {
             iconIds[result.index] = result.iconId;
           }
         });
-        
+
         progressBar.style.width = `${10 + (30 * Math.min(i + BATCH_SIZE, trackIcons.length) / trackIcons.length)}%`;
       }
       
-      // Step 2: Upload and transcode audio files
-      statusText.textContent = 'Uploading audio files...';
+      // Step 3: Upload and transcode audio files in parallel batches
+      statusText.textContent = 'Processing audio files...';
       progressBar.style.width = '40%';
-      
+
       const audioTracks = [];
-      for (let i = 0; i < audioFiles.length; i++) {
-        const audioFile = audioFiles[i];
-        statusText.textContent = `Processing audio ${i + 1} of ${audioFiles.length} (this may take a moment)...`;
-        
-        const response = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_AUDIO',
-          file: await fileToBase64(audioFile)
+      const AUDIO_BATCH_SIZE = 3; // Process 3 audio files concurrently to avoid overload
+
+      // Pre-convert audio files to base64 in smaller batches to manage memory
+      for (let i = 0; i < audioFiles.length; i += AUDIO_BATCH_SIZE) {
+        const audioBatch = audioFiles.slice(i, Math.min(i + AUDIO_BATCH_SIZE, audioFiles.length));
+        statusText.textContent = `Processing audio ${i + 1}-${Math.min(i + AUDIO_BATCH_SIZE, audioFiles.length)} of ${audioFiles.length}...`;
+
+        // Convert batch to base64 in parallel
+        const audioBase64Promises = audioBatch.map(file => fileToBase64(file));
+        const audioBase64Results = await Promise.all(audioBase64Promises);
+
+        // Upload batch in parallel
+        const uploadPromises = audioBase64Results.map(async (audioBase64, batchIndex) => {
+          const fileIndex = i + batchIndex;
+          try {
+            const response = await chrome.runtime.sendMessage({
+              action: 'UPLOAD_AUDIO',
+              file: audioBase64
+            });
+
+            if (response.success) {
+              return {
+                index: fileIndex,
+                track: {
+                  trackUrl: response.trackUrl,
+                  duration: response.duration,
+                  fileSize: response.fileSize,
+                  channels: response.channels,
+                  format: response.format,
+                  title: response.title || audioFiles[fileIndex].name.replace(/\.[^/.]+$/, '')
+                }
+              };
+            } else {
+              throw new Error(`Failed to upload audio ${fileIndex + 1}: ${response.error}`);
+            }
+          } catch (error) {
+            console.error(`Failed to upload audio ${fileIndex + 1}:`, error);
+            throw error;
+          }
         });
-        
-        if (response.success) {
-          audioTracks.push({
-            trackUrl: response.trackUrl,
-            duration: response.duration,
-            fileSize: response.fileSize,
-            channels: response.channels,
-            format: response.format,
-            title: response.title || audioFile.name.replace(/\.[^/.]+$/, '')
-          });
-        } else {
-          throw new Error(`Failed to upload audio ${i + 1}: ${response.error}`);
-        }
-        
-        progressBar.style.width = `${40 + (40 * (i + 1) / audioFiles.length)}%`;
+
+        const results = await Promise.all(uploadPromises);
+
+        // Sort results by index to maintain order
+        results.sort((a, b) => a.index - b.index);
+        results.forEach(result => audioTracks.push(result.track));
+
+        progressBar.style.width = `${40 + (40 * Math.min(i + AUDIO_BATCH_SIZE, audioFiles.length) / audioFiles.length)}%`;
       }
       
       // Step 3: Create playlist content
@@ -3008,7 +3052,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     }
   };
   
-  // Helper function to convert File to base64
+  // Helper function to convert File to base64 - optimized version
   async function fileToBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -3016,8 +3060,15 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         const arrayBuffer = reader.result;
         // Convert ArrayBuffer to base64 string for message passing
         const bytes = new Uint8Array(arrayBuffer);
+
+        // Use faster base64 encoding for larger files
+        const chunkSize = 0x8000; // 32KB chunks
         let binary = '';
-        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+          binary += String.fromCharCode.apply(null, chunk);
+        }
+
         const base64 = btoa(binary);
         resolve({
           data: base64,
