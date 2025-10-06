@@ -428,7 +428,8 @@ function showIconPreview(matches) {
           
           modal.remove();
         } else {
-          alert('Failed to apply icons: ' + (response.error || 'Unknown error'));
+          const errorMessage = response.error || 'Unknown error occurred';
+          alert('Failed to apply icons: ' + errorMessage);
         }
         
         applyButton.disabled = false;

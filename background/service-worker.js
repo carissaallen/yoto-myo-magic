@@ -1248,14 +1248,41 @@ async function updateCardIcons(cardId, iconMatches) {
         }
 
         let iconsUpdated = 0;
-        
-        if (cardContent.card?.content?.chapters && Array.isArray(cardContent.card.content.chapters)) {
+
+        const processedIconMatches = [];
+        for (const match of iconMatches) {
+            let processedMatch = {...match};
+
+            // Check if this icon needs to be uploaded (from yotoicons.com)
+            if (match.suggestedIcon && match.suggestedIcon.includes('yotoicons.com')) {
+                try {
+                    const uploadResult = await downloadAndUploadIcon({
+                        id: match.iconId,
+                        url: match.suggestedIcon,
+                        title: match.iconTitle || match.trackTitle,
+                        author: '',
+                        searchQuery: match.trackTitle
+                    });
+
+                    if (uploadResult && uploadResult.iconId) {
+                        processedMatch.iconId = uploadResult.iconId;
+                    }
+                } catch (error) {
+                    console.log('[Icon Match] Failed to upload icon:', error);
+                }
+            }
+
+            processedIconMatches.push(processedMatch);
+        }
+
+        if (cardContent.card.content.chapters && Array.isArray(cardContent.card.content.chapters)) {
             cardContent.card.content.chapters.forEach((chapter) => {
                 let chapterIconId = null;
 
+                // Find matching icon based on track titles
                 if (chapter.tracks && chapter.tracks.length > 0) {
                     for (const track of chapter.tracks) {
-                        const iconMatch = iconMatches.find(match =>
+                        const iconMatch = processedIconMatches.find(match =>
                             match.trackTitle === track.title
                         );
 
@@ -1268,15 +1295,18 @@ async function updateCardIcons(cardId, iconMatches) {
                     }
                 }
 
+                // Use default icon if no match found
                 if (!chapterIconId) {
                     chapterIconId = defaultIcon;
                 }
 
+                // Update chapter display icon
                 if (!chapter.display) {
                     chapter.display = {};
                 }
                 chapter.display.icon16x16 = chapterIconId;
 
+                // Update all tracks in the chapter with the same icon
                 if (chapter.tracks && chapter.tracks.length > 0) {
                     chapter.tracks.forEach((track) => {
                         if (!track.display) {
@@ -1290,7 +1320,6 @@ async function updateCardIcons(cardId, iconMatches) {
             });
         }
 
-
         if (iconsUpdated === 0) {
             return {success: false, error: 'No chapters found to update'};
         }
@@ -1301,7 +1330,7 @@ async function updateCardIcons(cardId, iconMatches) {
             userId: cardContent.card.userId,
             createdAt: cardContent.card.createdAt,
             updatedAt: cardContent.card.updatedAt,
-            content: cardContent.card.content,
+            content: cardContent.card.content,  // Use the modified original content
             metadata: cardContent.card.metadata || {},
             title: cardContent.card.title || "Untitled"
         };
@@ -1339,11 +1368,25 @@ async function updateCardIcons(cardId, iconMatches) {
                     possibleSuccess: true
                 };
             }
-            return {success: false, error: e.message};
+            // Check if it's a 403 forbidden error
+            if (e.message && (e.message.includes('403') || e.message.includes('forbidden'))) {
+                return {
+                    success: false,
+                    error: 'The Yoto API requires special permissions to update this card (403 Forbidden).'
+                };
+            }
+            return {success: false, error: e.message || 'Failed to update card icons'};
         }
 
     } catch (error) {
-        return {success: false, error: error.message};
+        // Check if it's a 403 forbidden error
+        if (error.message && (error.message.includes('403') || error.message.includes('forbidden'))) {
+            return {
+                success: false,
+                error: 'The Yoto API requires special permissions to update this card (403 Forbidden).'
+            };
+        }
+        return {success: false, error: error.message || 'Failed to update card icons'};
     }
 }
 
