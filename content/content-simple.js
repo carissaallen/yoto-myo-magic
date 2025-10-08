@@ -349,9 +349,31 @@ function showIconPreview(matches) {
         
         modal.remove();
 
+        const refreshNotice = document.createElement('div');
+        refreshNotice.style.cssText = `
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: #3b82f6;
+          color: white;
+          padding: 30px 40px;
+          border-radius: 12px;
+          font-size: 16px;
+          z-index: 10000;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+          text-align: center;
+          min-width: 300px;
+        `;
+        refreshNotice.innerHTML = `
+          <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">✓ Icons applied successfully!</div>
+          <div style="font-size: 14px; opacity: 0.95;">Please refresh the page to see your changes.</div>
+        `;
+        document.body.appendChild(refreshNotice);
+
         setTimeout(() => {
-          window.location.reload();
-        }, 1500);
+          refreshNotice.remove();
+        }, 6000);
       } else if (response.possibleSuccess) {
         
         const warningDiv = document.createElement('div');
@@ -1942,11 +1964,35 @@ function initializeIconArtEditor() {
               await applyCustomIconToTracks(tracks, response.iconId);
             }
 
+            const successNotice = document.createElement('div');
+            successNotice.style.cssText = `
+              position: fixed;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              background: #10b981;
+              color: white;
+              padding: 30px 40px;
+              border-radius: 12px;
+              font-size: 16px;
+              z-index: 10000;
+              box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+              text-align: center;
+              min-width: 300px;
+            `;
+            successNotice.innerHTML = `
+              <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">✓ Icon uploaded successfully!</div>
+              <div style="font-size: 14px; opacity: 0.95;">Please refresh the page to see your new icon.</div>
+            `;
+            document.body.appendChild(successNotice);
+
             setTimeout(() => {
               document.getElementById('yoto-icon-art-modal').remove();
-              // Refresh the page to make the new icon available immediately
-              window.location.reload();
             }, 1500);
+
+            setTimeout(() => {
+              successNotice.remove();
+            }, 6000);
           } else {
             console.error('Icon upload failed:', response?.error || 'Unknown error');
             uploadIconBtn.textContent = 'Upload Failed';
@@ -2214,10 +2260,411 @@ function createButton() {
   return buttonContainer;
 }
 
+function showTrackSelectionModal(tracks, callback, matchType, contentResponse = null, button = null) {
+  const modal = document.createElement('div');
+  modal.id = 'track-selection-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+
+  const tracksWithIcons = tracks.map((track, index) => {
+    let hasIcon = track.hasIcon || false;
+    let iconUrl = track.iconUrl || null;
+
+    if (!hasIcon && contentResponse && contentResponse.card && contentResponse.card.content && contentResponse.card.content.chapters) {
+      contentResponse.card.content.chapters.forEach(chapter => {
+        if (chapter.tracks && Array.isArray(chapter.tracks)) {
+          const apiTrack = chapter.tracks.find(t =>
+            t.title === track.title ||
+            t.key === track.id ||
+            t.key === track.chapterKey
+          );
+          if (apiTrack) {
+            const trackIcon = apiTrack.display?.icon16x16 || apiTrack.icon16x16 || apiTrack.iconAudioId;
+            if (trackIcon) {
+              hasIcon = true;
+              iconUrl = trackIcon;
+            }
+          }
+        }
+      });
+    }
+
+    // More thorough DOM checking as fallback
+    if (!iconUrl) {
+      const trackElements = document.querySelectorAll('[draggable="true"]');
+      trackElements.forEach(element => {
+        const titleElements = element.querySelectorAll('p, span, h3, h4');
+        for (const titleEl of titleElements) {
+          const text = titleEl.textContent?.trim();
+          if (text === track.title) {
+            const iconImg = element.querySelector('img');
+            if (iconImg && iconImg.src) {
+              if (!iconImg.src.includes('data:image') &&
+                  !iconImg.src.includes('placeholder') &&
+                  (iconImg.src.includes('yotocdn') ||
+                   iconImg.src.includes('yoto') ||
+                   iconImg.src.includes('icon'))) {
+                hasIcon = true;
+                iconUrl = iconImg.src;
+                break;
+              }
+            }
+          }
+        }
+      });
+    }
+
+    return { ...track, hasIcon, selected: !hasIcon, iconUrl };
+  });
+
+  const updateContinueButton = () => {
+    const selectedCount = tracksWithIcons.filter(t => t.selected).length;
+    const continueBtn = document.getElementById('continue-icon-match');
+    if (continueBtn) {
+      continueBtn.disabled = selectedCount === 0;
+      continueBtn.textContent = 'Continue';
+      continueBtn.style.opacity = selectedCount === 0 ? '0.5' : '1';
+      continueBtn.style.cursor = selectedCount === 0 ? 'not-allowed' : 'pointer';
+    }
+  };
+
+  // Add draggable functionality
+  let isDragging = false;
+  let currentX;
+  let currentY;
+  let initialX;
+  let initialY;
+  let xOffset = 0;
+  let yOffset = 0;
+
+  content.innerHTML = `
+    <div id="modal-header" style="
+      margin: -30px -30px 20px -30px;
+      padding: 20px 30px;
+      background: #f9fafb;
+      border-radius: 12px 12px 0 0;
+      cursor: move;
+      border-bottom: 1px solid #e5e7eb;
+    ">
+      <h2 style="margin: 0; color: #1f2937; font-size: 20px; font-weight: 600;">
+        Select Tracks for Icon ${matchType === 'category' ? 'Category' : 'Match'}
+      </h2>
+    </div>
+    <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 14px;">
+      Choose which tracks to search icons for.
+    </p>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+      <button id="select-all-tracks" style="
+        padding: 8px 16px;
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Select All</button>
+      <button id="select-none-tracks" style="
+        padding: 8px 16px;
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Select None</button>
+      <button id="select-without-icons" style="
+        padding: 8px 16px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Select Tracks Without Icons</button>
+    </div>
+
+    <div style="
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 8px;
+      background: #ffffff;
+    ">
+      ${tracksWithIcons.map((track, index) => {
+        // Get icon URL - use default if no icon
+        const defaultIconUrl = chrome.runtime.getURL('assets/images/default-icon.png');
+        let iconUrl = defaultIconUrl;
+
+        if (track.iconUrl) {
+          iconUrl = track.iconUrl;
+
+          if (iconUrl.startsWith('yoto:#')) {
+            const mediaId = iconUrl.replace('yoto:#', '');
+
+            let foundUrl = null;
+            const allImages = document.querySelectorAll('img');
+            for (const img of allImages) {
+              if (img.src && img.src.includes(mediaId)) {
+                foundUrl = img.src;
+                break;
+              }
+            }
+
+            if (!foundUrl) {
+              iconUrl = `https://api.yotoplay.com/media/${mediaId}/16x16.png`;
+            } else {
+              iconUrl = foundUrl;
+            }
+          }
+        }
+
+        if (iconUrl === defaultIconUrl && track.hasIcon) {
+          const trackElements = document.querySelectorAll('[draggable="true"]');
+          trackElements.forEach(element => {
+            const titleElements = element.querySelectorAll('p, span, h3, h4');
+            for (const titleEl of titleElements) {
+              if (titleEl.textContent?.trim() === track.title) {
+                const iconImg = element.querySelector('img');
+                if (iconImg && iconImg.src && !iconImg.src.includes('data:image')) {
+                  iconUrl = iconImg.src;
+                  break;
+                }
+              }
+            }
+          });
+        }
+
+        return `
+          ${index > 0 ? `<div style="height: 1px; background: #A4A4A4; background-image: repeating-linear-gradient(90deg, transparent, transparent 2px, #A4A4A4 2px, #A4A4A4 4px); opacity: 0.3; margin: 0 12px;"></div>` : ''}
+          <label style="
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+          " class="track-selection-item"
+          onmouseover="this.style.backgroundColor='#f9fafb'"
+          onmouseout="this.style.backgroundColor='white'">
+            <input type="checkbox"
+              data-track-index="${index}"
+              ${track.selected ? 'checked' : ''}
+              style="
+                margin-right: 8px;
+                width: 14px;
+                height: 14px;
+                cursor: pointer;
+                flex-shrink: 0;
+              ">
+            <div style="
+              padding: 0 6px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            ">
+              <img src="${iconUrl}"
+                style="
+                  width: 32px;
+                  height: 32px;
+                  border-radius: 4px;
+                  object-fit: cover;
+                  flex-shrink: 0;
+                  image-rendering: pixelated;
+                "
+                onerror="this.src='${defaultIconUrl}'"
+              >
+            </div>
+            <div style="flex: 1; min-width: 0; margin-left: 8px;">
+              <div style="
+                font-size: 14px;
+                color: #1f2937;
+                font-weight: 400;
+                line-height: 1.4;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              ">
+                ${track.title}
+              </div>
+            </div>
+          </label>
+        `;
+      }).join('')}
+    </div>
+
+    <div style="
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    ">
+      <button id="cancel-track-selection" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        color: #374151;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Cancel</button>
+      <button id="continue-icon-match" style="
+        padding: 10px 24px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">Continue</button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  // Add drag functionality
+  const header = document.getElementById('modal-header');
+
+  function dragStart(e) {
+    if (e.type === "touchstart") {
+      initialX = e.touches[0].clientX - xOffset;
+      initialY = e.touches[0].clientY - yOffset;
+    } else {
+      initialX = e.clientX - xOffset;
+      initialY = e.clientY - yOffset;
+    }
+
+    if (e.target === header || header.contains(e.target)) {
+      isDragging = true;
+    }
+  }
+
+  function dragEnd(e) {
+    initialX = currentX;
+    initialY = currentY;
+    isDragging = false;
+  }
+
+  function drag(e) {
+    if (isDragging) {
+      e.preventDefault();
+
+      if (e.type === "touchmove") {
+        currentX = e.touches[0].clientX - initialX;
+        currentY = e.touches[0].clientY - initialY;
+      } else {
+        currentX = e.clientX - initialX;
+        currentY = e.clientY - initialY;
+      }
+
+      xOffset = currentX;
+      yOffset = currentY;
+
+      content.style.transform = `translate(${currentX}px, ${currentY}px)`;
+    }
+  }
+
+  header.addEventListener('mousedown', dragStart);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', dragEnd);
+  header.addEventListener('touchstart', dragStart, { passive: false });
+  document.addEventListener('touchmove', drag, { passive: false });
+  document.addEventListener('touchend', dragEnd);
+
+  const checkboxes = modal.querySelectorAll('input[type="checkbox"]');
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const index = parseInt(e.target.dataset.trackIndex);
+      tracksWithIcons[index].selected = e.target.checked;
+      updateContinueButton();
+    });
+  });
+
+  document.getElementById('select-all-tracks').onclick = () => {
+    checkboxes.forEach((checkbox, index) => {
+      checkbox.checked = true;
+      tracksWithIcons[index].selected = true;
+    });
+    updateContinueButton();
+  };
+
+  document.getElementById('select-none-tracks').onclick = () => {
+    checkboxes.forEach((checkbox, index) => {
+      checkbox.checked = false;
+      tracksWithIcons[index].selected = false;
+    });
+    updateContinueButton();
+  };
+
+  document.getElementById('select-without-icons').onclick = () => {
+    checkboxes.forEach((checkbox, index) => {
+      const shouldSelect = !tracksWithIcons[index].hasIcon;
+      checkbox.checked = shouldSelect;
+      tracksWithIcons[index].selected = shouldSelect;
+    });
+    updateContinueButton();
+  };
+
+  const cleanup = () => {
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', dragEnd);
+    document.removeEventListener('touchmove', drag);
+    document.removeEventListener('touchend', dragEnd);
+    modal.remove();
+  };
+
+  document.getElementById('cancel-track-selection').onclick = () => {
+    cleanup();
+    if (button) {
+      const puzzlePieceIcon = button.querySelector('svg')?.outerHTML || '';
+      button.disabled = false;
+      button.innerHTML = `
+        ${puzzlePieceIcon}
+        <span>Icon Match</span>
+      `;
+      button.style.opacity = '1';
+    }
+  };
+
+  document.getElementById('continue-icon-match').onclick = () => {
+    const selectedTracks = tracksWithIcons.filter(t => t.selected);
+    cleanup();
+    callback(selectedTracks);
+  };
+
+  updateContinueButton();
+}
+
 async function handleIconMatch(matchType) {
   const button = document.getElementById('yoto-magic-btn');
   const puzzlePieceIcon = button.querySelector('svg').outerHTML;
-  
+
   if (matchType === 'general') {
     const now = Date.now();
     if (!authCached || now - authCacheTime > AUTH_CACHE_DURATION) {
@@ -2330,17 +2777,25 @@ async function handleIconMatch(matchType) {
         if (contentResponse.card?.content?.chapters && contentResponse.card.content.chapters.length > 0) {
           
           contentResponse.card.content.chapters.forEach((chapter, chapterIndex) => {
-            
+
             if (chapter.tracks && Array.isArray(chapter.tracks)) {
               chapter.tracks.forEach((track, trackIndex) => {
                 if (track.title) {
+                  // Check for icon in display object or at track level
+                  const hasIcon = !!(track.display?.icon16x16 || track.icon16x16 || track.iconAudioId);
+                  let iconUrl = track.display?.icon16x16 || track.icon16x16 || null;
+
+                  // Keep iconUrl as is - we'll convert it when displaying
+
                   tracks.push({
                     id: track.key || `track-${chapterIndex}-${trackIndex}`,
                     title: track.title,
                     index: tracks.length,
                     type: 'track',
                     chapterKey: chapter.key,
-                    chapterTitle: chapter.title
+                    chapterTitle: chapter.title,
+                    hasIcon: hasIcon,
+                    iconUrl: iconUrl
                   });
                 }
               });
@@ -2432,7 +2887,9 @@ async function handleIconMatch(matchType) {
         }
       }
       
-      if (tracks.length === 0) {
+      const actualTracks = tracks.filter(t => t.type === 'track' || (!t.type && t.title && t.title !== playlistTitle));
+
+      if (actualTracks.length === 0) {
         alert('No tracks found in this card. Please add some tracks first.');
         button.disabled = false;
         button.innerHTML = `
@@ -2442,69 +2899,81 @@ async function handleIconMatch(matchType) {
         button.style.opacity = '1';
         return;
       }
-      
-      button.innerHTML = `
-        <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="4"/>
-          <path d="M12 2a10 10 0 0 1 0 20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-        </svg>
-        <span>Matching ${tracks.length} track${tracks.length !== 1 ? 's' : ''}...</span>
-      `;
-      
-      if (!document.querySelector('#yoto-magic-spinner-style')) {
-        const style = document.createElement('style');
-        style.id = 'yoto-magic-spinner-style';
-        style.textContent = `
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-          .animate-spin {
-            animation: spin 1s linear infinite;
-          }
+
+      showTrackSelectionModal(actualTracks, async (selectedTracks) => {
+        if (selectedTracks.length === 0) {
+          button.disabled = false;
+          button.innerHTML = `
+            ${puzzlePieceIcon}
+            <span>Icon Match</span>
+          `;
+          button.style.opacity = '1';
+          return;
+        }
+
+        button.innerHTML = `
+          <svg class="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="4"/>
+            <path d="M12 2a10 10 0 0 1 0 20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+          <span>Matching ${selectedTracks.length} track${selectedTracks.length !== 1 ? 's' : ''}...</span>
         `;
-        document.head.appendChild(style);
-      }
-      
-      try {
-        const cacheKey = JSON.stringify(tracks.map(t => t.title));
-        let response;
-        
-        if (iconMatchCache.has(cacheKey)) {
-          response = iconMatchCache.get(cacheKey);
-        } else {
-          response = await chrome.runtime.sendMessage({ 
-            action: 'MATCH_ICONS',
-            tracks: tracks
-          });
-          
-          if (response.matches && response.matches.length > 0) {
-            iconMatchCache.set(cacheKey, response);
-            if (iconMatchCache.size > 10) {
-              const firstKey = iconMatchCache.keys().next().value;
-              iconMatchCache.delete(firstKey);
+
+        if (!document.querySelector('#yoto-magic-spinner-style')) {
+          const style = document.createElement('style');
+          style.id = 'yoto-magic-spinner-style';
+          style.textContent = `
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+            .animate-spin {
+              animation: spin 1s linear infinite;
+            }
+          `;
+          document.head.appendChild(style);
+        }
+
+        try {
+          const cacheKey = JSON.stringify(selectedTracks.map(t => t.title));
+          let response;
+
+          if (iconMatchCache.has(cacheKey)) {
+            response = iconMatchCache.get(cacheKey);
+          } else {
+            response = await chrome.runtime.sendMessage({
+              action: 'MATCH_ICONS',
+              tracks: selectedTracks
+            });
+
+            if (response.matches && response.matches.length > 0) {
+              iconMatchCache.set(cacheKey, response);
+              if (iconMatchCache.size > 10) {
+                const firstKey = iconMatchCache.keys().next().value;
+                iconMatchCache.delete(firstKey);
+              }
             }
           }
+
+          if (response.matches && response.matches.length > 0) {
+            showIconPreview(response.matches);
+          } else {
+            alert('No icon matches found. Try adding more descriptive track titles.');
+          }
+        } catch (error) {
+          alert('Error matching icons. Please try again.');
         }
-        
-        if (response.matches && response.matches.length > 0) {
-          showIconPreview(response.matches);
-        } else {
-          alert('No icon matches found. Try adding more descriptive track titles.');
-        }
-      } catch (error) {
-        alert('Error matching icons. Please try again.');
-      }
-      
-      button.disabled = false;
-      button.innerHTML = `
-        ${puzzlePieceIcon}
-        <span>Icon Match</span>
-      `;
-      button.style.opacity = '1';
+
+        button.disabled = false;
+        button.innerHTML = `
+          ${puzzlePieceIcon}
+          <span>Icon Match</span>
+        `;
+        button.style.opacity = '1';
+      }, matchType, contentResponse, button);
     }
   } else if (matchType === 'category') {
     // Handle category match
-    await handleCategoryIconMatch();
+    await handleCategoryIconMatch(button);
   }
 }
 
@@ -3040,10 +3509,11 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           document.head.appendChild(style);
         }
         
-        // Refresh the page after a short delay
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        // Removed automatic refresh to avoid interrupting audio uploads
+        // User can manually refresh when ready
+        // setTimeout(() => {
+        //   window.location.reload();
+        // }, 2000);
       }, 500);
       
     } catch (error) {
@@ -3134,47 +3604,80 @@ function showRefreshIndicator() {
   document.body.appendChild(indicator);
 }
 
-async function handleCategoryIconMatch() {
+async function handleCategoryIconMatch(button) {
   const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
   if (!authResponse.authenticated) {
     chrome.runtime.sendMessage({ action: 'START_AUTH' });
     return;
   }
-  
+
   const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
   const cardId = urlMatch ? urlMatch[1] : null;
-  
+
   if (!cardId) {
     alert('Could not identify card ID from URL');
     return;
   }
-  
+
+  // Get tracks from API like in the Title workflow
   const contentResponse = await chrome.runtime.sendMessage({
     action: 'GET_CARD_CONTENT',
     cardId: cardId
   });
-  
-  let trackCount = 0;
+
+  const tracks = [];
+
   if (contentResponse.card && contentResponse.card.content && contentResponse.card.content.chapters) {
-    // Count the number of chapters (each chapter is typically one track in MYO cards)
-    trackCount = contentResponse.card.content.chapters.length;
+    contentResponse.card.content.chapters.forEach((chapter, chapterIndex) => {
+      if (chapter.tracks && Array.isArray(chapter.tracks)) {
+        chapter.tracks.forEach((track, trackIndex) => {
+          if (track.title) {
+            const hasIcon = !!(track.display?.icon16x16 || track.icon16x16 || track.iconAudioId);
+            let iconUrl = track.display?.icon16x16 || track.icon16x16 || null;
+
+            tracks.push({
+              id: track.key || `track-${chapterIndex}-${trackIndex}`,
+              title: track.title,
+              index: tracks.length,
+              type: 'track',
+              chapterKey: chapter.key,
+              chapterTitle: chapter.title,
+              hasIcon: hasIcon,
+              iconUrl: iconUrl
+            });
+          }
+        });
+      }
+    });
   }
-  
-  if (trackCount === 0) {
-    // Try to get tracks from DOM as fallback
-    const trackElements = document.querySelectorAll('[data-testid^="track-"]');
-    trackCount = trackElements.length;
-  }
-  
-  if (trackCount === 0) {
+
+  const actualTracks = tracks.filter(t => t.type === 'track');
+
+  if (actualTracks.length === 0) {
     alert('No tracks found in this card. Please add some tracks first.');
+
+    if (button) {
+      const puzzlePieceIcon = button.querySelector('svg')?.outerHTML || '';
+      button.disabled = false;
+      button.innerHTML = `
+        ${puzzlePieceIcon}
+        <span>Icon Match</span>
+      `;
+      button.style.opacity = '1';
+    }
     return;
   }
-  
-  showCategorySelectionModal(cardId, trackCount);
+
+  showTrackSelectionModal(actualTracks, (selectedTracks) => {
+    if (selectedTracks.length === 0) {
+      return;
+    }
+    showCategorySelectionModal(cardId, selectedTracks);
+  }, 'category', contentResponse, button);
 }
 
-function showCategorySelectionModal(cardId, trackCount) {
+function showCategorySelectionModal(cardId, selectedTracks) {
+  const trackCount = selectedTracks.length;
   const modal = document.createElement('div');
   modal.style.cssText = `
     position: fixed;
@@ -3286,11 +3789,21 @@ function showCategorySelectionModal(cardId, trackCount) {
       categorySelect.value = '';
     }
   });
-  
+
+  const handleEnterKey = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('category-search').click();
+    }
+  };
+
+  categorySelect.addEventListener('keypress', handleEnterKey);
+  customCategory.addEventListener('keypress', handleEnterKey);
+
   document.getElementById('category-cancel').addEventListener('click', () => {
     modal.remove();
   });
-  
+
   document.getElementById('category-search').addEventListener('click', async () => {
     const category = customCategory.value || categorySelect.value;
     
@@ -3337,11 +3850,12 @@ function showCategorySelectionModal(cardId, trackCount) {
     }
     
     modal.remove();
-    showIconSelectionModal(cardId, trackCount, searchResponse.icons, category);
+    showIconSelectionModal(cardId, selectedTracks, searchResponse.icons, category);
   });
 }
 
-function showIconSelectionModal(cardId, trackCount, icons, category) {
+function showIconSelectionModal(cardId, selectedTracks, icons, category) {
+  const trackCount = selectedTracks.length;
   const modal = document.createElement('div');
   modal.style.cssText = `
     position: fixed;
@@ -3522,7 +4036,8 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
     const result = await chrome.runtime.sendMessage({
       action: 'APPLY_CATEGORY_ICONS',
       cardId: cardId,
-      icons: selectedIcons
+      icons: selectedIcons,
+      selectedTracks: selectedTracks
     });
     
     if (result.error) {
@@ -3531,48 +4046,34 @@ function showIconSelectionModal(cardId, trackCount, icons, category) {
       // Calculate the actual number of unique icons applied (capped at track count)
       const iconsApplied = Math.min(selectedIcons.length, trackCount);
       
-      modal.innerHTML = `
-        <div style="
-          background: white;
-          border-radius: 12px;
-          padding: 40px;
-          text-align: center;
-          max-width: 400px;
-        ">
-          <div style="
-            width: 60px;
-            height: 60px;
-            background: #10b981;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-          ">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3">
-              <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Success!</h3>
-          <p style="margin: 0 0 20px 0; color: #666;">
-            Applied ${iconsApplied} icon${iconsApplied !== 1 ? 's' : ''} to ${trackCount} track${trackCount !== 1 ? 's' : ''}
-          </p>
-          <button onclick="window.location.reload()" style="
-            padding: 10px 20px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 500;
-          ">Reload Page</button>
-        </div>
+      const successNotice = document.createElement('div');
+      successNotice.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #10b981;
+        color: white;
+        padding: 30px 40px;
+        border-radius: 12px;
+        font-size: 16px;
+        z-index: 10000;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        text-align: center;
+        min-width: 300px;
       `;
-      
+      successNotice.innerHTML = `
+        <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">✓ Icons applied successfully!</div>
+        <div style="font-size: 14px; opacity: 0.95;">Applied ${iconsApplied} icon${iconsApplied !== 1 ? 's' : ''} to ${trackCount} track${trackCount !== 1 ? 's' : ''}</div>
+        <div style="font-size: 14px; opacity: 0.95; margin-top: 10px;">Please refresh the page to see your changes.</div>
+      `;
+
+      modal.remove();
+      document.body.appendChild(successNotice);
+
       setTimeout(() => {
-        window.location.reload();
-      }, 3000);
+        successNotice.remove();
+      }, 6000);
     }
   });
 }

@@ -311,9 +311,8 @@ function checkAndInjectImportButton() {
         }
       }
       
-      // Create the button container
       const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = 'margin: 20px 0 24px 0; padding: 0; display: flex; gap: 12px; align-items: center;';
+      buttonContainer.style.cssText = 'margin: 20px 0 24px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;';
       buttonContainer.id = 'yoto-import-container';
       
       const importButton = createImportButton();
@@ -4747,9 +4746,8 @@ async function processFolderFiles(files) {
     if (pathParts.length === 2) {
       const fileName = f.name.toLowerCase();
       return fileName.includes('cover') ||
-             fileName.includes('album') ||
-             fileName.includes('artwork') ||
-             fileName.includes('front') ||
+             fileName.includes('art') ||
+             fileName.includes('image') ||
              fileName === 'folder.jpg' ||
              fileName === 'folder.png';
     }
@@ -4788,89 +4786,8 @@ async function processFolderFiles(files) {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
   });
   
-  // Intelligently separate track icons from cover images (same logic as ZIP)
-  const trackIcons = [];
-  let coverImage = null;
-
-  // First, separate by naming pattern
-  const numericImages = [];
-  const nonNumericImages = [];
-
-  imageFiles.forEach(f => {
-    const fileName = f.name.split('/').pop();
-    // Check if filename contains a number pattern - now supports more formats:
-    // - Files ending with number: "01.png", "icon01.png", "icn3.png"
-    // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
-    // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
-    let numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Files ending with number
-    if (!numberMatch) {
-      numberMatch = fileName.match(/^(\d+)[\s\-_.]/i); // Files starting with number followed by separator
-    }
-    if (!numberMatch) {
-      numberMatch = fileName.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Number in middle
-    }
-
-    const lowerFileName = fileName.toLowerCase();
-    const isCoverName = lowerFileName.includes('cover') ||
-                        lowerFileName.includes('album') ||
-                        lowerFileName.includes('art') ||
-                        lowerFileName === 'folder.jpg' ||
-                        lowerFileName === 'folder.png';
-
-    if (isCoverName) {
-      nonNumericImages.push(f);
-    } else if (numberMatch) {
-      // Store the extracted number for sorting
-      f.extractedNumber = parseInt(numberMatch[1]);
-      numericImages.push(f);
-    } else {
-      nonNumericImages.push(f);
-    }
-  });
-
-  // Sort numeric images by their extracted number
-  numericImages.sort((a, b) => {
-    return (a.extractedNumber || 0) - (b.extractedNumber || 0);
-  });
-
-  // Use numeric images as track icons
-  if (numericImages.length > 0) {
-    trackIcons.push(...numericImages);
-  }
-
-  // Find cover image from non-numeric images (prioritize files with "cover" in the name)
-  if (nonNumericImages.length > 0) {
-    const namedCovers = nonNumericImages.filter(f => {
-      const name = f.name.toLowerCase();
-      return name.includes('cover') || name.includes('album') || name.includes('artwork') || name.includes('front');
-    });
-
-    if (namedCovers.length > 0) {
-      // If there are files specifically named as covers, use the largest one
-      coverImage = namedCovers.reduce((largest, current) => {
-        return (current.fileSize > largest.fileSize) ? current : largest;
-      });
-    } else {
-      // Otherwise use the largest non-numeric image
-      coverImage = nonNumericImages.reduce((largest, current) => {
-        return (current.fileSize > largest.fileSize) ? current : largest;
-      });
-    }
-  }
-  
-  // If no non-numeric cover found, check for significantly larger image
-  if (!coverImage && imageFiles.length > 0) {
-    const avgSize = imageFiles.reduce((sum, f) => sum + f.fileSize, 0) / imageFiles.length;
-    const largeImages = imageFiles.filter(f => f.fileSize > avgSize * 3);
-    if (largeImages.length > 0) {
-      coverImage = largeImages[0];
-      // Remove cover from track icons if it was included
-      const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
-      if (coverIndex !== -1) {
-        trackIcons.splice(coverIndex, 1);
-      }
-    }
-  }
+  // Intelligently separate track icons from cover images using the shared function
+  const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
   
   if (audioFiles.length === 0) {
     showNotification('No audio files found. Please ensure your folder contains audio files (.mp3, .m4a, .m4b, etc.).', 'error');
@@ -5162,62 +5079,7 @@ async function processZipFile(file) {
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
     
-    // Intelligently separate track icons from cover images
-    // Icons: small files with numeric names
-    // Cover: larger file with non-numeric name
-    const trackIcons = [];
-    let coverImage = null;
-    
-    const numericImages = [];
-    const nonNumericImages = [];
-    
-    imageFiles.forEach(f => {
-      // Check if filename contains a number pattern - now supports more formats:
-      // - Files ending with number: "01.png", "icon01.png", "icn3.png"
-      // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
-      // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
-      let numberMatch = f.name.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Files ending with number
-      if (!numberMatch) {
-        numberMatch = f.name.match(/^(\d+)[\s\-_.]/i); // Files starting with number followed by separator
-      }
-      if (!numberMatch) {
-        numberMatch = f.name.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Number in middle
-      }
-      if (numberMatch) {
-        f.extractedNumber = parseInt(numberMatch[1]);
-        numericImages.push(f);
-      } else {
-        nonNumericImages.push(f);
-      }
-    });
-    
-    numericImages.sort((a, b) => {
-      return (a.extractedNumber || 0) - (b.extractedNumber || 0);
-    });
-    
-    if (numericImages.length > 0) {
-      trackIcons.push(...numericImages);
-    }
-    
-    // Find cover image from non-numeric images (typically the largest one)
-    if (nonNumericImages.length > 0) {
-      coverImage = nonNumericImages.reduce((largest, current) => {
-        return (current.fileSize > largest.fileSize) ? current : largest;
-      });
-    }
-    
-    if (!coverImage && imageFiles.length > 0) {
-      const avgSize = imageFiles.reduce((sum, f) => sum + f.fileSize, 0) / imageFiles.length;
-      const largeImages = imageFiles.filter(f => f.fileSize > avgSize * 3); // 3x larger than average
-      if (largeImages.length > 0) {
-        coverImage = largeImages[0];
-        // Remove cover from track icons if it was included
-        const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
-        if (coverIndex !== -1) {
-          trackIcons.splice(coverIndex, 1);
-        }
-      }
-    }
+    const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
     
     if (audioFiles.length === 0) {
       showNotification('No audio files found in the ZIP. Please ensure your ZIP contains audio files (.mp3, .m4a, .m4b, etc.).', 'error');
@@ -5552,7 +5414,7 @@ async function processBulkZipFile(file, importMode = 'separate') {
 
         if (imageExtensions.includes(ext)) {
           const isCoverName = lowerFileName.includes('cover') ||
-                              lowerFileName.includes('album') ||
+                              lowerFileName.includes('image') ||
                               lowerFileName.includes('art') ||
                               lowerFileName === 'folder.jpg' ||
                               lowerFileName === 'folder.png';
@@ -5656,7 +5518,7 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
 
             if (imageExtensions.includes(ext)) {
               const isCoverName = lowerFileName.includes('cover') ||
-                                  lowerFileName.includes('album') ||
+                                  lowerFileName.includes('image') ||
                                   lowerFileName.includes('art') ||
                                   lowerFileName === 'folder.jpg' ||
                                   lowerFileName === 'folder.png';
@@ -5922,16 +5784,21 @@ async function extractPlaylistFromFolderFiles(files, playlistName) {
 }
 
 function separateImagesIntelligently(imageFiles) {
-  
+
   const trackIcons = [];
   let coverImage = null;
-  
+
+  const ICON_MAX_SIZE = 50 * 1024;  // Icons are typically < 50KB (16x16 pixels)
+  const COVER_MIN_SIZE = 100 * 1024; // Covers are typically > 100KB
+
   // First, separate by naming pattern
   const numericImages = [];
   const nonNumericImages = [];
-  
+
   imageFiles.forEach(f => {
     const fileName = f.name.split('/').pop();
+    const fileSize = f.fileSize || f.size || 0;
+
     // Check if filename contains a number pattern - now supports more formats:
     // - Files ending with number: "01.png", "icon01.png", "icn3.png"
     // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
@@ -5947,12 +5814,17 @@ function separateImagesIntelligently(imageFiles) {
     // Check for common cover image names (including cover_image.png style)
     const lowerFileName = fileName.toLowerCase();
     const isCoverName = lowerFileName.includes('cover') ||
-                        lowerFileName.includes('album') ||
+                        lowerFileName.includes('image') ||
                         lowerFileName.includes('art') ||
                         lowerFileName === 'folder.jpg' ||
                         lowerFileName === 'folder.png';
 
-    if (isCoverName) {
+    if (isCoverName && fileSize > ICON_MAX_SIZE) {
+      nonNumericImages.push(f);
+    } else if (numberMatch && fileSize <= ICON_MAX_SIZE) {
+      f.extractedNumber = parseInt(numberMatch[1]);
+      numericImages.push(f);
+    } else if (fileSize > COVER_MIN_SIZE) {
       nonNumericImages.push(f);
     } else if (numberMatch) {
       f.extractedNumber = parseInt(numberMatch[1]);
@@ -5961,54 +5833,72 @@ function separateImagesIntelligently(imageFiles) {
       nonNumericImages.push(f);
     }
   });
-  
+
   // Sort numeric images by their extracted number
   numericImages.sort((a, b) => {
     return (a.extractedNumber || 0) - (b.extractedNumber || 0);
   });
-  
-  // Use numeric images as track icons
-  if (numericImages.length > 0) {
-    trackIcons.push(...numericImages);
+
+  const validIcons = numericImages.filter(f => {
+    const fileSize = f.fileSize || f.size || 0;
+    return fileSize <= ICON_MAX_SIZE;
+  });
+
+  if (validIcons.length > 0) {
+    trackIcons.push(...validIcons);
   }
-  
-  // Find cover image from non-numeric images (typically the largest one)
+
   if (nonNumericImages.length > 0) {
     const namedCovers = nonNumericImages.filter(f => {
       const name = f.name.toLowerCase();
-      return name.includes('cover') || name.includes('album') || name.includes('artwork') || name.includes('front');
+      const fileSize = f.fileSize || f.size || 0;
+      return (name.includes('cover') || name.includes('image') || name.includes('art') || name.includes('card'))
+             && fileSize > ICON_MAX_SIZE;
     });
-    
+
     if (namedCovers.length > 0) {
       coverImage = namedCovers.reduce((largest, current) => {
-        return (current.fileSize > largest.fileSize) ? current : largest;
+        const largestSize = largest.fileSize || largest.size || 0;
+        const currentSize = current.fileSize || current.size || 0;
+        return (currentSize > largestSize) ? current : largest;
       });
     } else {
-      // Otherwise use the largest non-numeric image
-      coverImage = nonNumericImages.reduce((largest, current) => {
-        return (current.fileSize > largest.fileSize) ? current : largest;
+      const potentialCovers = nonNumericImages.filter(f => {
+        const fileSize = f.fileSize || f.size || 0;
+        return fileSize > COVER_MIN_SIZE;
       });
+
+      if (potentialCovers.length > 0) {
+        coverImage = potentialCovers.reduce((largest, current) => {
+          const largestSize = largest.fileSize || largest.size || 0;
+          const currentSize = current.fileSize || current.size || 0;
+          return (currentSize > largestSize) ? current : largest;
+        });
+      }
     }
   }
-  
-  // If no non-numeric cover found, check for significantly larger image among all images
+
   if (!coverImage && imageFiles.length > 0) {
-    const avgSize = imageFiles.reduce((sum, f) => sum + f.fileSize, 0) / imageFiles.length;
-    const largeImages = imageFiles.filter(f => f.fileSize > avgSize * 2.5); // Lowered threshold from 3x to 2.5x
-    if (largeImages.length > 0) {
-      // Sort by size and take the largest
-      largeImages.sort((a, b) => b.fileSize - a.fileSize);
-      coverImage = largeImages[0];
-      
-      // Remove cover from track icons if it was included
+    const sortedBySize = [...imageFiles].sort((a, b) => {
+      const aSize = a.fileSize || a.size || 0;
+      const bSize = b.fileSize || b.size || 0;
+      return bSize - aSize;
+    });
+
+    const largestFile = sortedBySize[0];
+    const largestSize = largestFile.fileSize || largestFile.size || 0;
+
+    if (largestSize > COVER_MIN_SIZE) {
+      coverImage = largestFile;
+
       const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
       if (coverIndex !== -1) {
         trackIcons.splice(coverIndex, 1);
       }
     }
   }
-  
-  
+
+
   return { trackIcons, coverImage };
 }
 
@@ -6406,12 +6296,73 @@ function showBulkImportModal(playlists, importMode = 'separate') {
         });
       }
     });
-    
+
     if (selectedPlaylists.length === 0) {
       showNotification('Please select at least one playlist to import', 'error');
       return;
     }
-    
+
+    let totalLargeFiles = [];
+    let totalFileCount = 0;
+
+    selectedPlaylists.forEach(playlist => {
+      const largeFiles = checkAudioFileSizes(playlist.audioFiles);
+      if (largeFiles.length > 0) {
+        largeFiles.forEach(file => {
+          totalLargeFiles.push({
+            ...file,
+            playlistName: playlist.name
+          });
+        });
+      }
+      totalFileCount += playlist.audioFiles.length;
+    });
+
+    if (totalLargeFiles.length > 0) {
+      const shouldContinue = await showLargeFilesWarningModal(
+        totalLargeFiles,
+        totalFileCount,
+        `${selectedPlaylists.length} playlist${selectedPlaylists.length > 1 ? 's' : ''}`
+      );
+
+      if (!shouldContinue) {
+        return; // User cancelled
+      }
+
+      // Filter out large files from each playlist
+      selectedPlaylists.forEach(playlist => {
+        const largeFiles = checkAudioFileSizes(playlist.audioFiles);
+        if (largeFiles.length > 0) {
+          // Filter out large audio files
+          playlist.audioFiles = playlist.audioFiles.filter((_, index) =>
+            !largeFiles.some(lf => lf.index === index)
+          );
+          // Also filter track icons to match
+          playlist.trackIcons = playlist.trackIcons.filter((_, index) =>
+            !largeFiles.some(lf => lf.index === index)
+          );
+
+          // Remove extractedNumber from icons since we're now sequential
+          playlist.trackIcons.forEach(icon => {
+            if (icon && icon.extractedNumber !== undefined) {
+              delete icon.extractedNumber;
+            }
+          });
+        }
+      });
+
+      const validPlaylists = selectedPlaylists.filter(p => p.audioFiles.length > 0);
+
+      if (validPlaylists.length === 0) {
+        showNotification('No playlists have valid files after filtering', 'error');
+        modal.remove();
+        return;
+      }
+
+      selectedPlaylists.length = 0;
+      selectedPlaylists.push(...validPlaylists);
+    }
+
     // Start the bulk import process
     await processBulkImport(selectedPlaylists, modal, importMode);
   };
@@ -6421,10 +6372,13 @@ async function processUpdateFiles(files, sourceName, cardId) {
   const audioFiles = [];
   const iconFiles = [];
 
+  const ICON_MAX_SIZE = 50 * 1024;  // Icons are typically < 50KB
+
   if (Array.isArray(files)) {
     files.forEach(file => {
       const fileName = file.name.toLowerCase();
       const path = file.webkitRelativePath || file.name;
+      const fileSize = file.size || 0;
 
       if (fileName.match(/\.(mp3|m4a|wav|ogg|aac|flac)$/)) {
         audioFiles.push({
@@ -6433,12 +6387,14 @@ async function processUpdateFiles(files, sourceName, cardId) {
           path: path
         });
       } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
-        // Exclude files that are likely cover images
-        if (!fileName.includes('cover') && !fileName.includes('album') && !fileName.includes('artwork')) {
+        const isCoverName = fileName.includes('cover') || fileName.includes('art') || fileName.includes('image');
+
+        if (!isCoverName && fileSize <= ICON_MAX_SIZE) {
           iconFiles.push({
             file: file,
             name: file.name,
-            path: path
+            path: path,
+            fileSize: fileSize
           });
         }
       }
@@ -6448,6 +6404,7 @@ async function processUpdateFiles(files, sourceName, cardId) {
     Object.entries(files).forEach(([path, file]) => {
       const fileName = path.toLowerCase();
       const baseName = path.split('/').pop().toLowerCase();
+      const fileSize = file.size || 0;
 
       if (fileName.match(/\.(mp3|m4a|wav|ogg|aac|flac)$/)) {
         audioFiles.push({
@@ -6456,12 +6413,16 @@ async function processUpdateFiles(files, sourceName, cardId) {
           path: path
         });
       } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
-        // Exclude files that are likely cover images
-        if (!baseName.includes('cover') && !baseName.includes('album') && !baseName.includes('artwork')) {
+        // Exclude files that are likely cover images based on name OR size
+        const isCoverName = baseName.includes('cover') || baseName.includes('art') || baseName.includes('image');
+
+        // Only include as icon if it's not a cover name AND is small enough to be an icon
+        if (!isCoverName && fileSize <= ICON_MAX_SIZE) {
           iconFiles.push({
             file: file,
             name: path.split('/').pop(),
-            path: path
+            path: path,
+            fileSize: fileSize
           });
         }
       }
@@ -6514,6 +6475,45 @@ async function processUpdateFiles(files, sourceName, cardId) {
 }
 
 async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
+  const largeFiles = checkAudioFileSizes(audioFiles.map(af => af.file));
+
+  if (largeFiles.length > 0) {
+    const shouldContinue = await showLargeFilesWarningModal(
+      largeFiles,
+      audioFiles.length,
+      state.updateCardTitle || 'this playlist'
+    );
+
+    if (!shouldContinue) {
+      return; // User canceled
+    }
+
+    // Filter out large files
+    const validAudioFiles = audioFiles.filter((_, index) =>
+      !largeFiles.some(lf => lf.index === index)
+    );
+
+    // Also filter icons to match
+    const validIconFiles = iconFiles.filter((_, index) =>
+      !largeFiles.some(lf => lf.index === index)
+    );
+
+    if (validAudioFiles.length === 0 && validIconFiles.length === 0) {
+      showNotification('No files to update after filtering', 'error');
+      return;
+    }
+
+    validIconFiles.forEach(icon => {
+      if (icon && icon.extractedNumber !== undefined) {
+        delete icon.extractedNumber;
+      }
+    });
+
+    // Update the file arrays
+    audioFiles = validAudioFiles;
+    iconFiles = validIconFiles;
+  }
+
   const modal = document.createElement('div');
   modal.id = 'yoto-update-progress-modal';
   modal.style.cssText = `
@@ -6834,6 +6834,214 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
   }
 }
 
+// Check audio file sizes and return list of files that are too large
+function checkAudioFileSizes(audioFiles) {
+  const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40MB limit
+  const largeFiles = [];
+
+  audioFiles.forEach((file, index) => {
+    const fileSize = file.size || file.fileSize || 0;
+    if (fileSize > MAX_FILE_SIZE) {
+      largeFiles.push({
+        name: file.name || `Track ${index + 1}`,
+        size: fileSize,
+        sizeFormatted: `${(fileSize / 1024 / 1024).toFixed(1)}MB`,
+        index: index
+      });
+    }
+  });
+
+  return largeFiles;
+}
+
+// Show warning modal for large files before import
+async function showLargeFilesWarningModal(largeFiles, totalFiles, playlistName) {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.3s ease;
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    `;
+
+    // Build the large files list
+    const filesList = largeFiles.map(file => `
+      <li style="margin-bottom: 8px; color: #374151;">
+        <strong>${file.name}</strong> (${file.sizeFormatted})
+      </li>
+    `).join('');
+
+    const remainingFiles = totalFiles - largeFiles.length;
+
+    content.innerHTML = `
+      <div style="
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+      ">
+        <div style="
+          width: 48px;
+          height: 48px;
+          background: #fbbf24;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 16px;
+          flex-shrink: 0;
+        ">
+          <svg width="24" height="24" fill="white" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div>
+          <h2 style="margin: 0 0 4px 0; color: #111827; font-size: 20px;">Large Files Detected</h2>
+          <p style="margin: 0; color: #6b7280; font-size: 14px;">
+            ${largeFiles.length} of ${totalFiles} files exceed the 40MB limit
+          </p>
+        </div>
+      </div>
+
+      <div style="
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 20px;
+      ">
+        <div style="font-weight: 500; margin-bottom: 12px; color: #374151;">
+          These files will be skipped:
+        </div>
+        <ul style="margin: 0 0 16px 0; padding-left: 20px; max-height: 150px; overflow-y: auto; color: #374151;">
+          ${filesList}
+        </ul>
+        <div style="font-size: 14px;">
+          ${remainingFiles > 0 ?
+            `<span style="color: #10b981;">✓ ${remainingFiles} file${remainingFiles !== 1 ? 's' : ''} will be imported normally.</span>` :
+            '<span style="color: #374151;">⚠️ No files can be imported. All files exceed the size limit.</span>'
+          }
+        </div>
+      </div>
+
+      <div style="
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      ">
+        <div style="font-weight: 500; margin-bottom: 8px; color: #374151;">
+          What to do with large files:
+        </div>
+        <div style="color: #374151; font-size: 14px; line-height: 1.6;">
+          <ol style="margin: 8px 0 0 0; padding-left: 20px;">
+            <li>Upload them directly through Yoto; or</li>
+            <li>Compress the file(s) to a size under 40MB</li>
+          </ol>
+        </div>
+
+        <details style="margin-top: 12px;">
+          <summary style="
+            cursor: pointer;
+            color: #3b82f6;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 4px 0;
+            user-select: none;
+          ">
+            Show compression instructions
+          </summary>
+          <div style="
+            margin-top: 12px;
+            padding: 12px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #374151;
+          ">
+            <strong>Easy Online Tool (Free):</strong><br>
+            1. Go to <a href="https://online-audio-converter.com" target="_blank" style="color: #3b82f6;">online-audio-converter.com</a><br>
+            2. Upload your MP3 files<br>
+            3. Select Standard Quality → Bitrate: 128 kbps<br>
+            4. Convert and download the smaller files<br>
+            5. Re-import using the compressed files
+          </div>
+        </details>
+      </div>
+
+      <div style="
+        font-size: 12px;
+        color: #6b7280;
+        margin-bottom: 20px;
+        text-align: center;
+      ">
+        Note: This size limit is due to Chrome's messaging protocol size limit.
+      </div>
+
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="cancel-import-warning" style="
+          padding: 12px 24px;
+          background: #f3f4f6;
+          color: #374151;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+        ">Cancel</button>
+        ${remainingFiles > 0 ? `
+          <button id="continue-import-warning" style="
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+          ">Continue</button>
+        ` : ''}
+      </div>
+    `;
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    document.querySelector('#cancel-import-warning').onclick = () => {
+      modal.remove();
+      resolve(false);
+    };
+
+    const continueBtn = document.querySelector('#continue-import-warning');
+    if (continueBtn) {
+      continueBtn.onclick = () => {
+        modal.remove();
+        resolve(true);
+      };
+    }
+  });
+}
+
 async function processBulkImport(playlists, modal, importMode = 'separate') {
   // Check if extension context is valid before starting
   if (!chrome.runtime?.id) {
@@ -6871,6 +7079,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   let completedPlaylists = 0;
   let successfulImports = 0;
   let failedImports = 0;
+  let hasDroppedFiles = false;
   
   // Add log entry
   function addLogEntry(message, type = 'info') {
@@ -6898,7 +7107,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
     
     try {
       // Import the playlist using the same logic as single import
-      await importSinglePlaylist(
+      const result = await importSinglePlaylist(
         playlist.audioFiles,
         playlist.trackIcons,
         playlist.coverImage,
@@ -6910,7 +7119,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
           }
         }
       );
-      
+
       successfulImports++;
       addLogEntry(`✓ Successfully imported "${playlist.name}"`, 'success');
       
@@ -6937,7 +7146,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
       
       // If extension context is lost, stop processing
       if (errorMessage.includes('Extension context') || errorMessage.includes('chrome.runtime')) {
-        addLogEntry('⚠️ Extension connection lost. Please refresh the page and try again.', 'error');
+        addLogEntry('Extension connection lost. Please refresh the page and try again.', 'error');
         break;
       }
     }
@@ -6985,7 +7194,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   } catch (error) {
   }
   
-  // Show success modal and auto-refresh if successful
   if (successfulImports > 0) {
     const successModal = document.createElement('div');
     successModal.style.cssText = `
@@ -7001,7 +7209,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
       padding-top: 20vh;
       z-index: 10002;
     `;
-    
+
     const successContent = document.createElement('div');
     successContent.style.cssText = `
       background: white;
@@ -7011,29 +7219,60 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
       text-align: center;
       min-width: 300px;
     `;
-    
-    successContent.innerHTML = `
-      <div style="margin-bottom: 16px;">
-        <svg style="width: 48px; height: 48px; color: #10b981; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-      </div>
-      <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">Import Successful!</h3>
-      <p style="margin: 0; color: #6b7280; font-size: 14px;">Refreshing page to show new playlists...</p>
-    `;
-    
+
+    if (hasDroppedFiles) {
+      successContent.innerHTML = `
+        <div style="margin-bottom: 16px;">
+          <svg style="width: 48px; height: 48px; color: #f59e0b; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">Import Complete</h3>
+        <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 14px;">Some files were skipped due to size limits.</p>
+        <button id="refresh-after-dropped" style="
+          padding: 10px 24px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+        ">Refresh Page</button>
+      `;
+    } else {
+      successContent.innerHTML = `
+        <div style="margin-bottom: 16px;">
+          <svg style="width: 48px; height: 48px; color: #10b981; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">Import Successful!</h3>
+        <p style="margin: 0; color: #6b7280; font-size: 14px;">Refreshing page to show new playlists...</p>
+      `;
+    }
+
     successModal.appendChild(successContent);
-    
+
     // Remove the bulk import modal
     modal.remove();
-    
+
     // Show success modal
     document.body.appendChild(successModal);
-    
-    // Auto-refresh after brief delay
-    setTimeout(() => {
-      window.location.reload();
-    }, 1500);
+
+    if (hasDroppedFiles) {
+      const refreshButton = document.getElementById('refresh-after-dropped');
+      if (refreshButton) {
+        refreshButton.onclick = () => {
+          window.location.reload();
+        };
+      }
+    } else {
+      // Auto-refresh only when all files uploaded successfully
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    }
   } else {
     // Enable close button for failure case
     cancelButton.style.opacity = '1';
@@ -7276,18 +7515,62 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   }
   
   progressCallback(90, 'Creating playlist...');
-  
+
   // Check context before creating playlist
   if (!chrome.runtime?.id) {
     throw new Error('Extension context lost. Please refresh the page and try again.');
   }
-  
-  // Create the playlist
+
+  // Filter out failed tracks and align icons properly
+  const finalTracks = [];
+  const finalIconIds = [];
+  const droppedFiles = [];
+
+  uploadedTracks.forEach((track, index) => {
+    if (track) {
+      finalTracks.push(track);
+      if (uploadedIconIds[index]) {
+        finalIconIds.push(uploadedIconIds[index]);
+      } else {
+        finalIconIds.push(null); // No icon for this track
+      }
+    } else {
+      const audioFile = audioFiles[index];
+      const iconFile = trackIcons[index];
+
+      if (audioFile) {
+        const dropped = {
+          audioName: audioFile.name,
+          audioSize: `${(audioFile.size / 1024 / 1024).toFixed(1)}MB`,
+          iconName: iconFile ? iconFile.name : 'N/A',
+          trackNumber: index + 1
+        };
+        droppedFiles.push(dropped);
+
+        console.warn(
+          `Dropped Track #${dropped.trackNumber}:`,
+          `\n  Audio: ${dropped.audioName} (${dropped.audioSize})`,
+          iconFile ? `\n  Icon: ${dropped.iconName} (not applied)` : '\n  Icon: None',
+          '\n  Reason: File too large or upload failed'
+        );
+      }
+    }
+  });
+
+  if (droppedFiles.length > 0) {
+    console.warn(
+      `📊 Import Summary: ${droppedFiles.length} file(s) dropped out of ${audioFiles.length} total`,
+      '\nDropped files:', droppedFiles,
+      '\nIcons have been realigned with successful uploads.'
+    );
+  }
+
+  // Create the playlist with properly aligned tracks and icons
   const createResponse = await chrome.runtime.sendMessage({
     action: 'CREATE_PLAYLIST',
     title: playlistName,
-    audioTracks: uploadedTracks.filter(t => t),
-    iconIds: uploadedIconIds,
+    audioTracks: finalTracks,
+    iconIds: finalIconIds,
     coverUrl: uploadedCoverUrl
   });
   
@@ -7298,10 +7581,13 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   if (createResponse.error) {
     throw new Error(`Failed to create playlist: ${createResponse.error}`);
   }
-  
+
   progressCallback(100, 'Complete');
-  
-  return createResponse;
+
+  return {
+    createResponse: createResponse,
+    droppedFiles: droppedFiles
+  };
 }
 
 async function fileToBase64(file) {
@@ -7481,65 +7767,36 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     const statusText = document.querySelector('#import-status');
     const startButton = document.querySelector('#start-import');
 
-    // Validate file sizes before starting import
-    // Chrome message passing limit is ~64MB, and base64 encoding increases size by ~33%
-    const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40MB max to stay under Chrome's limit (40MB * 1.33 ≈ 53MB)
-    const largeFiles = audioFiles.filter(f => f.size > MAX_FILE_SIZE);
+    // Check file sizes before starting import
+    const largeFiles = checkAudioFileSizes(audioFiles);
 
     if (largeFiles.length > 0) {
-      const errorDiv = document.createElement('div');
-      errorDiv.style.cssText = `
-        background: #fee;
-        border: 1px solid #fcc;
-        border-radius: 6px;
-        padding: 15px;
-        margin: 20px 0;
-        color: #000;
-      `;
-      errorDiv.innerHTML = `
-        <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px; color: #374151;">
-          File Size Limit Exceeded
-        </div>
-        <div style="margin-bottom: 15px; color: #374151;">
-          These files are too large (max 40MB due to browser limitations):
-        </div>
-        <ul style="margin: 0 0 15px 20px; color: #374151;">
-          ${largeFiles.map(f => `<li><strong>${f.name}</strong> (${(f.size / 1024 / 1024).toFixed(1)}MB)</li>`).join('')}
-        </ul>
-        <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 4px; padding: 12px; margin-bottom: 10px;">
-          <div style="font-weight: bold; margin-bottom: 8px; color: #92400e;">How to Fix:</div>
-          <div style="color: #78350f; line-height: 1.6;">
-            <strong>Option 1: Easy Online Tool (Free)</strong><br>
-            1. Go to <a href="https://online-audio-converter.com" target="_blank" style="color: #1e40af;">online-audio-converter.com</a><br>
-            2. Upload your MP3 files<br>
-            3. Select Standard Quality → Bitrate: 64 kbps or 128 kbps<br>
-            4. Convert and download the smaller files<br>
-            <small style="color: #92400e;">(This reduces size by 50-75% with no noticeable quality loss for audiobooks)</small>
-          </div>
-        </div>
-        <details style="margin-top: 10px;">
-          <summary style="cursor: pointer; color: #4b5563; font-size: 14px;">More Options</summary>
-          <div style="margin-top: 10px; padding: 10px; background: #f9fafb; border-radius: 4px; font-size: 13px; line-height: 1.5;">
-            <strong>Desktop Software:</strong><br>
-            • Mac: Music app, Audacity (free)<br>
-            • Windows: VLC Media Player, Audacity (free)<br>
-            <br>
-            <strong>Command Line:</strong><br>
-            <code style="background: #e5e7eb; padding: 4px 6px; border-radius: 3px; display: block; margin-top: 5px;">
-              ffmpeg -i input.mp3 -b:a 64k output.mp3
-            </code>
-          </div>
-        </details>
-      `;
+      const shouldContinue = await showLargeFilesWarningModal(largeFiles, audioFiles.length, playlistName);
 
-      // Insert error message before buttons
-      const buttonsDiv = document.querySelector('#start-import').parentElement;
-      buttonsDiv.parentElement.insertBefore(errorDiv, buttonsDiv);
+      if (!shouldContinue) {
+        return; // User canceled
+      }
 
-      // Keep button disabled when file size limit is exceeded
-      startButton.disabled = true;
-      startButton.textContent = 'Start Import';
-      return;
+      const validFiles = audioFiles.filter((_, index) =>
+        !largeFiles.some(lf => lf.index === index)
+      );
+
+      const validTrackIcons = trackIcons.filter((_, index) =>
+        !largeFiles.some(lf => lf.index === index)
+      );
+
+      if (validFiles.length === 0) {
+        return; // No files to import after filtering
+      }
+
+      validTrackIcons.forEach(icon => {
+        if (icon && icon.extractedNumber !== undefined) {
+          delete icon.extractedNumber;
+        }
+      });
+
+      audioFiles = validFiles;
+      trackIcons = validTrackIcons;
     }
 
     progressDiv.style.display = 'block';
@@ -7680,28 +7937,23 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         );
         
         audioResults.forEach((result, index) => {
-
           if (result.status === 'fulfilled' && result.value && result.value.response && !result.value.response.error) {
             uploadedTracks[index] = {
               title: cleanTrackTitle(result.value.audioFile.name),
               transcodedAudio: result.value.response.transcodedAudio
             };
-          } else if (result.status === 'rejected') {
-            throw new Error(`Failed to upload audio: ${result.reason}`);
-          } else if (result.value && result.value.response && result.value.response.error) {
-            throw new Error(`Failed to upload audio: ${result.value.response.error}`);
           } else {
-            // Check for specific error conditions
-            if (result.value && result.value.response) {
-              const response = result.value.response;
-              if (response.error) {
-                throw new Error(`Failed to upload audio: ${response.error}`);
-              } else if (!response.transcodedAudio) {
-                throw new Error(`Failed to upload audio: No transcoded audio in response. The file may be corrupted or in an unsupported format.`);
-              }
-            }
+            uploadedTracks[index] = null;
 
-            throw new Error(`Failed to upload audio: Unexpected response format`);
+            let errorMessage = 'Unknown error';
+            if (result.status === 'rejected') {
+              errorMessage = result.reason;
+            } else if (result.value && result.value.response && result.value.response.error) {
+              errorMessage = result.value.response.error;
+            } else if (result.value && result.value.response && !result.value.response.transcodedAudio) {
+              errorMessage = 'No transcoded audio in response';
+            }
+            console.warn(`Failed to upload track ${index + 1}: ${errorMessage}`);
           }
         });
         
@@ -7833,38 +8085,87 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
                   title: cleanTrackTitle(audioFile.name),
                   transcodedAudio: response.transcodedAudio
                 };
-              } else if (!response) {
-                throw new Error(`Failed to upload ${audioFile.name}: No response from server`);
               } else {
-                throw new Error(`Failed to upload ${audioFile.name}: ${response.error || 'Unknown error'}`);
+                uploadedTracks[audioIndex] = null;
+
+                let errorMessage = 'Unknown error';
+                if (!response) {
+                  errorMessage = 'No response from server';
+                } else if (response.error) {
+                  errorMessage = response.error;
+                }
+                console.warn(`Failed to upload ${audioFile.name}: ${errorMessage}`);
               }
             }
           } else {
             // Handle rejected promises
             if (type === 'audio') {
-              throw new Error(`Audio upload failed: ${result.reason}`);
+              console.warn(`Audio upload failed: ${result.reason}`);
             } else {
-              
+
             }
           }
         });
       }
       
-      // Ensure all audio tracks were uploaded successfully
-      const validTracks = uploadedTracks.filter(t => t);
-      if (validTracks.length === 0) {
+      // Filter out failed tracks and align icons accordingly
+      const validTracksWithIcons = [];
+      const validIconIds = [];
+      const failedTracks = [];
+
+      uploadedTracks.forEach((track, index) => {
+        if (track) {
+          validTracksWithIcons.push(track);
+          // Only include the icon if the corresponding track was uploaded successfully
+          if (uploadedIconIds[index]) {
+            validIconIds.push(uploadedIconIds[index]);
+          } else {
+            validIconIds.push(null); // No icon for this track
+          }
+        } else {
+          // Track failed to upload - record it for user notification
+          if (audioFiles[index]) {
+            const iconFile = trackIcons[index];
+            failedTracks.push({
+              name: audioFiles[index].name,
+              size: audioFiles[index].size,
+              trackNumber: index + 1,
+              audioName: audioFiles[index].name,
+              audioSize: `${(audioFiles[index].size / 1024 / 1024).toFixed(1)}MB`,
+              iconName: iconFile ? iconFile.name : 'N/A'
+            });
+          }
+        }
+      });
+
+      if (validTracksWithIcons.length === 0) {
         throw new Error('No audio files were uploaded successfully');
       }
-      
-      // Create the playlist with icons
+
+      // Notify user about any failed tracks
+      if (failedTracks.length > 0) {
+        const failedTrackNames = failedTracks.map(t => `${t.name} (${(t.size / 1024 / 1024).toFixed(1)}MB)`).join(', ');
+        statusText.innerHTML = `
+          <div style="color: #ef4444; font-weight: 500;">
+            Warning: ${failedTracks.length} file(s) failed to upload: ${failedTrackNames}
+          </div>
+          <div style="color: #666; font-size: 12px; margin-top: 5px;">
+            These files were skipped. You can upload them manually later or compress them first.
+          </div>
+        `;
+        // Give user time to read the warning
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+
+      // Create the playlist with properly aligned icons
       statusText.textContent = 'Finalizing playlist...';
       progressBar.style.width = '90%';
-      
+
       const createResponse = await chrome.runtime.sendMessage({
         action: 'CREATE_PLAYLIST',
         title: playlistName,
-        audioTracks: uploadedTracks,
-        iconIds: uploadedIconIds, // Pass the uploaded icon IDs
+        audioTracks: validTracksWithIcons,
+        iconIds: validIconIds, // Pass the properly aligned icon IDs
         coverUrl: uploadedCoverUrl // Pass the cover image URL
       });
       
@@ -7874,8 +8175,11 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       
       progressBar.style.width = '100%';
       statusText.textContent = 'Import complete!';
-      
-      // Show success message with auto-refresh
+
+      // Log the state for debugging
+      console.log(`Import complete - Failed tracks: ${failedTracks.length}`, failedTracks);
+
+      // Show success message - different behavior based on whether files were dropped
       // Clear modal but keep it positioned
       modal.innerHTML = '';
       modal.style.cssText = `
@@ -7892,7 +8196,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         padding-top: 20vh;
         animation: fadeIn 0.3s ease;
       `;
-      
+
       const successContent = document.createElement('div');
       successContent.style.cssText = `
         background: white;
@@ -7902,12 +8206,17 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         text-align: center;
       `;
-      
+
+      let successMessage = `<strong>"${playlistName}"</strong> has been created`;
+      if (failedTracks.length > 0) {
+        successMessage += `<br><span style="color: #ef4444; font-size: 14px;">Note: ${failedTracks.length} file(s) were skipped due to size limits</span>`;
+      }
+
       successContent.innerHTML = `
           <div style="
             width: 60px;
             height: 60px;
-            background: #10b981;
+            background: ${failedTracks.length > 0 ? '#f59e0b' : '#10b981'};
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -7918,10 +8227,28 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
             </svg>
           </div>
-          <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Import Complete!</h2>
+          <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Import ${failedTracks.length > 0 ? 'Partially' : ''} Complete!</h2>
           <p style="margin: 0 0 20px 0; color: #666; font-size: 16px;">
-            <strong>"${playlistName}"</strong> has been created
+            ${successMessage}
           </p>
+          ${failedTracks.length > 0 ? `
+          <div style="
+            background: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 20px;
+            text-align: left;
+          ">
+            <div style="font-weight: 500; margin-bottom: 8px; color: #92400e;">Files Skipped (too large):</div>
+            <ul style="margin: 0; padding-left: 20px; color: #78350f; font-size: 14px;">
+              ${failedTracks.map(t => `<li>${t.name} (${(t.size / 1024 / 1024).toFixed(1)}MB)</li>`).join('')}
+            </ul>
+            <div style="margin-top: 8px; font-size: 12px; color: #92400e;">
+              Compress these files to under 40MB and upload them manually in the Yoto app.
+            </div>
+          </div>
+          ` : ''}
           <div style="
             background: #f3f4f6;
             border-radius: 8px;
@@ -7982,10 +8309,49 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         }
       });
       
-      // Auto refresh after a short delay
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      if (failedTracks.length > 0) {
+        console.log('Files were dropped - preventing auto-refresh');
+
+        const refreshDiv = successContent.querySelector('div[style*="gap: 10px"]');
+        if (refreshDiv) {
+          refreshDiv.innerHTML = `
+            <div style="
+              color: #ef4444;
+              font-weight: 500;
+              margin-bottom: 12px;
+            ">
+              ⚠️ Some files were too large to upload
+            </div>
+            <button id="manual-refresh-btn" style="
+              padding: 10px 24px;
+              background: #3b82f6;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 500;
+            ">Refresh Page</button>
+          `;
+
+          setTimeout(() => {
+            const btn = document.getElementById('manual-refresh-btn');
+            if (btn) {
+              btn.onclick = () => {
+                console.log('User clicked manual refresh');
+                window.location.reload();
+              };
+            }
+          }, 100);
+        }
+
+        console.log('Auto-refresh blocked due to dropped files');
+      } else {
+        console.log('All files uploaded successfully - will auto-refresh in 2 seconds');
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
       
     } catch (error) {
       // Check if this is a file size error that needs special formatting

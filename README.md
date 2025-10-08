@@ -40,7 +40,7 @@ Transform your audio collection into a Yoto playlist in seconds:
 1. **Prepare Your Files** (any folder structure works!):
    ```
    my-playlist/
-   ├── cover.jpg          # Album artwork (optional)
+   ├── cover.jpg          # Cover art (optional)
    ├── 01 - Track One.mp3
    ├── 02 - Track Two.mp3
    ├── 03 - Track Three.mp3
@@ -178,7 +178,7 @@ The extension integrates with:
 
 ## 🆘 Support
 
-- **Bug Reports**: [Submit an issue](https://chromewebstore.google.com/detail/iehnjhgdgfepcjlbfkpngibijmffcmpp/support)
+- **Bug Reports**: [Submit an issue](https://yotostorylab.com/contact)
 - **Feature Requests**: Use the support link above
 - **Questions**: Check the troubleshooting section first
 
