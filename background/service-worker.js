@@ -989,23 +989,23 @@ function getRelatedTerms(category) {
     return categoryMap[lowerCategory] || [category];
 }
 
-async function applyCategoryIcons(cardId, selectedIcons) {
+async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
     try {
         // Get card content
         const cardContent = await getCardContent(cardId);
         if (cardContent.error) {
             return { error: cardContent.error };
         }
-        
+
         if (!cardContent.card?.content?.chapters || !Array.isArray(cardContent.card.content.chapters)) {
             return { error: 'No chapters found in card' };
         }
-        
+
         // Process icons - upload yotoicons.com icons if needed
         const processedIcons = [];
         for (const icon of selectedIcons) {
             let processedIcon = icon;
-            
+
             // Upload icon if it's from yotoicons.com (not already uploaded)
             if (icon.source === 'yotoicons' || icon.source === 'yotoicons-uploaded' || (icon.url && icon.url.includes('yotoicons.com'))) {
                 const uploadResult = await downloadAndUploadIcon({
@@ -1020,43 +1020,52 @@ async function applyCategoryIcons(cardId, selectedIcons) {
                     processedIcon = uploadResult;
                 }
             }
-            
+
             // Get the proper icon ID format
             let iconId = processedIcon.iconId || processedIcon.mediaId || processedIcon.displayIconId;
             if (iconId && !iconId.startsWith('yoto:#')) {
                 iconId = `yoto:#${iconId}`;
             }
-            
+
             processedIcons.push(iconId);
         }
-        
-        // Apply icons to chapters in a repeating pattern
+
+        const selectedTrackTitles = new Set(selectedTracks.map(t => t.title));
+
         let iconIndex = 0;
         let iconsUpdated = 0;
-        
+
         cardContent.card.content.chapters.forEach((chapter) => {
-            const iconId = processedIcons[iconIndex];
-            
-            // Update chapter display icon
-            if (!chapter.display) {
-                chapter.display = {};
-            }
-            chapter.display.icon16x16 = iconId;
-            
-            // Update all tracks in the chapter with the same icon
+            let shouldUpdateChapter = false;
+
             if (chapter.tracks && chapter.tracks.length > 0) {
                 chapter.tracks.forEach((track) => {
-                    if (!track.display) {
-                        track.display = {};
+                    if (selectedTrackTitles.has(track.title)) {
+                        shouldUpdateChapter = true;
+
+                        const iconId = processedIcons[iconIndex % processedIcons.length];
+
+                        if (!track.display) {
+                            track.display = {};
+                        }
+                        track.display.icon16x16 = iconId;
+
+                        iconsUpdated++;
+                        iconIndex++;
                     }
-                    track.display.icon16x16 = iconId;
+                    // If track was not selected, preserve its existing icon
                 });
             }
-            
-            iconsUpdated++;
-            
-            // Move to next icon (wrap around if necessary)
-            iconIndex = (iconIndex + 1) % processedIcons.length;
+
+            if (shouldUpdateChapter && chapter.tracks && chapter.tracks.length > 0) {
+                const firstTrack = chapter.tracks[0];
+                if (firstTrack.display && firstTrack.display.icon16x16) {
+                    if (!chapter.display) {
+                        chapter.display = {};
+                    }
+                    chapter.display.icon16x16 = firstTrack.display.icon16x16;
+                }
+            }
         });
         
         if (iconsUpdated === 0) {
@@ -1129,7 +1138,6 @@ async function matchIcons(tracks) {
                        !/^\d+$/.test(word);
             });
         
-        // Remove duplicates while preserving order
         return [...new Set(words)];
     };
 
@@ -1152,7 +1160,6 @@ async function matchIcons(tracks) {
                         iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
                     }
                     
-                    // Updated validation to support data URLs
                     const isValidUrl = iconUrl && (
                         iconUrl.startsWith('http') || 
                         iconUrl.startsWith('data:')
@@ -1169,7 +1176,6 @@ async function matchIcons(tracks) {
             }
         } catch (error) {}
 
-        // If we don't have enough icons, search by individual keywords
         if (iconOptions.length < 5) {
             const keywords = extractKeywords(track.title);
 
@@ -1240,7 +1246,7 @@ async function updateStats(stats) {
 
 async function updateCardIcons(cardId, iconMatches) {
     try {
-        const defaultIcon = 'yoto:#fqAuu4nSrOwNU-xbNVsGG-Om_PEe3S161UJ-nTXeBIQ';
+        const yotoDefaultIcon = 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q';
 
         const cardContent = await getCardContent(cardId);
         if (cardContent.error) {
@@ -1277,6 +1283,7 @@ async function updateCardIcons(cardId, iconMatches) {
 
         if (cardContent.card.content.chapters && Array.isArray(cardContent.card.content.chapters)) {
             cardContent.card.content.chapters.forEach((chapter) => {
+                let hasMatch = false;
                 let chapterIconId = null;
 
                 // Find matching icon based on track titles
@@ -1287,6 +1294,7 @@ async function updateCardIcons(cardId, iconMatches) {
                         );
 
                         if (iconMatch && iconMatch.iconId) {
+                            hasMatch = true;
                             chapterIconId = iconMatch.iconId.startsWith('yoto:#')
                                 ? iconMatch.iconId
                                 : `yoto:#${iconMatch.iconId}`;
@@ -1295,28 +1303,24 @@ async function updateCardIcons(cardId, iconMatches) {
                     }
                 }
 
-                // Use default icon if no match found
-                if (!chapterIconId) {
-                    chapterIconId = defaultIcon;
-                }
+                if (hasMatch && chapterIconId) {
+                    if (!chapter.display) {
+                        chapter.display = {};
+                    }
+                    chapter.display.icon16x16 = chapterIconId;
 
-                // Update chapter display icon
-                if (!chapter.display) {
-                    chapter.display = {};
-                }
-                chapter.display.icon16x16 = chapterIconId;
+                    if (chapter.tracks && chapter.tracks.length > 0) {
+                        chapter.tracks.forEach((track) => {
+                            if (!track.display) {
+                                track.display = {};
+                            }
+                            track.display.icon16x16 = chapterIconId;
+                        });
+                    }
 
-                // Update all tracks in the chapter with the same icon
-                if (chapter.tracks && chapter.tracks.length > 0) {
-                    chapter.tracks.forEach((track) => {
-                        if (!track.display) {
-                            track.display = {};
-                        }
-                        track.display.icon16x16 = chapterIconId;
-                    });
+                    iconsUpdated++;
                 }
-
-                iconsUpdated++;
+                // If no match found, preserve the existing icon
             });
         }
 
@@ -2661,7 +2665,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                 
                 case 'APPLY_CATEGORY_ICONS':
-                    const applyResult = await applyCategoryIcons(request.cardId, request.icons);
+                    const applyResult = await applyCategoryIcons(request.cardId, request.icons, request.selectedTracks);
                     sendResponse(applyResult);
                     break;
 
