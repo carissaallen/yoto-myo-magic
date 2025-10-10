@@ -26,6 +26,7 @@ zip -r "$OUTPUT_FILE" \
     callback.html \
     callback.js \
     config.js \
+    _locales/ \
     assets/ \
     background/ \
     content/ \
