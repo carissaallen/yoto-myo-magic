@@ -3342,6 +3342,7 @@ function selectZipFileForUpdate(cardId) {
         const files = await extractZipContents(zip);
         processUpdateFiles(files, file.name, cardId);
       } catch (error) {
+        console.error('ZIP extraction error:', error);
         showNotification(chrome.i18n.getMessage('notification_errorReadingZip'), 'error');
       }
     }
@@ -6240,9 +6241,11 @@ async function processUpdateFiles(files, sourceName, cardId) {
           path: path
         });
       } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
-        const isCoverName = fileName.includes('cover') || fileName.includes('art') || fileName.includes('image');
+        const lowerFileName = fileName.toLowerCase();
+        const hasCoverKeyword = lowerFileName.includes('cover') || lowerFileName.includes('art') || lowerFileName.includes('image');
+        const isCoverImage = hasCoverKeyword && fileSize > 1000;
 
-        if (!isCoverName && fileSize <= ICON_MAX_SIZE) {
+        if (!isCoverImage && fileSize <= ICON_MAX_SIZE) {
           iconFiles.push({
             file: file,
             name: file.name,
@@ -6266,11 +6269,10 @@ async function processUpdateFiles(files, sourceName, cardId) {
           path: path
         });
       } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
-        // Exclude files that are likely cover images based on name OR size
-        const isCoverName = baseName.includes('cover') || baseName.includes('art') || baseName.includes('image');
+        const hasCoverKeyword = baseName.includes('cover') || baseName.includes('art') || baseName.includes('image');
+        const isCoverImage = hasCoverKeyword && fileSize > 1000;
 
-        // Only include as icon if it's not a cover name AND is small enough to be an icon
-        if (!isCoverName && fileSize <= ICON_MAX_SIZE) {
+        if (!isCoverImage && fileSize <= ICON_MAX_SIZE) {
           iconFiles.push({
             file: file,
             name: path.split('/').pop(),
@@ -6353,12 +6355,6 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
       showNotification(chrome.i18n.getMessage('notification_noFilesToUpdate'), 'error');
       return;
     }
-
-    validIconFiles.forEach(icon => {
-      if (icon && icon.extractedNumber !== undefined) {
-        delete icon.extractedNumber;
-      }
-    });
 
     audioFiles = validAudioFiles;
     iconFiles = validIconFiles;
