@@ -536,7 +536,7 @@ async function fetchFromYotoicons(query) {
         const allIcons = [];
         const seenIds = new Set();
 
-        for (let page = 1; page <= 10; page++) {
+        for (let page = 1; page <= 25; page++) {
             await rateLimiter.wait();
 
             const searchUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}&sort=popular&type=singles&page=${page}`;
