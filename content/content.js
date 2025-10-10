@@ -10,10 +10,8 @@ let state = {
 
 const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-
 function init() {
 
-  // Check auth status with caching
   const now = Date.now();
   if (!state.authenticated || now - state.authCacheTime > AUTH_CACHE_DURATION) {
     chrome.runtime.sendMessage({ action: 'CHECK_AUTH' }).then(async response => {
@@ -70,14 +68,13 @@ function init() {
       if (request.authenticated) {
         removeAuthBanner();
         if (state.isMyoPage) {
-          showNotification('Authentication successful! You can now use icon matching.', 'success');
+          showNotification(chrome.i18n.getMessage('notification_authSuccess'), 'success');
         }
       }
     } else if (request.action === 'PERMISSION_GRANTED') {
       // Handle when permission is granted from the popup
-      showNotification('Permission granted! You can now retry importing the podcast.', 'success');
+      showNotification(chrome.i18n.getMessage('notification_permissionGrantedRetry'), 'success');
       
-      // Check if we're in the podcast import modal and update the UI
       const statusText = document.querySelector('#import-status');
       if (statusText) {
         statusText.innerHTML = `
@@ -186,7 +183,6 @@ function showAuthBanner() {
   
   document.body.style.marginTop = '60px';
   
-  // Add hover effects for the authenticate button
   const authBtn = document.getElementById('auth-banner-btn');
   authBtn.addEventListener('mouseenter', () => {
     authBtn.style.backgroundColor = '#ffffff';
@@ -206,7 +202,7 @@ function showAuthBanner() {
   
   document.getElementById('auth-banner-btn').addEventListener('click', async () => {
     const btn = document.getElementById('auth-banner-btn');
-    btn.textContent = 'Authenticating...';
+    btn.textContent = chrome.i18n.getMessage('button_authenticating');
     btn.disabled = true;
     
     try {
@@ -216,20 +212,20 @@ function showAuthBanner() {
         state.authenticated = true;
         state.authCacheTime = Date.now();
         removeAuthBanner();
-        showNotification('✓ Authentication successful! Icon matching enabled.', 'success');
+        showNotification(chrome.i18n.getMessage('notification_authSuccessIconMatch'), 'success');
         updateButtonIcon(true);
       } else if (authResult && authResult.cancelled) {
-        btn.textContent = 'Authenticate Now';
+        btn.textContent = chrome.i18n.getMessage('button_authenticateNow');
         btn.disabled = false;
       } else {
-        btn.textContent = 'Try Again';
+        btn.textContent = chrome.i18n.getMessage('button_tryAgain');
         btn.disabled = false;
-        showNotification('Authentication failed. Please try again.', 'error');
+        showNotification(chrome.i18n.getMessage('notification_authFailed'), 'error');
       }
     } catch (error) {
-      btn.textContent = 'Try Again';
+      btn.textContent = chrome.i18n.getMessage('button_tryAgain');
       btn.disabled = false;
-      showNotification('Authentication error. Please try again.', 'error');
+      showNotification(chrome.i18n.getMessage('notification_authError'), 'error');
     }
   });
   
@@ -292,7 +288,6 @@ function checkAndInjectImportButton() {
     const mainContainer = playlistsHeading.parentNode;
     
     if (mainContainer) {
-      // Find the descriptive text element after the heading
       let targetElement = playlistsHeading;
       let nextElement = playlistsHeading.nextElementSibling;
       
@@ -342,7 +337,6 @@ function checkAndInjectImportButton() {
   return false;
 }
 
-
 function createImportButton() {
   const button = document.createElement('button');
   button.id = 'yoto-import-btn';
@@ -380,7 +374,7 @@ function createImportButton() {
   
   button.innerHTML = `
     ${importIcon}
-    <span>Import Playlist</span>
+    <span>${chrome.i18n.getMessage('button_importPlaylist')}</span>
   `;
   
   button.onmouseenter = () => {
@@ -435,7 +429,7 @@ function createUpdateButton() {
 
   button.innerHTML = `
     ${updateIcon}
-    <span>Update Playlist</span>
+    <span>${chrome.i18n.getMessage('button_updatePlaylist')}</span>
   `;
 
   button.onmouseenter = () => {
@@ -496,7 +490,7 @@ function createBulkImportButton() {
   
   button.innerHTML = `
     ${bulkIcon}
-    <span>Bulk Import</span>
+    <span>${chrome.i18n.getMessage('button_bulkImport')}</span>
   `;
   
   button.onmouseenter = () => {
@@ -557,26 +551,26 @@ function showPodcastPermissionModal() {
         <line x1="12" y1="19" x2="12" y2="23"></line>
         <line x1="8" y1="23" x2="16" y2="23"></line>
       </svg>
-      Import Podcast - Permission Required
+      ${chrome.i18n.getMessage('modal_importPodcastPermission')}
     </h2>
     
     <div style="margin-bottom: 24px; color: #4b5563; line-height: 1.6;">
-      <p style="margin: 0 0 16px 0;">To import podcast episodes, we need permission to download audio files from various podcast hosting services.</p>
-      
+      <p style="margin: 0 0 16px 0;">${chrome.i18n.getMessage('modal_permissionDescription')}</p>
+
       <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 16px 0;">
-        <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">Why is this needed?</p>
+        <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">${chrome.i18n.getMessage('modal_permissionTitle')}</p>
         <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #6b7280;">
-          <li style="margin: 4px 0;">Podcasts are hosted on many different domains</li>
-          <li style="margin: 4px 0;">We need to download and convert audio files for Yoto</li>
-          <li style="margin: 4px 0;">Chrome requires explicit permission for this access</li>
+          <li style="margin: 4px 0;">${chrome.i18n.getMessage('modal_permissionReason1')}</li>
+          <li style="margin: 4px 0;">${chrome.i18n.getMessage('modal_permissionReason2')}</li>
+          <li style="margin: 4px 0;">${chrome.i18n.getMessage('modal_permissionReason3')}</li>
         </ul>
       </div>
-      
+
       <p style="margin: 16px 0 0 0; font-size: 14px; color: #6b7280;">
-        <strong>Note:</strong> This permission is only used when you import podcasts. Your browsing data remains private.
+        ${chrome.i18n.getMessage('modal_permissionNote')}
       </p>
     </div>
-    
+
     <div style="display: flex; gap: 12px; justify-content: flex-end;">
       <button id="permission-cancel" style="
         background: #f3f4f6;
@@ -589,7 +583,7 @@ function showPodcastPermissionModal() {
         cursor: pointer;
         transition: background 0.2s;
       " onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
-        Cancel
+        ${chrome.i18n.getMessage('button_cancel')}
       </button>
       <button id="permission-grant" style="
         background: #3b82f6;
@@ -609,7 +603,7 @@ function showPodcastPermissionModal() {
           <path d="M9 11l3 3L22 4"></path>
           <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
         </svg>
-        Grant Permission
+        ${chrome.i18n.getMessage('button_grantPermission')}
       </button>
     </div>
   `;
@@ -626,12 +620,12 @@ function showPodcastPermissionModal() {
       });
       
       if (granted) {
-        showNotification('Permission granted! You can now import podcasts.', 'success');
+        showNotification(chrome.i18n.getMessage('notification_permissionGranted'), 'success');
         modal.remove();
         // Proceed to show the podcast search modal
         showPodcastSearchModal();
       } else {
-        showNotification('Permission denied. You won\'t be able to import podcasts.', 'error');
+        showNotification(chrome.i18n.getMessage('notification_permissionDenied'), 'error');
         modal.remove();
       }
     } catch (error) {
@@ -639,7 +633,6 @@ function showPodcastPermissionModal() {
         action: 'REQUEST_ALL_URLS_PERMISSION'
       });
       
-      // Show waiting state
       content.innerHTML = `
         <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Requesting Permission...</h2>
         <p style="color: #6b7280;">Please grant the permission in the popup window that appears.</p>
@@ -653,7 +646,7 @@ function showPodcastPermissionModal() {
         });
         
         if (check.granted) {
-          showNotification('Permission granted! You can now import podcasts.', 'success');
+          showNotification(chrome.i18n.getMessage('notification_permissionGranted'), 'success');
           modal.remove();
           showPodcastSearchModal();
         } else {
@@ -663,14 +656,12 @@ function showPodcastPermissionModal() {
     }
   });
   
-  // Handle cancel
   document.getElementById('permission-cancel').addEventListener('click', () => {
     modal.remove();
   });
   
 }
 
-// Handle podcast import button click
 async function handlePodcastImportClick() {
   // Track podcast import click
   chrome.runtime.sendMessage({
@@ -727,7 +718,7 @@ function createPodcastButton() {
     
     button.innerHTML = `
       ${podcastIcon}
-      <span>Import Podcast</span>
+      <span>${chrome.i18n.getMessage('button_importPodcast')}</span>
     `;
     
     button.onmouseenter = () => {
@@ -785,7 +776,7 @@ function createVisualTimerButton() {
 
   button.innerHTML = `
     ${timerIcon}
-    <span>Visual Timer</span>
+    <span>${chrome.i18n.getMessage('button_visualTimer')}</span>
   `;
 
   button.onmouseenter = () => {
@@ -832,14 +823,12 @@ function updateButtonIcon(authenticated) {
   `;
 }
 
-
-
 async function handleUpdateClick() {
   try {
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
 
     if (!authResponse || !authResponse.authenticated) {
-      showNotification('Please authenticate to use update features', 'info');
+      showNotification(chrome.i18n.getMessage('notification_authRequiredForUpdate'), 'info');
       showAuthBanner();
       return;
     }
@@ -852,7 +841,7 @@ async function handleUpdateClick() {
 
     showCardSelectionModal();
   } catch (error) {
-    showNotification('Error occurred. Please try again.', 'error');
+    showNotification(chrome.i18n.getMessage('notification_errorOccurred'), 'error');
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
       error: error.message || 'Update initialization failed',
@@ -870,15 +859,14 @@ async function handleImportClick() {
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
 
     if (!authResponse || !authResponse.authenticated) {
-      showNotification('Please authenticate to use import features', 'info');
+      showNotification(chrome.i18n.getMessage('notification_authRequiredForImport'), 'info');
       showAuthBanner();
       return;
     }
 
-    // Show import options
     openFolderSelector();
   } catch (error) {
-    showNotification('Error occurred. Please try again.', 'error');
+    showNotification(chrome.i18n.getMessage('notification_errorOccurred'), 'error');
     // Track import errors
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
@@ -890,7 +878,7 @@ async function handleImportClick() {
       }
     });
     // If auth check fails, still show the import options
-    showNotification('Proceeding without auth check...', 'warning');
+    showNotification(chrome.i18n.getMessage('notification_proceedingWithoutAuth'), 'warning');
     openFolderSelector();
   }
 }
@@ -904,7 +892,7 @@ async function handleBulkImportClick() {
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
 
     if (!authResponse || !authResponse.authenticated) {
-      showNotification('Please authenticate to use bulk import', 'info');
+      showNotification(chrome.i18n.getMessage('notification_authRequiredForBulkImport'), 'info');
       showAuthBanner();
       return;
     }
@@ -912,7 +900,7 @@ async function handleBulkImportClick() {
     // User is authenticated, show bulk import modal
     showBulkImportOptionsModal();
   } catch (error) {
-    showNotification('Error occurred. Please try again.', 'error');
+    showNotification(chrome.i18n.getMessage('notification_errorOccurred'), 'error');
     // Track import errors
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
@@ -924,7 +912,7 @@ async function handleBulkImportClick() {
       }
     });
     // If auth check fails, still show the import options
-    showNotification('Proceeding without auth check...', 'warning');
+    showNotification(chrome.i18n.getMessage('notification_proceedingWithoutAuth'), 'warning');
     showBulkImportOptionsModal();
   }
 }
@@ -934,7 +922,7 @@ async function handleVisualTimerClick() {
     const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
 
     if (!authResponse || !authResponse.authenticated) {
-      showNotification('Please authenticate to use Visual Timer', 'info');
+      showNotification(chrome.i18n.getMessage('notification_authRequiredForTimer'), 'info');
       showAuthBanner();
       return;
     }
@@ -947,7 +935,7 @@ async function handleVisualTimerClick() {
 
     showVisualTimerModal();
   } catch (error) {
-    showNotification('Error occurred. Please try again.', 'error');
+    showNotification(chrome.i18n.getMessage('notification_errorOccurred'), 'error');
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
       error: error.message || 'Visual timer initialization failed',
@@ -990,8 +978,8 @@ function showImportOptionsModal() {
       margin: 0 16px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     ">
-      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">Choose Import Method</h2>
-      <p style="color: #6b7280; margin-bottom: 24px;">Select how you want to import your playlist:</p>
+      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">${chrome.i18n.getMessage('modal_chooseImportMethod')}</h2>
+      <p style="color: #6b7280; margin-bottom: 24px;">${chrome.i18n.getMessage('modal_selectHowToImport')}</p>
       
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <button id="import-zip-btn" style="
@@ -1013,7 +1001,7 @@ function showImportOptionsModal() {
           <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
-          <span>Import ZIP File</span>
+          <span>${chrome.i18n.getMessage('button_importZipFile')}</span>
         </button>
         
         <button id="import-folder-btn" style="
@@ -1035,7 +1023,7 @@ function showImportOptionsModal() {
           <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
           </svg>
-          <span>Import Folder</span>
+          <span>${chrome.i18n.getMessage('button_importFolder')}</span>
         </button>
       </div>
       
@@ -1050,14 +1038,13 @@ function showImportOptionsModal() {
         font-size: 14px;
         transition: color 0.2s;
       " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
-        Cancel
+        ${chrome.i18n.getMessage('button_cancel')}
       </button>
     </div>
   `;
   
   document.body.appendChild(modal);
   
-  // Add event listeners
   document.getElementById('import-zip-btn').addEventListener('click', () => {
     modal.remove();
     selectZipFile();
@@ -1108,11 +1095,11 @@ async function showCardSelectionModal() {
   `;
 
   content.innerHTML = `
-    <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #1f2937;">Select a Card to Update</h2>
-    <p style="color: #6b7280; margin-bottom: 20px;">Choose which MYO card you want to update with new content:</p>
+    <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #1f2937;">${chrome.i18n.getMessage('modal_selectCardToUpdate')}</h2>
+    <p style="color: #6b7280; margin-bottom: 20px;">${chrome.i18n.getMessage('modal_chooseCardDescription')}</p>
 
     <div style="margin-bottom: 20px;">
-      <input type="text" id="card-search-input" placeholder="Search your cards..." style="
+      <input type="text" id="card-search-input" placeholder="${chrome.i18n.getMessage('input_searchCards')}" style="
         width: 100%;
         padding: 10px 12px;
         border: 1px solid #d1d5db;
@@ -1125,7 +1112,7 @@ async function showCardSelectionModal() {
 
     <div id="cards-loading" style="text-align: center; padding: 40px;">
       <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <p style="margin-top: 10px; color: #6b7280;">Loading your cards...</p>
+      <p style="margin-top: 10px; color: #6b7280;">${chrome.i18n.getMessage('status_loadingCards')}</p>
     </div>
 
     <div id="cards-list" style="display: none;">
@@ -1143,7 +1130,7 @@ async function showCardSelectionModal() {
       font-size: 14px;
       transition: color 0.2s;
     " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
-      Cancel
+      ${chrome.i18n.getMessage('button_cancel')}
     </button>
   `;
 
@@ -1179,7 +1166,7 @@ async function showCardSelectionModal() {
       searchInput.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
         const filteredCards = sortedCards.filter(card =>
-          (card.title || 'Untitled').toLowerCase().includes(searchTerm)
+          (card.title || chrome.i18n.getMessage('label_untitledCard')).toLowerCase().includes(searchTerm)
         );
         displayCards(filteredCards, listDiv);
       });
@@ -1190,7 +1177,7 @@ async function showCardSelectionModal() {
     }
   } catch (error) {
     document.getElementById('cards-loading').innerHTML = `
-      <p style="color: #ef4444;">Error loading cards. Please try again.</p>
+      <p style="color: #ef4444;">${chrome.i18n.getMessage('error_loadingCards')}</p>
     `;
   }
 
@@ -1222,7 +1209,7 @@ function displayCards(cards, container) {
 
     const lastUpdated = card.updatedAt ?
       new Date(card.updatedAt).toLocaleDateString() :
-      'Unknown';
+      chrome.i18n.getMessage('label_unknown');
 
     return `
       <div class="card-item" data-card-id="${card.cardId || card.id}" style="
@@ -1243,7 +1230,7 @@ function displayCards(cards, container) {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
             </svg>
             <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-              ${card.title || card.name || 'Untitled Card'}
+              ${card.title || card.name || chrome.i18n.getMessage('label_untitledCard')}
             </h3>
           </div>
           <p style="margin: 4px 0 0 24px; font-size: 11px; color: #6b7280;">
@@ -1314,8 +1301,8 @@ function showUpdateImportOptionsModal(cardId, cardTitle) {
       margin: 0 16px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     ">
-      <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">Update: ${cardTitle}</h2>
-      <p style="color: #6b7280; margin-bottom: 24px;">Select files to add to this card.</p>
+      <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">${chrome.i18n.getMessage('label_update')} ${cardTitle}</h2>
+      <p style="color: #6b7280; margin-bottom: 24px;">${chrome.i18n.getMessage('modal_selectFilesToAdd')}</p>
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
         <button id="update-zip-btn" style="
@@ -1337,7 +1324,7 @@ function showUpdateImportOptionsModal(cardId, cardTitle) {
           <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
-          <span>Import ZIP File</span>
+          <span>${chrome.i18n.getMessage('button_importZipFile')}</span>
         </button>
 
         <button id="update-folder-btn" style="
@@ -1359,7 +1346,7 @@ function showUpdateImportOptionsModal(cardId, cardTitle) {
           <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
           </svg>
-          <span>Import Folder</span>
+          <span>${chrome.i18n.getMessage('button_importFolder')}</span>
         </button>
       </div>
 
@@ -1374,7 +1361,7 @@ function showUpdateImportOptionsModal(cardId, cardTitle) {
         font-size: 14px;
         transition: color 0.2s;
       " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
-        Cancel
+        ${chrome.i18n.getMessage('button_cancel')}
       </button>
     </div>
   `;
@@ -1426,8 +1413,8 @@ function showBulkImportOptionsModal() {
       margin: 0 16px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     ">
-      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">Bulk Import Settings</h2>
-      <p style="color: #6b7280; margin-bottom: 20px;">Select a ZIP file or folder containing your audio files.</p>
+      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">${chrome.i18n.getMessage('modal_bulkImportSettings')}</h2>
+      <p style="color: #6b7280; margin-bottom: 20px;">${chrome.i18n.getMessage('modal_selectZipOrFolder')}</p>
 
       <div style="
         background-color: #f3f4f6;
@@ -1436,21 +1423,21 @@ function showBulkImportOptionsModal() {
         margin-bottom: 20px;
       ">
         <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 12px;">
-          Import Mode:
+          ${chrome.i18n.getMessage('label_importMode')}
         </label>
         <div style="display: flex; flex-direction: column; gap: 10px;">
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
             <input type="radio" name="import-mode" value="separate" checked style="width: 16px; height: 16px;">
             <div>
-              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">Separate Playlists</div>
-              <div style="font-size: 12px; color: #6b7280;">Each subfolder/ZIP becomes its own playlist</div>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">${chrome.i18n.getMessage('label_separatePlaylists')}</div>
+              <div style="font-size: 12px; color: #6b7280;">${chrome.i18n.getMessage('label_separatePlaylistsDescription')}</div>
             </div>
           </label>
           <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
             <input type="radio" name="import-mode" value="merged" style="width: 16px; height: 16px;">
             <div>
-              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">Single Merged Playlist</div>
-              <div style="font-size: 12px; color: #6b7280;">Combine all subfolders into one playlist</div>
+              <div style="font-size: 14px; font-weight: 500; color: #1f2937;">${chrome.i18n.getMessage('label_singleMergedPlaylist')}</div>
+              <div style="font-size: 12px; color: #6b7280;">${chrome.i18n.getMessage('label_singlePlaylistDescription')}</div>
             </div>
           </label>
         </div>
@@ -1476,7 +1463,7 @@ function showBulkImportOptionsModal() {
           <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
           </svg>
-          <span>Select ZIP File</span>
+          <span>${chrome.i18n.getMessage('button_selectZipFile')}</span>
         </button>
 
         <button id="bulk-import-folder-btn" style="
@@ -1498,7 +1485,7 @@ function showBulkImportOptionsModal() {
           <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
           </svg>
-          <span>Select Folder</span>
+          <span>${chrome.i18n.getMessage('button_selectFolder')}</span>
         </button>
       </div>
 
@@ -1513,14 +1500,13 @@ function showBulkImportOptionsModal() {
         font-size: 14px;
         transition: color 0.2s;
       " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
-        Cancel
+        ${chrome.i18n.getMessage('button_cancel')}
       </button>
     </div>
   `;
 
   document.body.appendChild(modal);
 
-  // Add event listeners
   document.getElementById('bulk-import-zip-btn').addEventListener('click', () => {
     const importMode = document.querySelector('input[name="import-mode"]:checked').value;
     modal.remove();
@@ -1557,10 +1543,8 @@ async function generatePizzaTimerIcon(progress, totalSegments, currentSegment) {
       img.onerror = reject;
     });
 
-    // Draw the full pizza
     ctx.drawImage(img, 0, 0, 16, 16);
 
-    // Remove slices evenly based on progress
     // Pizza typically has 8 slices, but we'll divide based on totalSegments
     const slicesToRemove = currentSegment;
     if (slicesToRemove > 0) {
@@ -1572,7 +1556,6 @@ async function generatePizzaTimerIcon(progress, totalSegments, currentSegment) {
       const radius = 10; // Slightly larger to ensure we remove the crust too
       const sliceAngle = (2 * Math.PI) / totalSegments;
 
-      // Remove slices starting from top and going clockwise
       for (let i = 0; i < slicesToRemove; i++) {
         const startAngle = -Math.PI / 2 + (i * sliceAngle);
         const endAngle = startAngle + sliceAngle;
@@ -1608,7 +1591,6 @@ async function generatePizzaTimerIcon(progress, totalSegments, currentSegment) {
       ctx.fillStyle = '#FFD700';
       ctx.fill();
 
-      // Add pepperoni dots
       const numDots = Math.ceil(progress * 6);
       for (let i = 0; i < numDots; i++) {
         const angle = startAngle + (i / 6) * 2 * Math.PI;
@@ -1623,7 +1605,6 @@ async function generatePizzaTimerIcon(progress, totalSegments, currentSegment) {
         ctx.fill();
       }
 
-      // Draw slice lines
       const totalSlices = totalSegments;
       const remainingSlices = Math.ceil(progress * totalSlices);
 
@@ -1681,13 +1662,13 @@ function showVisualTimerModal() {
 
   // Timer type selection modal
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 20px; font-weight: 600;">Visual Timer Settings</h2>
+    <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 20px; font-weight: 600;">${chrome.i18n.getMessage('modal_visualTimerSettings')}</h2>
 
-    <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 14px;">Select a timer type to get started.</p>
+    <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 14px;">${chrome.i18n.getMessage('modal_selectTimerType')}</p>
 
     <div style="margin-bottom: 16px;">
       <label style="display: block; margin-bottom: 12px; font-weight: 500; color: #374151; font-size: 14px;">
-        Timer Type:
+        ${chrome.i18n.getMessage('label_timerType')}
       </label>
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -1704,8 +1685,8 @@ function showVisualTimerModal() {
            onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white'">
           <input type="radio" name="timer-type" value="ready-made" style="margin-right: 12px;">
           <div style="flex: 1;">
-            <div style="font-weight: 500; color: #1f2937; font-size: 14px; margin-bottom: 2px;">Ready-Made Timers</div>
-            <div style="color: #6b7280; font-size: 12px;">Pre-configured timers for common activities</div>
+            <div style="font-weight: 500; color: #1f2937; font-size: 14px; margin-bottom: 2px;">${chrome.i18n.getMessage('modal_readyMadeTimers')}</div>
+            <div style="color: #6b7280; font-size: 12px;">${chrome.i18n.getMessage('label_readyMadeDescription')}</div>
           </div>
         </label>
 
@@ -1722,8 +1703,8 @@ function showVisualTimerModal() {
            onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='white'">
           <input type="radio" name="timer-type" value="custom" style="margin-right: 12px;">
           <div style="flex: 1;">
-            <div style="font-weight: 500; color: #1f2937; font-size: 14px; margin-bottom: 2px;">Custom Timer</div>
-            <div style="color: #6b7280; font-size: 12px;">Create your own timer with custom settings</div>
+            <div style="font-weight: 500; color: #1f2937; font-size: 14px; margin-bottom: 2px;">${chrome.i18n.getMessage('label_customTimer')}</div>
+            <div style="color: #6b7280; font-size: 12px;">${chrome.i18n.getMessage('label_customTimerDescription')}</div>
           </div>
         </label>
       </div>
@@ -1742,7 +1723,7 @@ function showVisualTimerModal() {
         opacity: 0.5;
         transition: all 0.2s;
       ">
-        Continue
+        ${chrome.i18n.getMessage('button_continue')}
       </button>
 
       <button id="timer-cancel-btn" style="
@@ -1756,7 +1737,7 @@ function showVisualTimerModal() {
         cursor: pointer;
         transition: all 0.2s;
       " onmouseover="this.style.backgroundColor='#f9fafb'" onmouseout="this.style.backgroundColor='white'">
-        Cancel
+        ${chrome.i18n.getMessage('button_cancel')}
       </button>
     </div>
   `;
@@ -1764,7 +1745,6 @@ function showVisualTimerModal() {
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-  // Handle radio button selection
   const radioInputs = content.querySelectorAll('input[name="timer-type"]');
   const nextBtn = document.getElementById('timer-next-btn');
   let selectedType = null;
@@ -1776,7 +1756,6 @@ function showVisualTimerModal() {
       nextBtn.style.cursor = 'pointer';
       nextBtn.style.opacity = '1';
 
-      // Update label styling
       content.querySelectorAll('label').forEach(label => {
         if (label.querySelector('input[name="timer-type"]')) {
           const radio = label.querySelector('input[name="timer-type"]');
@@ -1792,7 +1771,6 @@ function showVisualTimerModal() {
     });
   });
 
-  // Handle Continue button
   nextBtn.addEventListener('click', () => {
     if (selectedType === 'ready-made') {
       modal.remove();
@@ -1803,12 +1781,10 @@ function showVisualTimerModal() {
     }
   });
 
-  // Handle cancel
   document.getElementById('timer-cancel-btn').addEventListener('click', () => {
     modal.remove();
   });
 
-  // Close on backdrop click
   modal.addEventListener('click', (e) => {
     if (e.target === modal) {
       modal.remove();
@@ -1849,13 +1825,13 @@ function showReadyMadeTimerModal() {
   `;
 
   content.innerHTML = `
-    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">Ready-Made Timers</h2>
+    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">${chrome.i18n.getMessage('modal_readyMadeTimers')}</h2>
 
     <form id="ready-timer-form" style="display: flex; flex-direction: column; gap: 20px;">
       <!-- Timer Selection -->
       <div>
         <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          Select Timer
+          ${chrome.i18n.getMessage('timer_labelSelectTimer')}
         </label>
         <select id="ready-timer-type" style="
           width: 100%;
@@ -1866,15 +1842,15 @@ function showReadyMadeTimerModal() {
           background-color: white;
           cursor: pointer;
         ">
-          <option value="">Choose a timer...</option>
-          <option value="toothbrush">🦷 Toothbrush Timer (2 min 5 sec)</option>
+          <option value="">${chrome.i18n.getMessage('timer_chooseTimer')}</option>
+          <option value="toothbrush">${chrome.i18n.getMessage('timer_toothbrushTimer')}</option>
         </select>
       </div>
 
       <!-- Timer Details (shown after selection) -->
       <div id="timer-details" style="display: none;">
         <div style="padding: 16px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
-          <h3 style="margin: 0 0 12px 0; color: #0369a1; font-size: 16px; font-weight: 600;">Timer Details</h3>
+          <h3 style="margin: 0 0 12px 0; color: #0369a1; font-size: 16px; font-weight: 600;">${chrome.i18n.getMessage('timer_labelTimerDetails')}</h3>
           <div id="timer-info" style="color: #0c4a6e; font-size: 14px; line-height: 1.6;"></div>
         </div>
       </div>
@@ -1901,7 +1877,7 @@ function showReadyMadeTimerModal() {
       <!-- Alarm Sound -->
       <div id="alarm-options" style="display: none;">
         <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          End Alarm Sound
+          ${chrome.i18n.getMessage('timer_labelEndAlarmSound')}
         </label>
         <select id="ready-timer-alarm-sound" style="
           width: 100%;
@@ -1912,14 +1888,14 @@ function showReadyMadeTimerModal() {
           background-color: white;
           cursor: pointer;
         ">
-          <option value="">No alarm</option>
-          <option value="friendly-alarm.mp3" selected>Friendly Chime</option>
-          <option value="soft-alarm.mp3">Soft Bell</option>
-          <option value="happy-alarm.mp3">Happy Tune</option>
-          <option value="sunshine-alarm.mp3">Sunshine Melody</option>
-          <option value="calm-alarm.mp3">Calm Bells</option>
-          <option value="calm-christmas-alarm.mp3">Christmas Bells</option>
-          <option value="spooky-alarm.mp3">Spooky Sound</option>
+          <option value="">${chrome.i18n.getMessage('timer_alarmNone')}</option>
+          <option value="friendly-alarm.mp3" selected>${chrome.i18n.getMessage('timer_alarmFriendlyChime')}</option>
+          <option value="soft-alarm.mp3">${chrome.i18n.getMessage('timer_alarmSoftBell')}</option>
+          <option value="happy-alarm.mp3">${chrome.i18n.getMessage('timer_alarmHappyTune')}</option>
+          <option value="sunshine-alarm.mp3">${chrome.i18n.getMessage('timer_alarmSunshineMelody')}</option>
+          <option value="calm-alarm.mp3">${chrome.i18n.getMessage('timer_alarmCalmBells')}</option>
+          <option value="calm-christmas-alarm.mp3">${chrome.i18n.getMessage('timer_alarmChristmasBells')}</option>
+          <option value="spooky-alarm.mp3">${chrome.i18n.getMessage('timer_alarmSpookySound')}</option>
         </select>
       </div>
 
@@ -1939,7 +1915,7 @@ function showReadyMadeTimerModal() {
           cursor: pointer;
           transition: background-color 0.2s;
         " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
-          Back
+          ${chrome.i18n.getMessage('timer_buttonBack')}
         </button>
         <button type="submit" id="ready-timer-create-btn" disabled style="
           flex: 1;
@@ -1954,7 +1930,7 @@ function showReadyMadeTimerModal() {
           transition: background-color 0.2s;
           opacity: 0.5;
         ">
-          Create Timer
+          ${chrome.i18n.getMessage('timer_buttonCreateTimer')}
         </button>
         <button type="button" id="ready-timer-cancel-btn" style="
           padding: 12px 24px;
@@ -1967,7 +1943,7 @@ function showReadyMadeTimerModal() {
           cursor: pointer;
           transition: background-color 0.2s;
         " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
-          Cancel
+          ${chrome.i18n.getMessage('button_cancel')}
         </button>
       </div>
     </form>
@@ -1976,7 +1952,6 @@ function showReadyMadeTimerModal() {
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-  // Handle timer selection
   const timerSelect = document.getElementById('ready-timer-type');
   const timerDetails = document.getElementById('timer-details');
   const timerInfo = document.getElementById('timer-info');
@@ -1988,9 +1963,9 @@ function showReadyMadeTimerModal() {
       timerDetails.style.display = 'block';
       alarmOptions.style.display = 'block';
       timerInfo.innerHTML = `
-        <div>• Duration: 2 minutes 5 seconds</div>
-        <div>• Segments: 5 second intro, then 15 second segments</div>
-        <div>• Perfect for morning and bedtime routines</div>
+        <div>${chrome.i18n.getMessage('timer_detailsDuration')}</div>
+        <div>${chrome.i18n.getMessage('timer_detailsSegments')}</div>
+        <div>${chrome.i18n.getMessage('timer_detailsPerfectFor')}</div>
       `;
       createBtn.disabled = false;
       createBtn.style.opacity = '1';
@@ -2008,7 +1983,6 @@ function showReadyMadeTimerModal() {
     }
   });
 
-  // Handle form submission
   document.getElementById('ready-timer-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (timerSelect.value === 'toothbrush') {
@@ -2016,18 +1990,15 @@ function showReadyMadeTimerModal() {
     }
   });
 
-  // Handle back button
   document.getElementById('ready-timer-back-btn').addEventListener('click', () => {
     modal.remove();
     showVisualTimerModal();
   });
 
-  // Handle cancel
   document.getElementById('ready-timer-cancel-btn').addEventListener('click', () => {
     modal.remove();
   });
 
-  // Close on backdrop click
   modal.addEventListener('click', (e) => {
     if (e.target === modal) {
       modal.remove();
@@ -2068,28 +2039,28 @@ function showCustomTimerModal() {
   `;
 
   content.innerHTML = `
-    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">Custom Visual Timer</h2>
+    <h2 style="margin: 0 0 24px 0; color: #1f2937; font-size: 24px; font-weight: 600;">${chrome.i18n.getMessage('modal_customVisualTimer')}</h2>
 
     <form id="visual-timer-form" style="display: flex; flex-direction: column; gap: 20px;">
       <!-- Card Title -->
       <div>
         <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          Timer Name
+          ${chrome.i18n.getMessage('label_timerName')}
         </label>
-        <input type="text" id="timer-name" placeholder="e.g., Bedtime Timer" style="
+        <input type="text" id="timer-name" placeholder="${chrome.i18n.getMessage('input_timerNamePlaceholder')}" style="
           width: 100%;
           padding: 10px 12px;
           border: 1px solid #d1d5db;
           border-radius: 6px;
           font-size: 14px;
           box-sizing: border-box;
-        " value="Visual Timer - 5 minutes">
+        " value="${chrome.i18n.getMessage('timer_defaultName', ['5', chrome.i18n.getMessage('label_minutes')])}">
       </div>
 
       <!-- Timer Duration -->
       <div>
         <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          Timer Duration
+          ${chrome.i18n.getMessage('timer_customDuration')}
         </label>
         <select id="timer-duration" style="
           width: 100%;
@@ -2100,23 +2071,23 @@ function showCustomTimerModal() {
           background-color: white;
           cursor: pointer;
         ">
-          <option value="2">2 minutes</option>
-          <option value="5" selected>5 minutes</option>
-          <option value="10">10 minutes</option>
-          <option value="15">15 minutes</option>
-          <option value="20">20 minutes</option>
-          <option value="30">30 minutes</option>
-          <option value="60">60 minutes</option>
-          <option value="custom">Custom duration...</option>
+          <option value="2">${chrome.i18n.getMessage('timer_duration2min')}</option>
+          <option value="5" selected>${chrome.i18n.getMessage('timer_duration5min')}</option>
+          <option value="10">${chrome.i18n.getMessage('timer_duration10min')}</option>
+          <option value="15">${chrome.i18n.getMessage('timer_duration15min')}</option>
+          <option value="20">${chrome.i18n.getMessage('timer_duration20min')}</option>
+          <option value="30">${chrome.i18n.getMessage('timer_duration30min')}</option>
+          <option value="60">${chrome.i18n.getMessage('timer_duration60min')}</option>
+          <option value="custom">${chrome.i18n.getMessage('timer_customDuration')}...</option>
         </select>
       </div>
 
       <!-- Custom Duration Input (hidden by default) -->
       <div id="custom-duration-container" style="display: none;">
         <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          Custom Duration (minutes)
+          ${chrome.i18n.getMessage('timer_customDuration')}
         </label>
-        <input type="number" id="custom-duration-input" min="1" max="120" placeholder="Enter minutes (1-120)" style="
+        <input type="number" id="custom-duration-input" min="1" max="120" placeholder="${chrome.i18n.getMessage('input_customDurationPlaceholder')}" style="
           width: 100%;
           padding: 10px 12px;
           border: 1px solid #d1d5db;
@@ -2125,14 +2096,14 @@ function showCustomTimerModal() {
           box-sizing: border-box;
         ">
         <p style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-          Timer segments are optimized for clear visual countdown.
+          ${chrome.i18n.getMessage('label_timerOptimized')}
         </p>
       </div>
 
       <!-- Icon Style -->
       <div>
         <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          Icon Style
+          ${chrome.i18n.getMessage('timer_labelIconStyle')}
         </label>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
           <label style="
@@ -2145,7 +2116,7 @@ function showCustomTimerModal() {
             transition: all 0.2s;
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="blocks" checked style="margin-right: 8px;">
-            <span>Blocks</span>
+            <span>${chrome.i18n.getMessage('timer_iconStyleBlocks')}</span>
           </label>
           <label style="
             display: flex;
@@ -2157,7 +2128,7 @@ function showCustomTimerModal() {
             transition: all 0.2s;
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="circle" style="margin-right: 8px;">
-            <span>Circle</span>
+            <span>${chrome.i18n.getMessage('timer_iconStyleCircle')}</span>
           </label>
           <label style="
             display: flex;
@@ -2169,7 +2140,7 @@ function showCustomTimerModal() {
             transition: all 0.2s;
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="dots" style="margin-right: 8px;">
-            <span>Dots</span>
+            <span>${chrome.i18n.getMessage('timer_iconStyleDots')}</span>
           </label>
           <label style="
             display: flex;
@@ -2181,7 +2152,7 @@ function showCustomTimerModal() {
             transition: all 0.2s;
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="pizza" style="margin-right: 8px;">
-            <span>Pizza</span>
+            <span>${chrome.i18n.getMessage('timer_iconStylePizza')}</span>
           </label>
           <label style="
             display: flex;
@@ -2193,7 +2164,7 @@ function showCustomTimerModal() {
             transition: all 0.2s;
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="flower" style="margin-right: 8px;">
-            <span>Flower Bloom</span>
+            <span>${chrome.i18n.getMessage('timer_iconStyleFlower')}</span>
           </label>
           <label style="
             display: flex;
@@ -2206,7 +2177,7 @@ function showCustomTimerModal() {
             background: linear-gradient(135deg, #f3e7e9 0%, #e3eeff 100%);
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="ghost" style="margin-right: 8px;">
-            <span>Ghost</span>
+            <span>${chrome.i18n.getMessage('timer_iconStyleGhost')}</span>
           </label>
           <label style="
             display: flex;
@@ -2219,7 +2190,7 @@ function showCustomTimerModal() {
             background: linear-gradient(45deg, #f0f9ff 25%, #e0f2fe 25%);
           " onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor=this.querySelector('input').checked?'#3b82f6':'#e5e7eb'">
             <input type="radio" name="icon-style" value="tree-lights" style="margin-right: 8px;">
-            <span>Tree Lights</span>
+            <span>${chrome.i18n.getMessage('timer_iconStyleTreeLights')}</span>
           </label>
         </div>
       </div>
@@ -2227,7 +2198,7 @@ function showCustomTimerModal() {
       <!-- Alarm Sound -->
       <div>
         <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-          End Alarm Sound
+          ${chrome.i18n.getMessage('timer_labelEndAlarmSound')}
         </label>
         <select id="timer-alarm-sound" style="
           width: 100%;
@@ -2238,17 +2209,16 @@ function showCustomTimerModal() {
           background-color: white;
           cursor: pointer;
         ">
-          <option value="">No alarm</option>
-          <option value="friendly-alarm.mp3" selected>Friendly Chime</option>
-          <option value="soft-alarm.mp3">Soft Bell</option>
-          <option value="happy-alarm.mp3">Happy Tune</option>
-          <option value="sunshine-alarm.mp3">Sunshine Melody</option>
-          <option value="calm-alarm.mp3">Calm Bells</option>
-          <option value="calm-christmas-alarm.mp3">Christmas Bells</option>
-          <option value="spooky-alarm.mp3">Spooky Sound</option>
+          <option value="">${chrome.i18n.getMessage('timer_alarmNone')}</option>
+          <option value="friendly-alarm.mp3" selected>${chrome.i18n.getMessage('timer_alarmFriendlyChime')}</option>
+          <option value="soft-alarm.mp3">${chrome.i18n.getMessage('timer_alarmSoftBell')}</option>
+          <option value="happy-alarm.mp3">${chrome.i18n.getMessage('timer_alarmHappyTune')}</option>
+          <option value="sunshine-alarm.mp3">${chrome.i18n.getMessage('timer_alarmSunshineMelody')}</option>
+          <option value="calm-alarm.mp3">${chrome.i18n.getMessage('timer_alarmCalmBells')}</option>
+          <option value="calm-christmas-alarm.mp3">${chrome.i18n.getMessage('timer_alarmChristmasBells')}</option>
+          <option value="spooky-alarm.mp3">${chrome.i18n.getMessage('timer_alarmSpookySound')}</option>
         </select>
       </div>
-
 
       <!-- Status Message -->
       <div id="timer-status" style="display: none; padding: 12px; border-radius: 6px; font-size: 14px;"></div>
@@ -2267,7 +2237,7 @@ function showCustomTimerModal() {
           cursor: pointer;
           transition: background-color 0.2s;
         " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
-          Create Timer
+          ${chrome.i18n.getMessage('timer_buttonCreateTimer')}
         </button>
         <button type="button" id="timer-cancel-btn" style="
           flex: 1;
@@ -2281,7 +2251,7 @@ function showCustomTimerModal() {
           cursor: pointer;
           transition: background-color 0.2s;
         " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">
-          Cancel
+          ${chrome.i18n.getMessage('button_cancel')}
         </button>
       </div>
     </form>
@@ -2290,7 +2260,6 @@ function showCustomTimerModal() {
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-  // Update radio button styling
   const radioInputs = content.querySelectorAll('input[name="icon-style"]');
   radioInputs.forEach(input => {
     input.addEventListener('change', () => {
@@ -2302,7 +2271,6 @@ function showCustomTimerModal() {
     });
   });
 
-  // Handle custom duration selection and update timer name
   const durationSelect = document.getElementById('timer-duration');
   const customContainer = document.getElementById('custom-duration-container');
   const timerNameInput = document.getElementById('timer-name');
@@ -2319,15 +2287,13 @@ function showCustomTimerModal() {
     }
   });
 
-  // Update timer name when duration changes
   const updateTimerName = (minutes) => {
     if (!userEditedName) {
-      const minuteText = minutes === 1 ? 'minute' : 'minutes';
-      timerNameInput.value = `Visual Timer - ${minutes} ${minuteText}`;
+      const minuteText = minutes === 1 ? chrome.i18n.getMessage('label_minute') : chrome.i18n.getMessage('label_minutes');
+      timerNameInput.value = chrome.i18n.getMessage('timer_defaultName', [minutes.toString(), minuteText]);
     }
   };
 
-  // Initialize with default selection (5 minutes)
   updateTimerName(5);
 
   durationSelect.addEventListener('change', () => {
@@ -2341,7 +2307,6 @@ function showCustomTimerModal() {
     }
   });
 
-  // Update timer name when custom duration changes
   customDurationInput.addEventListener('input', () => {
     const minutes = parseInt(customDurationInput.value);
     if (minutes && minutes > 0 && minutes <= 120) {
@@ -2349,18 +2314,15 @@ function showCustomTimerModal() {
     }
   });
 
-  // Handle form submission
   document.getElementById('visual-timer-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     await createVisualTimer();
   });
 
-  // Handle cancel
   document.getElementById('timer-cancel-btn').addEventListener('click', () => {
     modal.remove();
   });
 
-  // Close on backdrop click
   modal.addEventListener('click', (e) => {
     if (e.target === modal) {
       modal.remove();
@@ -2373,11 +2335,10 @@ async function createToothbrushTimer() {
   const statusDiv = document.getElementById('ready-timer-status');
   const submitButton = document.querySelector('#ready-timer-form button[type="submit"]');
 
-  // Show initial status
   statusDiv.style.display = 'block';
   statusDiv.style.backgroundColor = '#dbeafe';
   statusDiv.style.color = '#1e40af';
-  statusDiv.textContent = 'Preparing toothbrush timer tracks...';
+  statusDiv.textContent = chrome.i18n.getMessage('status_preparingToothbrushTimer');
   submitButton.disabled = true;
   submitButton.style.opacity = '0.5';
   submitButton.style.cursor = 'not-allowed';
@@ -2387,9 +2348,8 @@ async function createToothbrushTimer() {
     // 1 x 5 second intro + 8 x 15 second segments
     const tracks = [];
 
-    // First track: intro composite audio - "Get Your Toothbrush Ready!"
     tracks.push({
-      title: "Get Your Toothbrush Ready!",
+      title: chrome.i18n.getMessage('timer_toothbrushIntro'),
       duration: 5, // Approximately 4.38 seconds, but keeping 5 for consistency
       silentFile: 'toothbrush-intro-composite.wav'
     });
@@ -2398,14 +2358,14 @@ async function createToothbrushTimer() {
     // Total time after 5 second intro = 2:00 minutes
     // Each track is 15 seconds, countdown shows time remaining
     const brushingTitles = [
-      "Top Left Front (2:00)",      // 15 sec track, 2:00 remaining
-      "Top Left Back (1:45)",       // 15 sec track, 1:45 remaining
-      "Top Right Front (1:30)",     // 15 sec track, 1:30 remaining
-      "Top Right Back (1:15)",      // 15 sec track, 1:15 remaining
-      "Bottom Left Front (1:00)",   // 15 sec track, 1:00 remaining
-      "Bottom Left Back (0:45)",    // 15 sec track, 0:45 remaining
-      "Bottom Right Front (0:30)",  // 15 sec track, 0:30 remaining
-      "Bottom Right Back (0:15)"    // 15 sec track, 0:15 remaining (renamed to Sparkly Smile!)
+      chrome.i18n.getMessage('timer_topLeftFront'),      // 15 sec track, 2:00 remaining
+      chrome.i18n.getMessage('timer_topLeftBack'),       // 15 sec track, 1:45 remaining
+      chrome.i18n.getMessage('timer_topRightFront'),     // 15 sec track, 1:30 remaining
+      chrome.i18n.getMessage('timer_topRightBack'),      // 15 sec track, 1:15 remaining
+      chrome.i18n.getMessage('timer_bottomLeftFront'),   // 15 sec track, 1:00 remaining
+      chrome.i18n.getMessage('timer_bottomLeftBack'),    // 15 sec track, 0:45 remaining
+      chrome.i18n.getMessage('timer_bottomRightFront'),  // 15 sec track, 0:30 remaining
+      chrome.i18n.getMessage('timer_bottomRightBack')    // 15 sec track, 0:15 remaining (renamed to Sparkly Smile!)
     ];
 
     for (let i = 0; i < 8; i++) {
@@ -2419,11 +2379,8 @@ async function createToothbrushTimer() {
       });
     }
 
-    // Last track will be renamed to "Sparkly Teeth!" after all icons are generated
+    statusDiv.textContent = chrome.i18n.getMessage('status_loadingAudioFiles');
 
-    statusDiv.textContent = 'Loading audio files...';
-
-    // Load all audio files (including the composite intro and all track files)
     const audioCache = {};
     const uniqueFiles = [
       'toothbrush-intro-composite.wav',
@@ -2447,7 +2404,6 @@ async function createToothbrushTimer() {
 
         const audioBlob = await audioResponse.blob();
 
-        // Check file size before converting to base64
         const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit
         if (audioBlob.size > MAX_SIZE) {
           audioCache[fileName] = { blob: audioBlob, isLarge: true };
@@ -2461,7 +2417,6 @@ async function createToothbrushTimer() {
       }
     }
 
-    // Load alarm audio if selected
     let alarmAudioBase64 = null;
     if (alarmSound) {
       const alarmUrl = chrome.runtime.getURL(`assets/audio/alarms/${alarmSound}`);
@@ -2475,7 +2430,7 @@ async function createToothbrushTimer() {
       alarmAudioBase64 = await blobToBase64(alarmBlob);
     }
 
-    statusDiv.textContent = 'Generating timer icons...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_generatingTimerIcons');
 
     // For now, we'll use a default icon style for toothbrush timer
     // Later you can provide specific toothbrush-themed icons
@@ -2493,17 +2448,15 @@ async function createToothbrushTimer() {
       throw new Error(`Failed to import icon generator: ${importError.message}`);
     }
 
-    // Generate and upload icons for each track
     const uploadedIcons = [];
     const totalTracks = tracks.length;
 
     for (let i = 0; i < totalTracks; i++) {
-      statusDiv.textContent = `Uploading icon ${i + 1} of ${totalTracks}...`;
+      statusDiv.textContent = chrome.i18n.getMessage('status_uploadingIcon', [(i + 1).toString(), totalTracks.toString()]);
 
       let iconBase64;
 
       if (i === 0) {
-        // First track - use toothbrush icon
         const toothbrushUrl = chrome.runtime.getURL('assets/timer/icons/toothbrush.png');
         const toothbrushResponse = await fetch(toothbrushUrl);
         const toothbrushBlob = await toothbrushResponse.blob();
@@ -2514,7 +2467,6 @@ async function createToothbrushTimer() {
         });
         iconBase64 = toothbrushDataUrl.split(',')[1];
       } else if (i === totalTracks - 1) {
-        // Last track - use happy teeth icon
         const happyTeethUrl = chrome.runtime.getURL('assets/timer/icons/happy-teeth.png');
         const happyTeethResponse = await fetch(happyTeethUrl);
         const happyTeethBlob = await happyTeethResponse.blob();
@@ -2553,7 +2505,6 @@ async function createToothbrushTimer() {
         }
       }
 
-      // Upload icon
       const uploadResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_ICON',
         file: {
@@ -2571,11 +2522,10 @@ async function createToothbrushTimer() {
     }
 
     // Rename the last track to "Sparkly Smile!"
-    tracks[tracks.length - 1].title = "Sparkly Smile!";
+    tracks[tracks.length - 1].title = chrome.i18n.getMessage('timer_sparklySmile');
 
-    statusDiv.textContent = 'Uploading cover art...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_uploadingCover');
 
-    // Load and upload the toothbrush timer cover image
     let coverUrl = null;
     try {
       const coverPath = chrome.runtime.getURL('assets/timer/covers/toothbrush-timer-cover.png');
@@ -2610,9 +2560,8 @@ async function createToothbrushTimer() {
       // Continue without cover
     }
 
-    statusDiv.textContent = 'Uploading audio tracks...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_uploadingAudioTracks');
 
-    // Upload audio tracks
     const audioTracks = [];
     for (let i = 0; i < tracks.length; i++) {
       const track = tracks[i];
@@ -2653,7 +2602,6 @@ async function createToothbrushTimer() {
       });
     }
 
-    // Add alarm to the last track if selected
     if (alarmAudioBase64 && audioTracks.length > 0) {
       const alarmResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_AUDIO',
@@ -2672,12 +2620,11 @@ async function createToothbrushTimer() {
       audioTracks[audioTracks.length - 1].transcodedAudio = alarmResponse.transcodedAudio;
     }
 
-    statusDiv.textContent = 'Creating timer card...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_creatingCard');
 
-    // Create the playlist - pass audioTracks and iconIds separately
     const createResponse = await chrome.runtime.sendMessage({
       action: 'CREATE_PLAYLIST',
-      title: "Toothbrush Timer",
+      title: chrome.i18n.getMessage('timer_toothbrushTitle'),
       audioTracks: audioTracks,
       iconIds: uploadedIcons,
       coverUrl: coverUrl,
@@ -2688,9 +2635,8 @@ async function createToothbrushTimer() {
     if (!createResponse.error) {
       statusDiv.style.backgroundColor = '#dcfce7';
       statusDiv.style.color = '#166534';
-      statusDiv.textContent = 'Toothbrush timer created successfully! Refreshing...';
+      statusDiv.textContent = chrome.i18n.getMessage('status_toothbrushTimerSuccess');
 
-      // Close modal and refresh page after a short delay
       setTimeout(() => {
         document.getElementById('yoto-ready-timer-modal').remove();
         window.location.reload();
@@ -2703,7 +2649,7 @@ async function createToothbrushTimer() {
     console.error('Error creating toothbrush timer:', error);
     statusDiv.style.backgroundColor = '#fee2e2';
     statusDiv.style.color = '#991b1b';
-    statusDiv.textContent = `Error: ${error.message}`;
+    statusDiv.textContent = `${chrome.i18n.getMessage("error_generic", [error.message])}`;
     submitButton.disabled = false;
     submitButton.style.opacity = '1';
     submitButton.style.cursor = 'pointer';
@@ -2711,16 +2657,15 @@ async function createToothbrushTimer() {
 }
 
 async function createVisualTimer() {
-  const timerName = document.getElementById('timer-name').value || 'Visual Timer';
+  const timerName = document.getElementById('timer-name').value || chrome.i18n.getMessage('label_visualTimerDefault');
   const durationSelect = document.getElementById('timer-duration');
   let duration;
 
-  // Get duration from either select or custom input
   if (durationSelect.value === 'custom') {
     const customInput = document.getElementById('custom-duration-input');
     duration = parseInt(customInput.value);
     if (!duration || duration < 1 || duration > 120) {
-      alert('Please enter a valid duration between 1 and 120 minutes');
+      alert(chrome.i18n.getMessage('error_invalidDuration'));
       return;
     }
   } else {
@@ -2733,11 +2678,10 @@ async function createVisualTimer() {
   const statusDiv = document.getElementById('timer-status');
   const submitButton = document.querySelector('#visual-timer-form button[type="submit"]');
 
-  // Show initial status
   statusDiv.style.display = 'block';
   statusDiv.style.backgroundColor = '#dbeafe';
   statusDiv.style.color = '#1e40af';
-  statusDiv.textContent = 'Preparing timer tracks...';
+  statusDiv.textContent = chrome.i18n.getMessage('status_preparingTimerTracks');
   submitButton.disabled = true;
   submitButton.style.opacity = '0.5';
   submitButton.style.cursor = 'not-allowed';
@@ -2871,9 +2815,8 @@ async function createVisualTimer() {
       silentFiles = ['silent-1m.wav'];
     }
 
-    statusDiv.textContent = 'Loading audio files...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_loadingAudioFiles');
 
-    // Load all unique silent audio files
     const audioCache = {};
     const uniqueFiles = [...new Set(silentFiles)];
 
@@ -2887,7 +2830,6 @@ async function createVisualTimer() {
 
       const audioBlob = await audioResponse.blob();
 
-      // Check file size before converting to base64
       const MAX_SIZE = 10 * 1024 * 1024; // 10MB limit for safe message passing
       if (audioBlob.size > MAX_SIZE) {
         // For large files, we'll handle them differently
@@ -2898,7 +2840,6 @@ async function createVisualTimer() {
       }
     }
 
-    // Load alarm audio if selected
     let alarmAudioBase64 = null;
     if (alarmSound) {
       const alarmUrl = chrome.runtime.getURL(`assets/audio/alarms/${alarmSound}`);
@@ -2912,12 +2853,11 @@ async function createVisualTimer() {
       alarmAudioBase64 = await blobToBase64(alarmBlob);
     }
 
-    statusDiv.textContent = 'Generating timer icons...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_generatingTimerIcons');
 
     // Import the icon generator functions
     const { generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon, generateGhostTimerIcon } = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
 
-    // Generate and upload icons for each segment
     const uploadedIcons = [];
     for (let i = 0; i < numSegments; i++) {
       const progress = 1 - (i / numSegments); // 1.0 to 0.0
@@ -2960,14 +2900,12 @@ async function createVisualTimer() {
         iconDataUrl = generateTimerIcon(progress, iconStyle);
       }
 
-      // Convert data URL to base64
       const iconBase64 = iconDataUrl.split(',')[1];
 
       // All icons are PNGs now
       const iconType = 'image/png';
       const iconExtension = 'png';
 
-      // Upload icon
       const iconResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_ICON',
         file: {
@@ -2984,9 +2922,8 @@ async function createVisualTimer() {
       }
     }
 
-    statusDiv.textContent = 'Uploading audio tracks...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_uploadingAudioTracks');
 
-    // Upload silent tracks
     const uploadedTracks = [];
     const totalSeconds = duration * 60;
     const secondsPerSegment = totalSeconds / numSegments;
@@ -3036,13 +2973,14 @@ async function createVisualTimer() {
 
       let trackTitle;
       if (displayMinutes === 0) {
-        trackTitle = `${displaySeconds} seconds left`;
+        trackTitle = chrome.i18n.getMessage('timer_secondsLeft', [displaySeconds.toString()]);
       } else if (displaySeconds === 0) {
-        trackTitle = displayMinutes === 1 ? '1 minute left' : `${displayMinutes} minutes left`;
+        trackTitle = displayMinutes === 1 ? chrome.i18n.getMessage('timer_minuteLeft') : chrome.i18n.getMessage('timer_minutesLeft', [displayMinutes.toString()]);
       } else {
+        const secondPlural = displaySeconds === 1 ? '' : 's';
         trackTitle = displayMinutes === 1
-          ? `1 minute ${displaySeconds} second${displaySeconds === 1 ? '' : 's'} left`
-          : `${displayMinutes} minutes ${displaySeconds} second${displaySeconds === 1 ? '' : 's'} left`;
+          ? chrome.i18n.getMessage('timer_minuteSecondsLeft', [displaySeconds.toString(), secondPlural])
+          : chrome.i18n.getMessage('timer_minutesSecondsLeft', [displayMinutes.toString(), displaySeconds.toString(), secondPlural]);
       }
 
       let uploadResponse;
@@ -3058,7 +2996,6 @@ async function createVisualTimer() {
         // For smaller files, use the regular upload with base64
         const audioBase64 = audioData.base64;
 
-        // Validate base64 before sending
         if (!audioBase64 || audioBase64.length === 0) {
           throw new Error(`Invalid base64 data for track ${i + 1}`);
         }
@@ -3085,20 +3022,17 @@ async function createVisualTimer() {
         throw new Error(`Failed to upload track ${i + 1}: No transcoded audio returned`);
       }
 
-      // Format the track to match what createPlaylistContent expects
       uploadedTracks.push({
         title: trackTitle,
         transcodedAudio: uploadResponse.transcodedAudio
       });
 
-      // Update progress
       const progress = Math.round(((i + 1) / (numSegments + (alarmSound ? 1 : 0))) * 100);
-      statusDiv.textContent = `Uploading tracks... ${progress}%`;
+      statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', [progress.toString()]);
     }
 
     // Always add a final track (either alarm or silent)
     if (alarmAudioBase64) {
-      // Upload alarm audio
       const alarmResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_AUDIO',
         file: {
@@ -3116,9 +3050,8 @@ async function createVisualTimer() {
         throw new Error('Failed to upload alarm: No transcoded audio returned');
       }
 
-      // Format the track to match what createPlaylistContent expects
       uploadedTracks.push({
-        title: "Time's Up!",
+        title: chrome.i18n.getMessage('timer_timesUp'),
         transcodedAudio: alarmResponse.transcodedAudio
       });
     } else {
@@ -3156,7 +3089,6 @@ async function createVisualTimer() {
       } else {
         let silentResponse;
 
-        // Handle based on file size (same as timer segments)
         if (silentAudioObj.isLarge) {
           // For large files, have the service worker load and upload directly
           silentResponse = await chrome.runtime.sendMessage({
@@ -3200,9 +3132,7 @@ async function createVisualTimer() {
       const treeIcon = 'yoto:#rJatTQ_Y6mlIATEti0EEDFxBws4uUpnDuiWo9rw03KY';
       uploadedIcons.push(treeIcon);
     } else if (iconStyle === 'flower') {
-      // Generate the full flower for the alarm track
       try {
-        // Generate a full flower icon (all petals visible - progress = 0 for full bloom)
         const fullFlowerDataUrl = generateTimerIcon(0, 'flower');
         const base64Data = fullFlowerDataUrl.split(',')[1];
 
@@ -3242,7 +3172,7 @@ async function createVisualTimer() {
       uploadedIcons.push(randomIcon);
     }
 
-    statusDiv.textContent = 'Uploading cover art...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_uploadingCover');
 
     let coverUrl = null;
     try {
@@ -3276,9 +3206,8 @@ async function createVisualTimer() {
     } catch (coverError) {
     }
 
-    statusDiv.textContent = 'Creating timer card...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_creatingCard');
 
-    // Create the playlist
     const createResponse = await chrome.runtime.sendMessage({
       action: 'CREATE_PLAYLIST',
       title: timerName,
@@ -3296,7 +3225,7 @@ async function createVisualTimer() {
     // Success!
     statusDiv.style.backgroundColor = '#d1fae5';
     statusDiv.style.color = '#065f46';
-    statusDiv.textContent = 'Timer created successfully! Refreshing page...';
+    statusDiv.textContent = chrome.i18n.getMessage('status_timerCreatedSuccess');
 
     // Track event
     chrome.runtime.sendMessage({
@@ -3318,7 +3247,7 @@ async function createVisualTimer() {
   } catch (error) {
     statusDiv.style.backgroundColor = '#fee2e2';
     statusDiv.style.color = '#991b1b';
-    statusDiv.textContent = `Error: ${error.message}`;
+    statusDiv.textContent = `${chrome.i18n.getMessage("error_generic", [error.message])}`;
     submitButton.disabled = false;
     submitButton.style.opacity = '1';
     submitButton.style.cursor = 'pointer';
@@ -3335,7 +3264,6 @@ async function createVisualTimer() {
   }
 }
 
-// Helper function to convert blob to base64
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -3348,7 +3276,6 @@ function blobToBase64(blob) {
           // Clean the base64 string - remove any whitespace or line breaks
           const cleanBase64 = base64String.replace(/[\s\n\r]/g, '');
 
-          // Validate base64 characters
           const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
           if (!base64Regex.test(cleanBase64)) {
             reject(new Error('Invalid base64 characters detected'));
@@ -3367,7 +3294,6 @@ function blobToBase64(blob) {
   });
 }
 
-// Helper function to convert file to base64 (for compatibility with existing code)
 function fileToBase64(file) {
   return blobToBase64(file);
 }
@@ -3416,7 +3342,7 @@ function selectZipFileForUpdate(cardId) {
         const files = await extractZipContents(zip);
         processUpdateFiles(files, file.name, cardId);
       } catch (error) {
-        showNotification('Error reading ZIP file. Please try again.', 'error');
+        showNotification(chrome.i18n.getMessage('notification_errorReadingZip'), 'error');
       }
     }
   });
@@ -3456,10 +3382,10 @@ function selectZipFile() {
     fileInput.remove();
     
     if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
-      showNotification('Processing ZIP file...', 'info');
+      showNotification(chrome.i18n.getMessage('status_processingZip'), 'info');
       await processZipFile(files[0]);
     } else if (files.length > 0) {
-      showNotification('Please select a valid ZIP file', 'error');
+      showNotification(chrome.i18n.getMessage('notification_invalidZip'), 'error');
     }
   });
   
@@ -3481,7 +3407,7 @@ function selectFolder() {
     folderInput.remove();
     
     if (files.length > 0) {
-      showNotification('Processing folder...', 'info');
+      showNotification(chrome.i18n.getMessage('status_processingFolder'), 'info');
       await processFolderFiles(files);
     }
   });
@@ -3489,13 +3415,14 @@ function selectFolder() {
   folderInput.click();
 }
 
-// Load best kids' podcasts with randomization
 async function loadBestKidsPodcasts() {
   const loadingDiv = document.getElementById('best-podcasts-loading');
   const carouselDiv = document.getElementById('best-podcasts-carousel');
   const listDiv = document.getElementById('best-podcasts-list');
-  
+
   try {
+    const userLanguage = chrome.i18n.getUILanguage().split('-')[0]; // Get language code (e.g., 'en', 'es', 'fr', 'de')
+
     // Define kids genre IDs - only kid-friendly genres
     const kidsGenreIds = {
       'Stories for Kids': 198,
@@ -3517,13 +3444,13 @@ async function loadBestKidsPodcasts() {
     
     switch (randomStrategy) {
       case 'stories-only': {
-        // Show only story podcasts from random page
         const randomPage = Math.floor(Math.random() * 3) + 1; // Pages 1-3
         
         const response = await chrome.runtime.sendMessage({
           action: 'GET_BEST_PODCASTS',
           genreId: kidsGenreIds['Stories for Kids'],
-          page: randomPage
+          page: randomPage,
+          language: userLanguage
         });
         
         if (!response.error && response.podcasts) {
@@ -3533,13 +3460,13 @@ async function loadBestKidsPodcasts() {
       }
       
       case 'education-only': {
-        // Show only educational podcasts from random page
         const randomPage = Math.floor(Math.random() * 3) + 1; // Pages 1-3
         
         const response = await chrome.runtime.sendMessage({
           action: 'GET_BEST_PODCASTS',
           genreId: kidsGenreIds['Education for Kids'],
-          page: randomPage
+          page: randomPage,
+          language: userLanguage
         });
         
         if (!response.error && response.podcasts) {
@@ -3555,12 +3482,14 @@ async function loadBestKidsPodcasts() {
           chrome.runtime.sendMessage({
             action: 'GET_BEST_PODCASTS',
             genreId: kidsGenreIds['Stories for Kids'],
-            page: 1
+            page: 1,
+            language: userLanguage
           }),
           chrome.runtime.sendMessage({
             action: 'GET_BEST_PODCASTS',
             genreId: kidsGenreIds['Education for Kids'],
-            page: 1
+            page: 1,
+            language: userLanguage
           })
         ]);
         
@@ -3585,24 +3514,25 @@ async function loadBestKidsPodcasts() {
       
       case 'stories-heavy': {
         // Mostly stories with some educational
-        
+
         const storiesResponse = await chrome.runtime.sendMessage({
           action: 'GET_BEST_PODCASTS',
           genreId: kidsGenreIds['Stories for Kids'],
-          page: 1
+          page: 1,
+          language: userLanguage
         });
-        
+
         const eduResponse = await chrome.runtime.sendMessage({
           action: 'GET_BEST_PODCASTS',
           genreId: kidsGenreIds['Education for Kids'],
-          page: 1
+          page: 1,
+          language: userLanguage
         });
         
         if (!storiesResponse.error && storiesResponse.podcasts) {
           // Take mostly stories
           allPodcasts = storiesResponse.podcasts.slice(0, 9);
           
-          // Add a few educational
           if (!eduResponse.error && eduResponse.podcasts) {
             allPodcasts.push(...eduResponse.podcasts.slice(0, 3));
           }
@@ -3613,24 +3543,25 @@ async function loadBestKidsPodcasts() {
       case 'education-heavy':
       default: {
         // Mostly educational with some stories
-        
+
         const eduResponse = await chrome.runtime.sendMessage({
           action: 'GET_BEST_PODCASTS',
           genreId: kidsGenreIds['Education for Kids'],
-          page: 1
+          page: 1,
+          language: userLanguage
         });
-        
+
         const storiesResponse = await chrome.runtime.sendMessage({
           action: 'GET_BEST_PODCASTS',
           genreId: kidsGenreIds['Stories for Kids'],
-          page: 1
+          page: 1,
+          language: userLanguage
         });
         
         if (!eduResponse.error && eduResponse.podcasts) {
           // Take mostly educational
           allPodcasts = eduResponse.podcasts.slice(0, 9);
           
-          // Add a few stories
           if (!storiesResponse.error && storiesResponse.podcasts) {
             allPodcasts.push(...storiesResponse.podcasts.slice(0, 3));
           }
@@ -3650,7 +3581,6 @@ async function loadBestKidsPodcasts() {
       // Limit display to avoid overwhelming the carousel
       const displayPodcasts = allPodcasts.slice(0, 12);
       
-      // Display the podcasts
       listDiv.innerHTML = '';
       displayPodcasts.forEach(podcast => {
         const podcastCard = createPodcastCard(podcast, true);
@@ -3667,7 +3597,6 @@ async function loadBestKidsPodcasts() {
   }
 }
 
-// Create a podcast card for display
 function createPodcastCard(podcast, isCompact = false) {
   const card = document.createElement('div');
   
@@ -3804,13 +3733,11 @@ function createPodcastCard(podcast, isCompact = false) {
     };
   }
   
-  // Handle click to select podcast
   card.addEventListener('click', () => selectPodcast(podcast));
   
   return card;
 }
 
-// Handle podcast selection
 async function selectPodcast(podcast) {
   // Track podcast selection
   chrome.runtime.sendMessage({
@@ -3822,13 +3749,11 @@ async function selectPodcast(podcast) {
     }
   });
   
-  // Close search modal if it exists
   const searchModal = document.getElementById('podcast-search-modal');
   if (searchModal) {
     searchModal.remove();
   }
   
-  // Create episode selection modal
   const modal = document.createElement('div');
   modal.id = 'episode-selection-modal';
   modal.style.cssText = `
@@ -3861,7 +3786,7 @@ async function selectPodcast(podcast) {
   `;
   
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import ${podcast.title}</h2>
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('label_import')} ${podcast.title}</h2>
     <div style="display: flex; gap: 16px; margin-bottom: 20px;">
       ${podcast.thumbnail ? 
         `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
@@ -3901,7 +3826,7 @@ async function selectPodcast(podcast) {
       <div style="margin-bottom: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
           <label style="font-weight: 500; color: #374151;">
-            Select episodes to import: <span id="selected-count" style="color: #3b82f6;"></span>
+            ${chrome.i18n.getMessage('label_selectEpisodesToImport')} <span id="selected-count" style="color: #3b82f6;"></span>
           </label>
           <div style="display: flex; gap: 8px;">
             <button id="select-all-episodes" style="
@@ -3912,7 +3837,7 @@ async function selectPodcast(podcast) {
               border: none;
               border-radius: 4px;
               cursor: pointer;
-            ">Select All</button>
+            ">${chrome.i18n.getMessage('button_selectAll')}</button>
             <button id="deselect-all-episodes" style="
               padding: 4px 12px;
               font-size: 12px;
@@ -3921,7 +3846,7 @@ async function selectPodcast(podcast) {
               border: none;
               border-radius: 4px;
               cursor: pointer;
-            ">Deselect All</button>
+            ">${chrome.i18n.getMessage('button_deselectAll')}</button>
           </div>
         </div>
         <div id="episode-list" style="
@@ -3948,7 +3873,7 @@ async function selectPodcast(podcast) {
           cursor: pointer;
           font-size: 14px;
           font-weight: 500;
-        ">Cancel</button>
+        ">${chrome.i18n.getMessage('button_cancel')}</button>
         <button id="start-import" style="
           padding: 10px 20px;
           background: #3b82f6;
@@ -3958,7 +3883,7 @@ async function selectPodcast(podcast) {
           cursor: pointer;
           font-size: 14px;
           font-weight: 500;
-        ">Import Episodes</button>
+        ">${chrome.i18n.getMessage('button_import')}</button>
       </div>
     </div>
   `;
@@ -3966,7 +3891,6 @@ async function selectPodcast(podcast) {
   modal.appendChild(content);
   document.body.appendChild(modal);
   
-  // Store pagination data
   let allEpisodes = [];
   let nextEpisodePubDate = null;
   let hasMoreEpisodes = false;
@@ -4009,7 +3933,7 @@ async function selectPodcast(podcast) {
     hasMoreEpisodes = response.has_more || false;
     
     if (allEpisodes.length === 0) {
-      showNotification('No episodes found for this podcast', 'error');
+      showNotification(chrome.i18n.getMessage('notification_noEpisodesFound'), 'error');
       modal.remove();
       return;
     }
@@ -4101,7 +4025,7 @@ async function selectPodcast(podcast) {
           if (loadMoreBtn) {
             loadMoreBtn.addEventListener('click', async () => {
               loadMoreBtn.disabled = true;
-              loadMoreBtn.textContent = 'Loading...';
+              loadMoreBtn.textContent = chrome.i18n.getMessage('status_loading');
               
               try {
                 selectedEpisodeIndices.clear();
@@ -4130,9 +4054,9 @@ async function selectPodcast(podcast) {
                   loadMoreBtn.style.display = 'none';
                 }
               } catch (error) {
-                showNotification('Failed to load more episodes', 'error');
+                showNotification(chrome.i18n.getMessage('notification_failedToLoadMoreEpisodes'), 'error');
                 loadMoreBtn.disabled = false;
-                loadMoreBtn.textContent = 'Load More Episodes';
+                loadMoreBtn.textContent = chrome.i18n.getMessage('button_loadMore');
               }
             });
           }
@@ -4199,7 +4123,6 @@ async function selectPodcast(podcast) {
       updateSelectedCount();
     });
     
-    // Handle import button click
     document.getElementById('start-import').addEventListener('click', async () => {
       const selectedIndices = [];
       allEpisodes.forEach((_, index) => {
@@ -4210,7 +4133,7 @@ async function selectPodcast(podcast) {
       });
       
       if (selectedIndices.length === 0) {
-        showNotification('Please select at least one episode to import', 'warning');
+        showNotification(chrome.i18n.getMessage('notification_selectAtLeastOneEpisode'), 'warning');
         return;
       }
       
@@ -4224,20 +4147,19 @@ async function selectPodcast(podcast) {
       
       progressDiv.style.display = 'block';
       importBtn.disabled = true;
-      importBtn.textContent = 'Importing...';
+      importBtn.textContent = chrome.i18n.getMessage('button_importing');
       // Keep cancel button enabled so user can cancel
-      cancelBtn.textContent = 'Cancel Import';
+      cancelBtn.textContent = chrome.i18n.getMessage('button_cancel');
       
-      statusText.textContent = `Starting import of ${selectedEpisodes.length} episode${selectedEpisodes.length > 1 ? 's' : ''}...`;
+      const episodePlural = selectedEpisodes.length !== 1 ? 's' : '';
+      statusText.textContent = chrome.i18n.getMessage("status_startingImport", [selectedEpisodes.length.toString(), episodePlural]);
       progressBar.style.width = '5%';
       
-      // Create a flag to track if import was cancelled
       let importCancelled = false;
       
-      // Update cancel button to stop the import
       const cancelHandler = async () => {
         importCancelled = true;
-        statusText.textContent = 'Cancelling import...';
+        statusText.textContent = chrome.i18n.getMessage('status_cancellingImport');
         progressBar.style.width = '0%';
         
         // Notify service worker to stop the import
@@ -4248,10 +4170,8 @@ async function selectPodcast(podcast) {
         } catch (e) {
         }
         
-        // Clear any stored import data
         await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
         
-        // Close modal after brief delay
         setTimeout(() => {
           modal.remove();
         }, 500);
@@ -4282,12 +4202,11 @@ async function selectPodcast(podcast) {
         const maxAttempts = 120; // 2 minutes timeout
         
         progressBar.style.width = '10%';
-        statusText.textContent = 'Downloading and processing episodes...';
+        statusText.textContent = chrome.i18n.getMessage('status_downloadingEpisodes');
         
         while (!importComplete && !importCancelled && pollAttempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
           
-          // Check if cancelled
           if (importCancelled) {
             break;
           }
@@ -4297,7 +4216,6 @@ async function selectPodcast(podcast) {
           });
           
           if (statusResponse) {
-            // Update progress
             if (statusResponse.progress) {
               const progress = statusResponse.progress;
               if (progress.status === 'in_progress') {
@@ -4305,21 +4223,18 @@ async function selectPodcast(podcast) {
                   ? Math.min(10 + (progress.current / progress.total * 80), 90)
                   : 10;
                 progressBar.style.width = `${percent}%`;
-                statusText.textContent = progress.message || 'Processing...';
+                statusText.textContent = progress.message || chrome.i18n.getMessage('status_processing');
               }
             }
             
-            // Check for completion
             if (statusResponse.success) {
               importComplete = true;
               progressBar.style.width = '100%';
-              statusText.textContent = `Successfully imported ${statusResponse.tracksImported || selectedEpisodes.length} episodes!`;
-              importBtn.textContent = 'Completed';
+              statusText.textContent = `${chrome.i18n.getMessage("status_successfullyImportedEpisodes", [statusResponse.tracksImported || selectedEpisodes.length])}`;
+              importBtn.textContent = chrome.i18n.getMessage('status_completed');
               
-              // Clear storage
               await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
               
-              // Close modal and reload after delay
               setTimeout(() => {
                 modal.remove();
                 window.location.reload();
@@ -4341,7 +4256,7 @@ async function selectPodcast(podcast) {
               `;
               progressBar.style.width = '0%';
               importBtn.style.display = 'none';
-              cancelBtn.textContent = 'Close';
+              cancelBtn.textContent = chrome.i18n.getMessage('button_close');
             } else if (statusResponse.error) {
               throw new Error(statusResponse.error);
             }
@@ -4351,34 +4266,31 @@ async function selectPodcast(podcast) {
         }
         
         if (!importComplete) {
-          throw new Error('Import is taking longer than expected. Please refresh the page.');
+          throw new Error(chrome.i18n.getMessage('error_importTakingTooLong'));
         }
         
       } catch (error) {
-        statusText.textContent = `Error: ${error.message}`;
+        statusText.textContent = `${chrome.i18n.getMessage("error_generic", [error.message])}`;
         progressBar.style.width = '0%';
         importBtn.disabled = false;
-        importBtn.textContent = 'Import Episodes';
-        cancelBtn.textContent = 'Close';
+        importBtn.textContent = chrome.i18n.getMessage('button_importPlaylist');
+        cancelBtn.textContent = chrome.i18n.getMessage('button_close');
         cancelBtn.onclick = () => modal.remove();
-        showNotification(`Import failed: ${error.message}`, 'error');
+        showNotification(`${chrome.i18n.getMessage("notification_importFailedMessage", [error.message])}`, 'error');
       }
     });
     
-    // Handle cancel
     document.getElementById('episode-cancel').addEventListener('click', () => {
       modal.remove();
     });
     
   } catch (error) {
-    showNotification('Failed to load podcast episodes', 'error');
+    showNotification(chrome.i18n.getMessage('notification_failedToLoadPodcastEpisodes'), 'error');
     modal.remove();
   }
   
 }
 
-
-// Show podcast search modal
 function showPodcastSearchModal() {
   const modal = document.createElement('div');
   modal.id = 'podcast-search-modal';
@@ -4413,10 +4325,10 @@ function showPodcastSearchModal() {
   `;
   
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Podcast</h2>
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('modal_importPodcast')}</h2>
     <div style="margin-bottom: 20px;">
       <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-        Enter podcast name to search:
+        ${chrome.i18n.getMessage('label_enterPodcastName')}
       </label>
       <input type="text" id="podcast-search-input" placeholder="e.g., Radiolab for Kids" style="
         width: 100%;
@@ -4431,7 +4343,7 @@ function showPodcastSearchModal() {
     <!-- Best Kids' Podcasts Section -->
     <div id="best-podcasts-section" style="margin-bottom: 20px;">
       <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-        Popular Kids' Podcasts:
+        ${chrome.i18n.getMessage('label_popularKidsPodcasts')}
       </label>
       <div id="best-podcasts-loading" style="text-align: center; padding: 20px;">
         <div style="display: inline-block; width: 30px; height: 30px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
@@ -4535,7 +4447,7 @@ function showPodcastSearchModal() {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Cancel</button>
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="podcast-search-btn" style="
         padding: 10px 20px;
         background: #3b82f6;
@@ -4545,26 +4457,24 @@ function showPodcastSearchModal() {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Search</button>
+      ">${chrome.i18n.getMessage('button_search')}</button>
     </div>
   `;
   
   modal.appendChild(content);
   document.body.appendChild(modal);
   
-  // Load best kids' podcasts
   loadBestKidsPodcasts();
   
   // Focus on input
   const searchInput = document.getElementById('podcast-search-input');
   searchInput.focus();
   
-  // Handle search
   const searchBtn = document.getElementById('podcast-search-btn');
   const handleSearch = async () => {
     const query = searchInput.value.trim();
     if (!query) {
-      showNotification('Please enter a podcast name', 'error');
+      showNotification(chrome.i18n.getMessage('notification_enterPodcastName'), 'error');
       return;
     }
     
@@ -4579,7 +4489,6 @@ function showPodcastSearchModal() {
     errorDiv.style.display = 'none';
     
     try {
-      // Search for podcasts via service worker
       const response = await chrome.runtime.sendMessage({
         action: 'SEARCH_PODCASTS',
         query: query
@@ -4605,7 +4514,7 @@ function showPodcastSearchModal() {
         // If we have fallback podcasts, still show them
         if (response.podcasts && response.podcasts.length > 0) {
           const suggestionDiv = document.createElement('div');
-          suggestionDiv.innerHTML = '<h3 style="margin: 20px 0 10px;">Popular Kids Podcasts:</h3>';
+          suggestionDiv.innerHTML = `<h3 style="margin: 20px 0 10px;">${chrome.i18n.getMessage('label_popularKidsPodcasts')}</h3>`;
           listDiv.appendChild(suggestionDiv);
           
           response.podcasts.forEach(podcast => {
@@ -4623,12 +4532,11 @@ function showPodcastSearchModal() {
       }
       
       if (!response.podcasts || response.podcasts.length === 0) {
-        errorDiv.textContent = `No podcasts found for "${query}"`;
+        errorDiv.textContent = chrome.i18n.getMessage('error_noPodcastsFound', [query]);
         errorDiv.style.display = 'block';
         return;
       }
       
-      // Display podcast results using the createPodcastCard function
       response.podcasts.forEach(podcast => {
         const podcastCard = createPodcastCard(podcast, false);
         listDiv.appendChild(podcastCard);
@@ -4636,7 +4544,7 @@ function showPodcastSearchModal() {
       
     } catch (error) {
       loadingDiv.style.display = 'none';
-      errorDiv.textContent = 'Failed to search podcasts. Please try again.';
+      errorDiv.textContent = chrome.i18n.getMessage('error_failedSearch');
       errorDiv.style.display = 'block';
     }
   };
@@ -4648,15 +4556,13 @@ function showPodcastSearchModal() {
     }
   });
   
-  // Handle cancel
   document.getElementById('podcast-cancel').addEventListener('click', () => {
     modal.remove();
   });
   
 }
-// Format duration from seconds to readable format
 function formatDuration(seconds) {
-  if (!seconds) return 'Unknown';
+  if (!seconds) return chrome.i18n.getMessage('label_unknown');
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   if (mins >= 60) {
@@ -4668,7 +4574,7 @@ function formatDuration(seconds) {
 }
 
 async function processFolderFiles(files) {
-  let folderName = 'Imported Playlist';
+  let folderName = chrome.i18n.getMessage('label_importedPlaylist');
   if (files[0] && files[0].webkitRelativePath) {
     const pathParts = files[0].webkitRelativePath.split('/');
     if (pathParts.length > 0) {
@@ -4680,7 +4586,6 @@ async function processFolderFiles(files) {
   const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
   const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
   
-  // Filter out Mac metadata and non-media files
   const cleanFiles = Array.from(files).filter(f => {
     if (f.name.startsWith('._') || f.webkitRelativePath.includes('__MACOSX/')) {
       return false;
@@ -4708,7 +4613,6 @@ async function processFolderFiles(files) {
   
   let audioFiles = [];
   
-  // 1. First, look for folders containing 'audio' in the name
   const audioFolderFiles = allAudioFiles.filter(f => 
     f.webkitRelativePath.toLowerCase().includes('/audio')
   );
@@ -4716,9 +4620,7 @@ async function processFolderFiles(files) {
   if (audioFolderFiles.length > 0) {
     audioFiles = audioFolderFiles;
   } 
-  // 2. If not found, use all audio files found
   else if (allAudioFiles.length > 0) {
-    // Find the most common directory containing audio files
     const audioDirs = {};
     allAudioFiles.forEach(f => {
       const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
@@ -4781,7 +4683,6 @@ async function processFolderFiles(files) {
     }
   }
   
-  // Sort audio files naturally (handle numbers properly)
   audioFiles.sort((a, b) => {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
   });
@@ -4790,14 +4691,13 @@ async function processFolderFiles(files) {
   const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
   
   if (audioFiles.length === 0) {
-    showNotification('No audio files found. Please ensure your folder contains audio files (.mp3, .m4a, .m4b, etc.).', 'error');
+    showNotification(chrome.i18n.getMessage('notification_noAudioFiles'), 'error');
     return;
   }
   
   // Files processed successfully
-  showNotification(`Folder processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
+  showNotification(`${chrome.i18n.getMessage("notification_folderProcessed", [audioFiles.length, trackIcons.length, coverImage ? ', 1 cover' : ''])}`, 'success');
   
-  // Show import modal with the files
   showImportModal(audioFiles, trackIcons, coverImage, folderName, 'folder');
 }
 
@@ -4838,7 +4738,6 @@ async function processZipFile(file) {
     // If this is a ZIP of ZIPs, show an informative message and redirect to bulk import
     if (containsZipFiles) {
       
-      // Close any existing modals first
       const existingModal = document.querySelector('#yoto-import-modal');
       if (existingModal) existingModal.remove();
       
@@ -4940,7 +4839,6 @@ async function processZipFile(file) {
       
       document.body.appendChild(redirectModal);
       
-      // Add CSS animation
       const style = document.createElement('style');
       style.textContent = `
         @keyframes slideIn {
@@ -4957,13 +4855,11 @@ async function processZipFile(file) {
       document.head.appendChild(style);
       
       // No auto-redirect - user must click Proceed
-      // Handle proceed button
       document.getElementById('redirect-now').addEventListener('click', () => {
         redirectModal.remove();
         showBulkImportOptionsModal();
       });
       
-      // Handle cancel button
       document.getElementById('redirect-cancel').addEventListener('click', () => {
         redirectModal.remove();
       });
@@ -4983,7 +4879,6 @@ async function processZipFile(file) {
         continue;
       }
       
-      // Get the file extension and name
       const fileName = path.split('/').pop();
       const ext = fileName.split('.').pop().toLowerCase();
       
@@ -5017,7 +4912,6 @@ async function processZipFile(file) {
     
     let audioFiles = [];
     
-    // 1. First, look for folders containing 'audio' in the name
     const audioFolderFiles = allAudioFiles.filter(f => 
       f.webkitRelativePath.toLowerCase().includes('/audio')
     );
@@ -5025,9 +4919,7 @@ async function processZipFile(file) {
     if (audioFolderFiles.length > 0) {
       audioFiles = audioFolderFiles;
     } 
-    // 2. If not found, look for any folder with audio files
     else if (allAudioFiles.length > 0) {
-      // Find the most common directory containing audio files
       const audioDirs = {};
       allAudioFiles.forEach(f => {
         const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
@@ -5046,7 +4938,6 @@ async function processZipFile(file) {
     
     let imageFiles = [];
     
-    // 1. First, look for folders containing 'images' or 'icons' in the name
     const imageFolderFiles = allImageFiles.filter(f => {
       const path = f.webkitRelativePath.toLowerCase();
       return path.includes('/image') || path.includes('/icon');
@@ -5055,9 +4946,7 @@ async function processZipFile(file) {
     if (imageFolderFiles.length > 0) {
       imageFiles = imageFolderFiles;
     }
-    // 2. If not found, look for any folder with image files
     else if (allImageFiles.length > 0) {
-      // Find the most common directory containing image files
       const imageDirs = {};
       allImageFiles.forEach(f => {
         const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
@@ -5074,7 +4963,6 @@ async function processZipFile(file) {
       );
     }
     
-    // Sort audio files naturally (handle numbers properly)
     audioFiles.sort((a, b) => {
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
@@ -5082,18 +4970,17 @@ async function processZipFile(file) {
     const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
     
     if (audioFiles.length === 0) {
-      showNotification('No audio files found in the ZIP. Please ensure your ZIP contains audio files (.mp3, .m4a, .m4b, etc.).', 'error');
+      showNotification(chrome.i18n.getMessage('notification_noAudioFilesZip'), 'error');
       return;
     }
     
     // Files processed successfully
-    showNotification(`ZIP processed: ${audioFiles.length} tracks, ${trackIcons.length} icons${coverImage ? ', 1 cover' : ''}`, 'success');
+    showNotification(`chrome.i18n.getMessage("notification_zipProcessed", [audioFiles.length, trackIcons.length, coverImage ? ', 1 cover' : ''])`, 'success');
     
-    // Show import modal with the extracted files
     showImportModal(audioFiles, trackIcons, coverImage, folderName, 'zip');
     
   } catch (error) {
-    showNotification('Error processing file. Please check the file format.', 'error');
+    showNotification(chrome.i18n.getMessage('notification_errorProcessingFile'), 'error');
     showNotification('Failed to process ZIP file. Error: ' + error.message, 'error');
     // Track ZIP processing errors
     chrome.runtime.sendMessage({
@@ -5124,7 +5011,7 @@ function selectBulkZipFile(importMode = 'separate') {
       // Don't show notification here, the loading modal will handle it
       await processBulkZipFile(files[0], importMode);
     } else if (files.length > 0) {
-      showNotification('Please select a valid ZIP file', 'error');
+      showNotification(chrome.i18n.getMessage('notification_invalidZip'), 'error');
     }
   });
 
@@ -5146,7 +5033,7 @@ function selectBulkFolder(importMode = 'separate') {
     folderInput.remove();
 
     if (files.length > 0) {
-      showNotification('Processing bulk folder...', 'info');
+      showNotification(chrome.i18n.getMessage('status_processingBulkFolder'), 'info');
       await processBulkFolderFiles(files, importMode);
     }
   });
@@ -5155,7 +5042,6 @@ function selectBulkFolder(importMode = 'separate') {
 }
 
 async function processBulkZipFile(file, importMode = 'separate') {
-  // Create extraction loading modal
   const loadingModal = document.createElement('div');
   loadingModal.style.cssText = `
     position: fixed;
@@ -5212,7 +5098,7 @@ async function processBulkZipFile(file, importMode = 'separate') {
     const statusElement = document.getElementById('extraction-status');
     const detailsElement = document.getElementById('extraction-details');
     
-    statusElement.textContent = 'Loading ZIP file...';
+    statusElement.textContent = chrome.i18n.getMessage('status_loadingZip');
     detailsElement.textContent = `File: ${file.name}`;
     
     const zip = new JSZip();
@@ -5220,7 +5106,7 @@ async function processBulkZipFile(file, importMode = 'separate') {
       async: true
     });
     
-    statusElement.textContent = 'Analyzing folder structure...';
+    statusElement.textContent = chrome.i18n.getMessage('status_analyzingFolder');
     detailsElement.textContent = `Found ${Object.keys(contents.files).length} items`;
     
     const playlists = [];
@@ -5305,17 +5191,16 @@ async function processBulkZipFile(file, importMode = 'separate') {
     
     
     if (nestedZips.length > 0) {
-      statusElement.textContent = 'Extracting playlists...';
+      statusElement.textContent = chrome.i18n.getMessage('status_extractingPlaylists');
       detailsElement.textContent = `Found ${nestedZips.length} playlist${nestedZips.length > 1 ? 's' : ''}`;
     }
     
-    // Process nested ZIP files
     const failedZips = [];
     for (let i = 0; i < nestedZips.length; i++) {
       const { path, zipEntry } = nestedZips[i];
       
       if (statusElement) {
-        statusElement.textContent = `Extracting playlist ${i + 1} of ${nestedZips.length}...`;
+        statusElement.textContent = chrome.i18n.getMessage('status_extractingPlaylist', [(i + 1).toString(), nestedZips.length.toString()]);
         const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
         detailsElement.textContent = playlistName;
       }
@@ -5349,18 +5234,17 @@ async function processBulkZipFile(file, importMode = 'separate') {
       const failedNames = failedZips.map(f => `${f.name} (${f.reason})`).join(', ');
       
       if (nestedZips.length > 0 && failedZips.length === nestedZips.length) {
-        showNotification(`Failed to extract playlists from ZIP files. ${failedNames}. Please ensure each nested ZIP contains audio files.`, 'error');
+        showNotification(`${chrome.i18n.getMessage("notification_failedToProcessZip", [failedNames])}`, 'error');
         
         loadingModal.remove();
         return;
       } else if (failedZips.length > 0) {
-        showNotification(`Warning: Failed to process ${failedZips.length} ZIP file(s): ${failedNames}`, 'warning');
+        showNotification(`${chrome.i18n.getMessage("notification_errorProcessingBulkZip", [failedZips.length, failedNames])}`, 'warning');
       }
     }
     
-    // Process folders as individual playlists
     if (folders.size > 0 && statusElement) {
-      statusElement.textContent = 'Processing folders...';
+      statusElement.textContent = chrome.i18n.getMessage('status_processingFolders');
       detailsElement.textContent = `Found ${folders.size} folder${folders.size > 1 ? 's' : ''}`;
     }
     
@@ -5368,7 +5252,7 @@ async function processBulkZipFile(file, importMode = 'separate') {
     for (const [folderName, files] of folders) {
       folderIndex++;
       if (statusElement) {
-        statusElement.textContent = `Processing folder ${folderIndex} of ${folders.size}...`;
+        statusElement.textContent = chrome.i18n.getMessage('status_processingFolder', [folderIndex.toString(), folders.size.toString()]);
         detailsElement.textContent = folderName;
       }
       const playlist = await extractPlaylistFromFiles(files, folderName, contents);
@@ -5378,14 +5262,11 @@ async function processBulkZipFile(file, importMode = 'separate') {
     }
     
     // For bulk import, only create a single playlist if:
-    // 1. There were NO nested ZIPs (the expected bulk structure)
-    // 2. There were NO folders (another expected bulk structure)
-    // 3. There ARE root-level audio files (edge case: flat ZIP with audio files)
     if (playlists.length === 0 && nestedZips.length === 0 && folders.size === 0 && rootFiles.length > 0) {
       
       const playlist = await extractPlaylistFromFiles(rootFiles, file.name.replace(/\.zip$/i, ''), contents);
       if (playlist && playlist.audioFiles.length > 0) {
-        showNotification('Note: Found audio files at root level. Processing as single playlist. For bulk import, organize files into folders or separate ZIPs.', 'warning');
+        showNotification(chrome.i18n.getMessage('notification_rootLevelAudioFiles'), 'warning');
         playlists.push(playlist);
       }
     }
@@ -5394,11 +5275,11 @@ async function processBulkZipFile(file, importMode = 'separate') {
 
     if (playlists.length === 0) {
       if (nestedZips.length > 0) {
-        showNotification('No valid playlists could be extracted from the nested ZIP files. Please ensure each ZIP contains audio files.', 'error');
+        showNotification(chrome.i18n.getMessage('notification_noValidPlaylistsZip'), 'error');
       } else if (folders.size > 0) {
-        showNotification('No valid audio files found in the folders. Please ensure folders contain audio files.', 'error');
+        showNotification(chrome.i18n.getMessage('notification_noAudioFilesInAudioFolder'), 'error');
       } else {
-        showNotification('No valid playlists found. For bulk import, upload a ZIP containing multiple playlist ZIPs or folders.', 'error');
+        showNotification(chrome.i18n.getMessage('notification_noValidPlaylists'), 'error');
       }
       return;
     }
@@ -5433,15 +5314,15 @@ async function processBulkZipFile(file, importMode = 'separate') {
 
       const mergedPlaylist = await mergePlaylists(playlists, file.name.replace(/\.zip$/i, ''), rootCoverImage);
       if (mergedPlaylist) {
-        showNotification('Successfully merged all content into a single playlist. Preparing import...', 'success');
+        showNotification(chrome.i18n.getMessage('notification_mergedToSinglePlaylist'), 'success');
         showBulkImportModal([mergedPlaylist], importMode);
       } else {
-        showNotification('Failed to merge playlists', 'error');
+        showNotification(chrome.i18n.getMessage('notification_failedToMergePlaylists'), 'error');
       }
     } else {
       const sourceType = nestedZips.length > 0 ? 'ZIP file' : 'folder';
       const sourcePlural = playlists.length > 1 ? 's' : '';
-      showNotification(`Successfully extracted ${playlists.length} playlist${sourcePlural} from ${sourceType}${sourcePlural}. Preparing import...`, 'success');
+      showNotification(`${chrome.i18n.getMessage("notification_extractedPlaylists", [playlists.length, sourceType])}`, 'success');
       showBulkImportModal(playlists, importMode);
     }
     
@@ -5487,7 +5368,6 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
       }
     }
     
-    // Process each folder as a playlist
     for (const [folderName, folderFiles] of folderMap) {
       const playlist = await extractPlaylistFromFolderFiles(folderFiles, folderName);
       if (playlist && playlist.audioFiles.length > 0) {
@@ -5496,7 +5376,7 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
     }
     
     if (playlists.length === 0) {
-      showNotification('No valid playlists found in the selected folder', 'error');
+      showNotification(chrome.i18n.getMessage('notification_noValidPlaylistsFolder'), 'error');
       return;
     }
 
@@ -5535,13 +5415,13 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
 
       const mergedPlaylist = await mergePlaylists(playlists, rootFolderName, rootCoverImage);
       if (mergedPlaylist) {
-        showNotification('Successfully merged all folders into a single playlist. Preparing import...', 'success');
+        showNotification(chrome.i18n.getMessage('notification_mergedFoldersToPlaylist'), 'success');
         showBulkImportModal([mergedPlaylist], importMode);
       } else {
-        showNotification('Failed to merge playlists', 'error');
+        showNotification(chrome.i18n.getMessage('notification_failedToMergePlaylists'), 'error');
       }
     } else {
-      showNotification(`Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''}. Preparing import...`, 'success');
+      showNotification(`${chrome.i18n.getMessage("notification_foundPlaylists", [playlists.length])}`, 'success');
       showBulkImportModal(playlists, importMode);
     }
     
@@ -5656,7 +5536,6 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
   // Smart audio folder detection (same as processZipFile)
   let audioFiles = [];
   
-  // 1. First, look for folders containing 'audio' in the name
   const audioFolderFiles = allAudioFiles.filter(f => 
     f.webkitRelativePath.toLowerCase().includes('/audio')
   );
@@ -5664,7 +5543,6 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
   if (audioFolderFiles.length > 0) {
     audioFiles = audioFolderFiles;
   } 
-  // 2. If not found, use all audio files found
   else if (allAudioFiles.length > 0) {
     audioFiles = allAudioFiles;
   }
@@ -5672,7 +5550,6 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
   // Smart image folder detection
   let imageFiles = [];
   
-  // 1. First, look for folders containing 'images' or 'icons' in the name
   const imageFolderFiles = allImageFiles.filter(f => {
     const path = f.webkitRelativePath.toLowerCase();
     return path.includes('/image') || path.includes('/icon');
@@ -5684,14 +5561,12 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
     imageFiles = allImageFiles;
   }
   
-  // Sort audio files naturally
   audioFiles.sort((a, b) => {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
   });
   
   // Separate track icons from cover image
   const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
-
 
   return {
     name: playlistName,
@@ -5727,7 +5602,6 @@ async function extractPlaylistFromFiles(files, playlistName, zipContents) {
     }
   }
   
-  // Sort audio files naturally
   audioFiles.sort((a, b) => {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
   });
@@ -5767,7 +5641,6 @@ async function extractPlaylistFromFolderFiles(files, playlistName) {
     }
   }
   
-  // Sort audio files naturally
   audioFiles.sort((a, b) => {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
   });
@@ -5799,7 +5672,6 @@ function separateImagesIntelligently(imageFiles) {
     const fileName = f.name.split('/').pop();
     const fileSize = f.fileSize || f.size || 0;
 
-    // Check if filename contains a number pattern - now supports more formats:
     // - Files ending with number: "01.png", "icon01.png", "icn3.png"
     // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
     // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
@@ -5811,7 +5683,6 @@ function separateImagesIntelligently(imageFiles) {
       numberMatch = fileName.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Number in middle
     }
 
-    // Check for common cover image names (including cover_image.png style)
     const lowerFileName = fileName.toLowerCase();
     const isCoverName = lowerFileName.includes('cover') ||
                         lowerFileName.includes('image') ||
@@ -5834,7 +5705,6 @@ function separateImagesIntelligently(imageFiles) {
     }
   });
 
-  // Sort numeric images by their extracted number
   numericImages.sort((a, b) => {
     return (a.extractedNumber || 0) - (b.extractedNumber || 0);
   });
@@ -5898,12 +5768,10 @@ function separateImagesIntelligently(imageFiles) {
     }
   }
 
-
   return { trackIcons, coverImage };
 }
 
 function showNotification(message, type = 'info') {
-  // Remove existing notification
   const existing = document.querySelector('.yoto-magic-notification');
   if (existing) existing.remove();
   
@@ -5953,13 +5821,10 @@ function setupNavigationListener() {
   };
 }
 
-
-// Set up mutation observer
 function setupObserver() {
   if (state.observer) return;
   
   state.observer = new MutationObserver((mutations) => {
-    // Check if we've navigated to a MYO page
     const currentPath = window.location.pathname;
     if (currentPath.includes('/my-cards/playlists') || 
         currentPath === '/my-cards' || 
@@ -5976,8 +5841,6 @@ function setupObserver() {
   });
 }
 
-
-// Add CSS for animations
 function injectStyles() {
   const style = document.createElement('style');
   style.textContent = `
@@ -6039,7 +5902,6 @@ function cleanTrackTitle(filename) {
   return title;
 }
 
-// Utility function for chunked parallel uploads (optimized)
 async function uploadInChunks(items, uploadFn, chunkSize = 8, onProgress) {
   const results = [];
   const totalItems = items.length;
@@ -6071,7 +5933,6 @@ async function uploadInChunks(items, uploadFn, chunkSize = 8, onProgress) {
   return results;
 }
 
-// Utility function for parallel uploads with retry
 async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000, timeoutMs = 60000) {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
@@ -6094,9 +5955,7 @@ async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000, time
   }
 }
 
-// Show bulk import modal
 function showBulkImportModal(playlists, importMode = 'separate') {
-  // Remove existing modal if any
   const existing = document.querySelector('#yoto-bulk-import-modal');
   if (existing) existing.remove();
   
@@ -6128,7 +5987,6 @@ function showBulkImportModal(playlists, importMode = 'separate') {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   `;
   
-  // Generate playlist previews
   const playlistPreviews = playlists.map((playlist, index) => `
     <div style="
       border: 1px solid #e5e7eb;
@@ -6149,14 +6007,14 @@ function showBulkImportModal(playlists, importMode = 'separate') {
         ">
       </div>
       <div style="color: #6b7280; font-size: 13px; padding-left: 30px;">
-        ${playlist.audioFiles.length} tracks${playlist.trackIcons.length > 0 ? `, ${playlist.trackIcons.length} icons` : ''}${playlist.coverImage ? ', cover image' : ''}
+        ${chrome.i18n.getMessage('label_numTracks', [playlist.audioFiles.length.toString()])}${playlist.trackIcons.length > 0 ? `, ${playlist.trackIcons.length} icons` : ''}${playlist.coverImage ? ', cover image' : ''}
       </div>
     </div>
   `).join('');
   
-  const modalTitle = importMode === 'merged' ? 'Import Merged Playlist' : 'Bulk Import Playlists';
+  const modalTitle = importMode === 'merged' ? chrome.i18n.getMessage('modal_importMergedPlaylist') : 'Bulk Import Playlists';
   const modalDescription = importMode === 'merged'
-    ? `Content will upload into a single playlist with ${playlists[0].audioFiles.length} tracks:`
+    ? chrome.i18n.getMessage('label_contentWillUploadSinglePlaylist', [playlists[0].audioFiles.length.toString()])
     : `Found ${playlists.length} playlist${playlists.length > 1 ? 's' : ''} ready to import:`;
 
   content.innerHTML = `
@@ -6167,7 +6025,7 @@ function showBulkImportModal(playlists, importMode = 'separate') {
     
     <div style="margin-bottom: 20px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <label style="font-weight: 500; margin-right: 16px;">${importMode === 'merged' ? 'Playlist details:' : 'Select playlists to import:'}</label>
+        <label style="font-weight: 500; margin-right: 16px;">${importMode === 'merged' ? chrome.i18n.getMessage('label_playlistDetails') : 'Select playlists to import:'}</label>
         ${importMode === 'merged' ? '' : `
         <div style="display: flex; gap: 8px;">
           <button id="select-all" style="
@@ -6232,7 +6090,7 @@ function showBulkImportModal(playlists, importMode = 'separate') {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Cancel</button>
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="start-bulk-import" style="
         padding: 10px 20px;
         background: #10b981;
@@ -6242,14 +6100,13 @@ function showBulkImportModal(playlists, importMode = 'separate') {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Start Bulk Import</button>
+      ">${chrome.i18n.getMessage('button_start')}</button>
     </div>
   `;
   
   modal.appendChild(content);
   document.body.appendChild(modal);
   
-  // Event handlers for select/deselect all (only if buttons exist)
   const selectAllBtn = document.querySelector('#select-all');
   if (selectAllBtn) {
     selectAllBtn.onclick = () => {
@@ -6284,7 +6141,6 @@ function showBulkImportModal(playlists, importMode = 'separate') {
   
   // Start bulk import
   document.querySelector('#start-bulk-import').onclick = async () => {
-    // Get selected playlists
     const selectedPlaylists = [];
     playlists.forEach((playlist, index) => {
       const checkbox = document.querySelector(`#playlist-${index}`);
@@ -6298,7 +6154,7 @@ function showBulkImportModal(playlists, importMode = 'separate') {
     });
 
     if (selectedPlaylists.length === 0) {
-      showNotification('Please select at least one playlist to import', 'error');
+      showNotification(chrome.i18n.getMessage('notification_selectAtLeastOnePlaylist'), 'error');
       return;
     }
 
@@ -6329,11 +6185,9 @@ function showBulkImportModal(playlists, importMode = 'separate') {
         return; // User cancelled
       }
 
-      // Filter out large files from each playlist
       selectedPlaylists.forEach(playlist => {
         const largeFiles = checkAudioFileSizes(playlist.audioFiles);
         if (largeFiles.length > 0) {
-          // Filter out large audio files
           playlist.audioFiles = playlist.audioFiles.filter((_, index) =>
             !largeFiles.some(lf => lf.index === index)
           );
@@ -6342,7 +6196,6 @@ function showBulkImportModal(playlists, importMode = 'separate') {
             !largeFiles.some(lf => lf.index === index)
           );
 
-          // Remove extractedNumber from icons since we're now sequential
           playlist.trackIcons.forEach(icon => {
             if (icon && icon.extractedNumber !== undefined) {
               delete icon.extractedNumber;
@@ -6354,7 +6207,7 @@ function showBulkImportModal(playlists, importMode = 'separate') {
       const validPlaylists = selectedPlaylists.filter(p => p.audioFiles.length > 0);
 
       if (validPlaylists.length === 0) {
-        showNotification('No playlists have valid files after filtering', 'error');
+        showNotification(chrome.i18n.getMessage('notification_noValidFilesAfterFilter'), 'error');
         modal.remove();
         return;
       }
@@ -6430,7 +6283,7 @@ async function processUpdateFiles(files, sourceName, cardId) {
   }
 
   if (audioFiles.length === 0 && iconFiles.length === 0) {
-    showNotification('No audio or icon files found in selection', 'error');
+    showNotification(chrome.i18n.getMessage('notification_noAudioOrIconFiles'), 'error');
     return;
   }
 
@@ -6444,7 +6297,6 @@ async function processUpdateFiles(files, sourceName, cardId) {
   const nonNumericIcons = [];
 
   iconFiles.forEach(f => {
-    // Check if filename contains a number pattern - now supports more formats:
     // - Files ending with number: "01.png", "icon01.png", "icn3.png"
     // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
     // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
@@ -6488,7 +6340,6 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
       return; // User canceled
     }
 
-    // Filter out large files
     const validAudioFiles = audioFiles.filter((_, index) =>
       !largeFiles.some(lf => lf.index === index)
     );
@@ -6499,7 +6350,7 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
     );
 
     if (validAudioFiles.length === 0 && validIconFiles.length === 0) {
-      showNotification('No files to update after filtering', 'error');
+      showNotification(chrome.i18n.getMessage('notification_noFilesToUpdate'), 'error');
       return;
     }
 
@@ -6509,7 +6360,6 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
       }
     });
 
-    // Update the file arrays
     audioFiles = validAudioFiles;
     iconFiles = validIconFiles;
   }
@@ -6612,7 +6462,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
   cancelBtn.style.cursor = 'not-allowed';
 
   try {
-    statusText.textContent = 'Fetching existing card content...';
+    statusText.textContent = chrome.i18n.getMessage('status_fetchingCardContent');
     progressBar.style.width = '10%';
     percentageText.textContent = '10%';
 
@@ -6634,7 +6484,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
 
     // Only upload audio files if we have any
     if (audioFiles.length > 0) {
-      statusText.textContent = 'Uploading audio files...';
+      statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFiles');
       progressBar.style.width = '30%';
       percentageText.textContent = '30%';
 
@@ -6665,7 +6515,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
           const progressPercent = 30 + (completed / total) * 40;
           progressBar.style.width = `${progressPercent}%`;
           percentageText.textContent = `${Math.round(progressPercent)}%`;
-          statusText.textContent = `Uploading audio files... ${completed}/${total}`;
+          statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFiles', [completed.toString(), total.toString()]);
         }
       );
 
@@ -6738,12 +6588,11 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
     }
     } // Close the if (audioFiles.length > 0) block
 
-    // Filter out any undefined entries (failed uploads)
     const validTracks = uploadedTracks.filter(track => track !== undefined);
 
     let uploadedIcons = [];
     if (iconFiles.length > 0) {
-      statusText.textContent = 'Uploading icon files...';
+      statusText.textContent = chrome.i18n.getMessage('status_uploadingIconFiles');
       // Adjust progress based on whether we had audio files
       const iconProgressStart = audioFiles.length > 0 ? 75 : 30;
       progressBar.style.width = `${iconProgressStart}%`;
@@ -6775,7 +6624,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
       }
     }
 
-    statusText.textContent = 'Updating card...';
+    statusText.textContent = chrome.i18n.getMessage('status_updatingCard');
     progressBar.style.width = '90%';
     percentageText.textContent = '90%';
 
@@ -6793,12 +6642,11 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
       throw new Error(updateResult.error);
     }
 
-    statusText.textContent = 'Card updated successfully!';
+    statusText.textContent = chrome.i18n.getMessage('status_cardUpdatedSuccess');
     progressBar.style.width = '100%';
     percentageText.textContent = '100%';
     progressBar.style.background = '#10b981';
 
-    // Create appropriate success message based on what was updated
     let successMessage = `Successfully updated "${existingTitle}"`;
     if (validTracks.length > 0 && uploadedIcons.length > 0) {
       successMessage += ` with ${validTracks.length} new tracks and ${uploadedIcons.filter(icon => icon).length} icons`;
@@ -6816,9 +6664,9 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
     }, 2000);
 
   } catch (error) {
-    statusText.textContent = 'Update failed: ' + error.message;
+    statusText.textContent = chrome.i18n.getMessage('status_updateFailed') + ': ' + error.message;
     progressBar.style.background = '#ef4444';
-    cancelBtn.textContent = 'Close';
+    cancelBtn.textContent = chrome.i18n.getMessage('button_close');
     cancelBtn.disabled = false;
 
     showNotification('Failed to update card: ' + error.message, 'error');
@@ -6834,7 +6682,6 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
   }
 }
 
-// Check audio file sizes and return list of files that are too large
 function checkAudioFileSizes(audioFiles) {
   const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40MB limit
   const largeFiles = [];
@@ -6854,7 +6701,6 @@ function checkAudioFileSizes(audioFiles) {
   return largeFiles;
 }
 
-// Show warning modal for large files before import
 async function showLargeFilesWarningModal(largeFiles, totalFiles, playlistName) {
   return new Promise((resolve) => {
     const modal = document.createElement('div');
@@ -6883,7 +6729,6 @@ async function showLargeFilesWarningModal(largeFiles, totalFiles, playlistName) 
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     `;
 
-    // Build the large files list
     const filesList = largeFiles.map(file => `
       <li style="margin-bottom: 8px; color: #374151;">
         <strong>${file.name}</strong> (${file.sizeFormatted})
@@ -7043,9 +6888,8 @@ async function showLargeFilesWarningModal(largeFiles, totalFiles, playlistName) 
 }
 
 async function processBulkImport(playlists, modal, importMode = 'separate') {
-  // Check if extension context is valid before starting
   if (!chrome.runtime?.id) {
-    showNotification('Extension connection lost. Please refresh the page and try again.', 'error');
+    showNotification(chrome.i18n.getMessage('notification_connectionLost'), 'error');
     modal.remove();
     return;
   }
@@ -7073,7 +6917,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   startButton.disabled = true;
   startButton.style.opacity = '0.5';
   startButton.style.cursor = 'not-allowed';
-  cancelButton.textContent = 'Close';
+  cancelButton.textContent = chrome.i18n.getMessage('button_close');
   
   const totalPlaylists = playlists.length;
   let completedPlaylists = 0;
@@ -7081,7 +6925,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   let failedImports = 0;
   let hasDroppedFiles = false;
   
-  // Add log entry
   function addLogEntry(message, type = 'info') {
     const entry = document.createElement('div');
     const timestamp = new Date().toLocaleTimeString();
@@ -7094,13 +6937,12 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   
   addLogEntry(`Starting bulk import of ${totalPlaylists} playlist${totalPlaylists > 1 ? 's' : ''}...`);
   
-  // Process each playlist
   for (const playlist of playlists) {
     const playlistNumber = completedPlaylists + 1;
     if (overallStatus) {
-      overallStatus.textContent = `Overall Progress: ${playlistNumber}/${totalPlaylists} playlists`;
+      overallStatus.textContent = chrome.i18n.getMessage('status_overallProgress', [playlistNumber.toString(), totalPlaylists.toString()]);
     }
-    currentStatus.textContent = importMode === 'merged' ? `Uploading: ${playlist.name}` : `Importing: ${playlist.name}`;
+    currentStatus.textContent = importMode === 'merged' ? chrome.i18n.getMessage('status_uploadingPlaylist', [playlist.name]) : chrome.i18n.getMessage('status_importingPlaylist', [playlist.name]);
     currentProgressBar.style.width = '0%';
     
     addLogEntry(`Starting import of "${playlist.name}"...`);
@@ -7146,7 +6988,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
       
       // If extension context is lost, stop processing
       if (errorMessage.includes('Extension context') || errorMessage.includes('chrome.runtime')) {
-        addLogEntry('Extension connection lost. Please refresh the page and try again.', 'error');
+        addLogEntry(chrome.i18n.getMessage('notification_connectionLost'), 'error');
         break;
       }
     }
@@ -7158,22 +7000,21 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
     }
   }
 
-  // Final status
   if (overallStatus) {
-    overallStatus.textContent = `Import Complete: ${successfulImports} successful, ${failedImports} failed`;
+    overallStatus.textContent = chrome.i18n.getMessage('status_importCompleteDetails', [successfulImports.toString(), failedImports.toString()]);
   }
   currentStatus.textContent = importMode === 'merged' ? 'Upload Complete' : '';
   currentProgressBar.style.width = '0%';
   
   if (successfulImports > 0 && failedImports === 0) {
     addLogEntry(`✓ All ${successfulImports} playlist${successfulImports > 1 ? 's' : ''} imported successfully!`, 'success');
-    showNotification(`Successfully imported ${successfulImports} playlist${successfulImports > 1 ? 's' : ''}!`, 'success');
+    showNotification(`${chrome.i18n.getMessage("notification_importSuccess", [successfulImports])}`, 'success');
   } else if (successfulImports > 0) {
     addLogEntry(`Import completed with ${successfulImports} success${successfulImports > 1 ? 'es' : ''} and ${failedImports} failure${failedImports > 1 ? 's' : ''}`, 'info');
-    showNotification(`Imported ${successfulImports} playlist${successfulImports > 1 ? 's' : ''}, ${failedImports} failed`, 'warning');
+    showNotification(`${chrome.i18n.getMessage("notification_importPartialSuccess", [successfulImports, failedImports])}`, 'warning');
   } else {
     addLogEntry(`✗ All imports failed`, 'error');
-    showNotification(`Failed to import all playlists`, 'error');
+    showNotification(chrome.i18n.getMessage("notification_importAllFailed"), 'error');
   }
   
   // Track bulk import analytics (wrapped in try-catch)
@@ -7254,10 +7095,8 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
 
     successModal.appendChild(successContent);
 
-    // Remove the bulk import modal
     modal.remove();
 
-    // Show success modal
     document.body.appendChild(successModal);
 
     if (hasDroppedFiles) {
@@ -7274,7 +7113,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
       }, 1500);
     }
   } else {
-    // Enable close button for failure case
     cancelButton.style.opacity = '1';
     cancelButton.onclick = () => {
       modal.remove();
@@ -7285,7 +7123,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
 async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlistName, progressCallback) {
   
   
-  // Check if extension context is still valid
   if (!chrome.runtime?.id) {
     throw new Error('Extension context lost. Please refresh the page and try again.');
   }
@@ -7294,7 +7131,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     throw new Error('No audio files to upload');
   }
   
-  // Calculate total size and determine upload strategy
   const totalSize = audioFiles.reduce((sum, f) => sum + (f.size || f.fileSize || 0), 0);
   const avgFileSize = totalSize / audioFiles.length;
   const totalSizeMB = totalSize / (1024 * 1024);
@@ -7320,9 +7156,8 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   }
   
   
-  progressCallback(10, 'Uploading audio files...');
+  progressCallback(10, chrome.i18n.getMessage('status_uploadingAudioFiles'));
   
-  // Process audio files with controlled parallelism
   const uploadedTracks = [];
   const audioResults = [];
   
@@ -7334,15 +7169,13 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
       const file = batch[i];
       const globalIndex = batchStart + i;
       const progress = 10 + (globalIndex / audioFiles.length) * 30; // Progress from 10% to 40%
-      progressCallback(Math.round(progress), `Uploading audio ${globalIndex + 1}/${audioFiles.length}...`);
+      progressCallback(Math.round(progress), chrome.i18n.getMessage('status_uploadingAudioFile', [(globalIndex + 1).toString(), audioFiles.length.toString()]));
       
       
-      // Upload with retry and longer timeout for larger files
       const fileSize = file.size || file.fileSize || 0;
       const timeoutMs = fileSize > 10 * 1024 * 1024 ? 120000 : 60000; // 2 min for files > 10MB, else 1 min
       
       const uploadPromise = uploadWithRetry(async () => {
-        // Check context before each upload
         if (!chrome.runtime?.id) {
           throw new Error('Extension context lost during upload.');
         }
@@ -7367,7 +7200,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
         if (uploadResult.error) {
           if (uploadResult.error.includes('Failed to fetch')) {
             const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
-            throw new Error(`Network error uploading ${file.name} (${fileSizeMB}MB). The file may be too large or the connection was interrupted.`);
+            throw new Error(chrome.i18n.getMessage('error_networkUploadFailed', [file.name, fileSizeMB]));
           }
           throw new Error(`Audio upload failed: ${uploadResult.error}`);
         }
@@ -7390,7 +7223,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     // Wait for all uploads in this batch to complete
     const batchResults = await Promise.all(batchPromises);
     
-    // Process results
     for (const result of batchResults) {
       audioResults.push(result);
       if (result.status === 'fulfilled') {
@@ -7412,9 +7244,8 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   }
   
   const audioProgress = 40;
-  progressCallback(audioProgress, 'Uploading icons...');
+  progressCallback(audioProgress, chrome.i18n.getMessage('status_uploadingIcons'));
   
-  // Upload track icons with optimized parallelism
   const uploadedIconIds = [];
   if (trackIcons.length > 0) {
     
@@ -7430,10 +7261,9 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
         const file = batch[i];
         const globalIndex = batchStart + i;
         const iconProgress = 40 + (globalIndex / trackIcons.length) * 20; // Progress from 40% to 60%
-        progressCallback(Math.round(iconProgress), `Uploading icons ${globalIndex + 1}/${trackIcons.length}...`);
+        progressCallback(Math.round(iconProgress), chrome.i18n.getMessage('status_uploadingIcons', [(globalIndex + 1).toString(), trackIcons.length.toString()]));
         
         const iconPromise = uploadWithRetry(async () => {
-          // Check context before upload
           if (!chrome.runtime?.id) {
             throw new Error('Extension context lost during icon upload.');
           }
@@ -7481,13 +7311,11 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   }
   
   const iconProgress = 70;
-  progressCallback(iconProgress, 'Uploading cover image...');
+  progressCallback(iconProgress, chrome.i18n.getMessage('status_uploadingCoverImage'));
   
-  // Upload cover image
   let uploadedCoverUrl = null;
   if (coverImage) {
     try {
-      // Check context before upload
       if (!chrome.runtime?.id) {
         throw new Error('Extension context lost during cover upload.');
       }
@@ -7501,7 +7329,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
       
       
       if (coverResult && !coverResult.error) {
-        // Check for different possible response formats
         uploadedCoverUrl = coverResult.url || coverResult.coverUrl || coverResult.imageUrl;
         if (uploadedCoverUrl) {
         } else {
@@ -7514,14 +7341,12 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   } else {
   }
   
-  progressCallback(90, 'Creating playlist...');
+  progressCallback(90, chrome.i18n.getMessage('status_creatingPlaylist'));
 
-  // Check context before creating playlist
   if (!chrome.runtime?.id) {
     throw new Error('Extension context lost. Please refresh the page and try again.');
   }
 
-  // Filter out failed tracks and align icons properly
   const finalTracks = [];
   const finalIconIds = [];
   const droppedFiles = [];
@@ -7565,7 +7390,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     );
   }
 
-  // Create the playlist with properly aligned tracks and icons
   const createResponse = await chrome.runtime.sendMessage({
     action: 'CREATE_PLAYLIST',
     title: playlistName,
@@ -7648,10 +7472,7 @@ async function convertFileToBase64(file) {
   });
 }
 
-
-// Show import modal
-function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist', sourceType = 'unknown') {
-  // Remove existing modal if any
+function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrome.i18n.getMessage('label_importedPlaylist'), sourceType = chrome.i18n.getMessage('label_unknown')) {
   const existing = document.querySelector('#yoto-import-modal');
   if (existing) existing.remove();
   
@@ -7683,18 +7504,21 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   `;
   
+  const audioFilePlural = audioFiles.length !== 1 ? 's' : '';
+  const trackIconPlural = trackIcons.length !== 1 ? 's' : '';
+
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Playlist</h2>
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('modal_importPlaylistTitle')}</h2>
     <div style="margin-bottom: 20px; color: #666;">
-      <p>Ready to import:</p>
+      <p>${chrome.i18n.getMessage('label_readyToImport')}</p>
       <ul style="margin: 10px 0; padding-left: 20px;">
-        <li>${audioFiles.length} audio file${audioFiles.length !== 1 ? 's' : ''}</li>
-        <li>${trackIcons.length} track icon${trackIcons.length !== 1 ? 's' : ''}</li>
-        ${coverImage ? '<li>1 cover image</li>' : ''}
+        <li>${chrome.i18n.getMessage('label_audioFiles', [audioFiles.length.toString(), audioFilePlural])}</li>
+        <li>${chrome.i18n.getMessage('label_trackIcons', [trackIcons.length.toString(), trackIconPlural])}</li>
+        ${coverImage ? `<li>${chrome.i18n.getMessage('label_coverImage')}</li>` : ''}
       </ul>
     </div>
     <div style="margin-bottom: 20px;">
-      <label style="display: block; margin-bottom: 5px; font-weight: 500;">Playlist Name:</label>
+      <label style="display: block; margin-bottom: 5px; font-weight: 500;">${chrome.i18n.getMessage('label_playlistNameColon')}</label>
       <input type="text" id="import-playlist-name" value="${defaultName}" style="
         width: 100%;
         padding: 8px 12px;
@@ -7718,7 +7542,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Cancel</button>
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="start-import" style="
         padding: 10px 20px;
         background: #3b82f6;
@@ -7728,7 +7552,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Start Import</button>
+      ">${chrome.i18n.getMessage('button_startImport')}</button>
     </div>
   `;
   
@@ -7757,7 +7581,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     nameInput.select();
   }
   
-  // Event handlers - only Cancel button closes the modal
   document.querySelector('#cancel-import').onclick = () => modal.remove();
   
   document.querySelector('#start-import').onclick = async () => {
@@ -7767,7 +7590,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     const statusText = document.querySelector('#import-status');
     const startButton = document.querySelector('#start-import');
 
-    // Check file sizes before starting import
     const largeFiles = checkAudioFileSizes(audioFiles);
 
     if (largeFiles.length > 0) {
@@ -7801,20 +7623,18 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
 
     progressDiv.style.display = 'block';
     startButton.disabled = true;
-    startButton.textContent = 'Importing...';
+    startButton.textContent = chrome.i18n.getMessage('button_importing');
 
     try {
       const totalFiles = audioFiles.length + trackIcons.length + (coverImage ? 1 : 0);
       let completedFiles = 0;
       
-      // Show initial status
-      statusText.textContent = 'Starting upload...';
+      statusText.textContent = chrome.i18n.getMessage('status_startingUpload');
       
-      // Helper function to update progress
       const updateProgress = () => {
         completedFiles++;
         const percentage = Math.round((completedFiles / totalFiles) * 100);
-        statusText.textContent = `${percentage}% complete`;
+        statusText.textContent = chrome.i18n.getMessage('status_percentComplete', [percentage.toString()]);
         progressBar.style.width = `${(completedFiles / totalFiles) * 70}%`;
       };
       
@@ -7822,17 +7642,15 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       // Use chunked strategy for 5+ audio files for better performance (lowered threshold)
       const uploadStrategy = audioFiles.length >= 5 ? 'chunked' : 'parallel';
 
-
       let uploadedCoverUrl = null;
       const uploadedIconIds = [];
       const uploadedTracks = [];
 
       if (uploadStrategy === 'chunked') {
         // CHUNKED UPLOAD (For playlists with 5+ audio files)
-        statusText.textContent = 'Uploading files...';
+        statusText.textContent = chrome.i18n.getMessage('status_uploadingFiles');
         const chunkSize = 5; // Upload 5 files at a time for better balance between speed and stability
         
-        // Upload cover first if exists
         if (coverImage) {
           const coverBase64 = await fileToBase64(coverImage);
           const coverResponse = await chrome.runtime.sendMessage({
@@ -7845,7 +7663,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           updateProgress();
         }
         
-        // Upload icons in chunks
         if (trackIcons.length > 0) {
           const iconResults = await uploadInChunks(
             trackIcons,
@@ -7861,7 +7678,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             (completed, total) => {
               const totalProgress = completedFiles + completed;
               const percentage = Math.round((totalProgress / totalFiles) * 100);
-              statusText.textContent = `${percentage}% complete`;
+              statusText.textContent = chrome.i18n.getMessage('status_percentComplete', [percentage.toString()]);
               progressBar.style.width = `${totalProgress / totalFiles * 70}%`;
             }
           );
@@ -7876,13 +7693,11 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           completedFiles += trackIcons.length;
         }
         
-        // Upload audio in chunks with retry logic
         const audioResults = await uploadInChunks(
           audioFiles,
           async (audioFile, index) => {
             const base64Data = await fileToBase64(audioFile);
 
-            // Check if base64 data is too large for a single message
             const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
             const base64Size = base64Data.data.length;
 
@@ -7920,9 +7735,8 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               }
             }
 
-            // Check if response is still undefined after retries
             if (response === undefined) {
-              throw new Error(`Upload failed for "${audioFile.name}". The file may be too large. Try refreshing the page and importing smaller batches of files.`);
+              throw new Error(chrome.i18n.getMessage('error_uploadFailedTooLarge', [audioFile.name]));
             }
 
             return { response, audioFile, index };
@@ -7931,7 +7745,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           (completed, total) => {
             const totalProgress = completedFiles + completed;
             const percentage = Math.round((totalProgress / totalFiles) * 100);
-            statusText.textContent = `${percentage}% complete`;
+            statusText.textContent = chrome.i18n.getMessage('status_percentComplete', [percentage.toString()]);
             progressBar.style.width = `${totalProgress / totalFiles * 70}%`;
           }
         );
@@ -7945,7 +7759,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           } else {
             uploadedTracks[index] = null;
 
-            let errorMessage = 'Unknown error';
+            let errorMessage = chrome.i18n.getMessage('label_unknown');
             if (result.status === 'rejected') {
               errorMessage = result.reason;
             } else if (result.value && result.value.response && result.value.response.error) {
@@ -7959,13 +7773,12 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         
       } else {
         // PARALLEL UPLOAD (Default strategy - fastest for < 20 audio files)
-        statusText.textContent = 'Uploading files...';
+        statusText.textContent = chrome.i18n.getMessage('status_uploadingFiles');
         
         // Prepare all upload promises
         const uploadPromises = [];
         const uploadTypes = [];
         
-        // 1. Prepare cover image upload (if any)
         if (coverImage) {
           const coverPromise = fileToBase64(coverImage).then(base64 => 
             chrome.runtime.sendMessage({
@@ -7980,7 +7793,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           uploadTypes.push('cover');
         }
         
-        // 2. Pre-convert all icons to base64 in parallel, then upload
         const iconBase64Promises = trackIcons.map(file => fileToBase64(file));
         const iconBase64Results = await Promise.all(iconBase64Promises);
 
@@ -7996,11 +7808,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         uploadPromises.push(...iconPromises);
         uploadTypes.push(...Array(iconPromises.length).fill('icon'));
         
-        // 3. Prepare all audio uploads in parallel with retry logic
         const audioPromises = audioFiles.map((audioFile, index) =>
           fileToBase64(audioFile).then(async base64 => {
 
-            // Check if base64 data is too large for a single message
             const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
             const base64Size = base64.data.length;
 
@@ -8020,7 +7830,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
                   file: base64
                 });
 
-
                 // If we got a response (even with error), break out of retry loop
                 if (response !== undefined) {
                   break;
@@ -8037,9 +7846,8 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               }
             }
 
-            // Check if response is still undefined after retries
             if (response === undefined) {
-              throw new Error(`Upload failed for "${audioFile.name}". The file may be too large. Try refreshing the page and importing smaller batches of files.`);
+              throw new Error(chrome.i18n.getMessage('error_uploadFailedTooLarge', [audioFile.name]));
             }
 
             updateProgress();
@@ -8054,7 +7862,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         // Execute all uploads in parallel
         const uploadResults = await Promise.allSettled(uploadPromises);
         
-        // Process parallel upload results
         uploadResults.forEach((result, index) => {
           const type = uploadTypes[index];
           
@@ -8070,7 +7877,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             } else if (type === 'icon') {
               const { response, iconFile } = value;
               if (!response.error && response.iconId) {
-                // Store icon ID at correct index based on filename
                 // Use the pre-extracted number (already stored when detecting icons)
                 const iconNumber = (iconFile.extractedNumber || parseInt(iconFile.name.match(/\d+/)?.[0] || '1')) - 1;
                 uploadedIconIds[iconNumber] = response.iconId;
@@ -8088,7 +7894,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               } else {
                 uploadedTracks[audioIndex] = null;
 
-                let errorMessage = 'Unknown error';
+                let errorMessage = chrome.i18n.getMessage('label_unknown');
                 if (!response) {
                   errorMessage = 'No response from server';
                 } else if (response.error) {
@@ -8098,7 +7904,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
               }
             }
           } else {
-            // Handle rejected promises
             if (type === 'audio') {
               console.warn(`Audio upload failed: ${result.reason}`);
             } else {
@@ -8108,7 +7913,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         });
       }
       
-      // Filter out failed tracks and align icons accordingly
       const validTracksWithIcons = [];
       const validIconIds = [];
       const failedTracks = [];
@@ -8157,8 +7961,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
-      // Create the playlist with properly aligned icons
-      statusText.textContent = 'Finalizing playlist...';
+      statusText.textContent = chrome.i18n.getMessage('status_finalizingPlaylist');
       progressBar.style.width = '90%';
 
       const createResponse = await chrome.runtime.sendMessage({
@@ -8174,13 +7977,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       }
       
       progressBar.style.width = '100%';
-      statusText.textContent = 'Import complete!';
-
-      // Log the state for debugging
-      console.log(`Import complete - Failed tracks: ${failedTracks.length}`, failedTracks);
-
-      // Show success message - different behavior based on whether files were dropped
-      // Clear modal but keep it positioned
+      statusText.textContent = chrome.i18n.getMessage('status_importComplete');
       modal.innerHTML = '';
       modal.style.cssText = `
         position: fixed;
@@ -8284,7 +8081,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       
       modal.appendChild(successContent);
       
-      // Add animation style if not already present
       if (!document.getElementById('yoto-spin-animation')) {
         const style = document.createElement('style');
         style.id = 'yoto-spin-animation';
@@ -8296,7 +8092,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         document.head.appendChild(style);
       }
       
-      showNotification('Playlist created successfully!', 'success');
+      showNotification(chrome.i18n.getMessage('notification_playlistCreated'), 'success');
       
       // Track successful import
       chrome.runtime.sendMessage({
@@ -8310,8 +8106,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       });
       
       if (failedTracks.length > 0) {
-        console.log('Files were dropped - preventing auto-refresh');
-
         const refreshDiv = successContent.querySelector('div[style*="gap: 10px"]');
         if (refreshDiv) {
           refreshDiv.innerHTML = `
@@ -8338,26 +8132,20 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             const btn = document.getElementById('manual-refresh-btn');
             if (btn) {
               btn.onclick = () => {
-                console.log('User clicked manual refresh');
                 window.location.reload();
               };
             }
           }, 100);
         }
-
-        console.log('Auto-refresh blocked due to dropped files');
       } else {
-        console.log('All files uploaded successfully - will auto-refresh in 2 seconds');
         setTimeout(() => {
           window.location.reload();
         }, 2000);
       }
       
     } catch (error) {
-      // Check if this is a file size error that needs special formatting
       const isFileSizeError = error.message && (error.message.includes('too large') && error.message.includes('MB'));
 
-      // Check if this might be a file size related upload failure
       const isPossibleSizeError = error.message && (
         error.message.includes('Unexpected response format') ||
         error.message.includes('Failed to upload audio')
@@ -8369,11 +8157,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         let errorContent = '';
 
         if (isPossibleSizeError && !isFileSizeError) {
-          // Find large files that might have caused the issue
           const largeFiles = audioFiles.filter(f => f.size > 35 * 1024 * 1024);
           errorContent = `
             <div style="margin-bottom: 15px; color: #374151;">
-              Upload failed. These files may be too large (max 40MB recommended):
+              ${chrome.i18n.getMessage('error_uploadFailedLargeFiles')}
             </div>
             <ul style="margin: 0 0 15px 20px; color: #374151;">
               ${largeFiles.map(f => `<li><strong>${f.name}</strong> (${(f.size / 1024 / 1024).toFixed(1)}MB)</li>`).join('')}
@@ -8383,12 +8170,11 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           const fileName = fileMatch ? fileMatch[1] : 'One or more files';
           errorContent = `
             <div style="margin-bottom: 15px; color: #374151;">
-              ${fileName} is too large (max 40MB due to browser limitations)
+              ${chrome.i18n.getMessage('error_fileTooLarge40MB', [fileName])}
             </div>
           `;
         }
 
-        // Show the same nice formatted error as the upfront check
         const errorDiv = document.createElement('div');
         errorDiv.style.cssText = `
           background: #fee;
@@ -8436,11 +8222,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
           progressDiv.appendChild(errorDiv);
         }
 
-        // Update button states - keep disabled for file size errors
         const startButton = document.querySelector('#start-import');
         if (startButton) {
           startButton.disabled = true;
-          startButton.textContent = 'Start Import';
+          startButton.textContent = chrome.i18n.getMessage('button_startImport');
         }
       } else {
         // For other errors, show simple notification
@@ -8469,7 +8254,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         }
       });
 
-      // Show error in modal
       progressDiv.innerHTML = `
         <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 12px; margin-top: 20px;">
           <p style="margin: 0; color: #991b1b; font-size: 14px;">
@@ -8479,21 +8263,17 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       `;
       
       startButton.disabled = false;
-      startButton.textContent = 'Start Import';
+      startButton.textContent = chrome.i18n.getMessage('button_startImport');
     }
   };
   
-  // Helper function to convert File to base64
   async function fileToBase64(file) {
     return new Promise((resolve, reject) => {
-      // Add validation
       if (!file) {
         reject(new Error('No file provided'));
         return;
       }
 
-
-      // Check for very large files that might cause issues
       const MAX_SIZE = 100 * 1024 * 1024; // 100MB limit
       if (file.size > MAX_SIZE) {
         reject(new Error(`File too large: ${file.name} exceeds 100MB limit`));
@@ -8530,7 +8310,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
             else if (ext === 'wav') mimeType = 'audio/wav';
           }
 
-
           resolve({
             data: base64,
             type: mimeType || 'application/octet-stream',
@@ -8553,7 +8332,6 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
   };
 }
 
-// Check if user just returned from authentication
 function checkForAuthReturn() {
   const urlParams = new URLSearchParams(window.location.search);
   const authSuccess = urlParams.get('auth_success');
@@ -8563,15 +8341,12 @@ function checkForAuthReturn() {
     const cleanUrl = window.location.origin + window.location.pathname;
     window.history.replaceState({}, '', cleanUrl);
     
-    // Show success message
-    showNotification('✓ Authentication successful! You can now use import features.', 'success');
+    showNotification(chrome.i18n.getMessage('notification_authSuccessImport'), 'success');
     
-    // Update auth state
     state.authenticated = true;
   }
 }
 
-// Initialize the content script
 injectStyles();
 checkForAuthReturn();
 init();
