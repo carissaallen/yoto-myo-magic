@@ -1,7 +1,7 @@
-// Import configuration and analytics
 importScripts('../config.js');
 importScripts('../lib/analytics.js');
 importScripts('../lib/utils.js');
+importScripts('../lib/translate.js');
 
 const CONFIG = ExtensionConfig;
 
@@ -11,38 +11,25 @@ function getRedirectUri() {
     return chrome.identity.getRedirectURL();
 }
 
-
 function base64URLEncode(buffer) {
     const base64 = btoa(String.fromCharCode(...buffer));
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 function cleanEpisodeTitle(title) {
-    // Clean episode title similar to cleanTrackTitle in content.js
     let cleanedTitle = title;
-    
-    // Replace underscores with spaces
+
     cleanedTitle = cleanedTitle.replace(/_/g, ' ');
-    
-    // Remove leading digits and any following separators (period, dash, space, colon)
-    // This handles formats like:
-    // "1. Episode Name" -> "Episode Name"
-    // "001 - Episode Name" -> "Episode Name"
-    // "2: Episode Name" -> "Episode Name"
-    // "Episode 5: The Title" stays as is (digits not at start)
+
     cleanedTitle = cleanedTitle.replace(/^\d+[\.\-\s:]+/, '');
-    
-    // Clean up any multiple spaces
+
     cleanedTitle = cleanedTitle.replace(/\s+/g, ' ');
-    
-    // Trim whitespace
     cleanedTitle = cleanedTitle.trim();
-    
-    // If title is empty after cleaning, return original
+
     if (!cleanedTitle || cleanedTitle.length === 0) {
         return title;
     }
-    
+
     return cleanedTitle;
 }
 
@@ -74,12 +61,10 @@ class TokenManager {
             if (tokens?.access_token) {
                 const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
                 const userId = payload.sub || 'default';
-                // Replace special characters that might cause issues with storage keys
                 const safeUserId = userId.replace(/[|:]/g, '_');
                 userCacheKey = `yoto_icons_cache_${safeUserId}`;
             }
         } catch (e) {
-            // Ignore errors when getting user ID
         }
 
         await chrome.storage.local.remove(CONFIG.TOKEN_STORAGE_KEY);
@@ -89,13 +74,9 @@ class TokenManager {
         }
         yotoIconsCache.clear();
 
-        // Clear Chrome identity cache by attempting to revoke access
-        // This forces the next auth to re-authenticate
         try {
-            // Clear web auth flow cache
             await chrome.identity.clearAllCachedAuthTokens?.();
         } catch (e) {
-            // API might not be available in all Chrome versions
         }
         await chrome.storage.local.remove('oauth_state');
         
@@ -105,7 +86,6 @@ class TokenManager {
         const tokens = await this.getTokens();
         if (!tokens || !tokens.access_token) return false;
 
-        // Check if access token is expired
         return !isTokenExpired(tokens.access_token);
     }
 
@@ -163,10 +143,8 @@ function isTokenExpired(token) {
 async function startOAuthFlow(interactive = true) {
     const authUrl = 'https://login.yotoplay.com/authorize';
 
-    // Generate state parameter for CSRF protection
     const state = crypto.randomUUID();
-    
-    // Store state for later verification
+
     await chrome.storage.local.set({
         'oauth_state': state
     });
@@ -178,30 +156,25 @@ async function startOAuthFlow(interactive = true) {
         client_id: CONFIG.YOTO_CLIENT_ID,
         redirect_uri: getRedirectUri(),
         state: state,
-        // Add prompt=login to force re-authentication when interactive
-        // This ensures we don't use cached sessions from wrong account
         ...(interactive ? { prompt: 'login' } : {})
     });
 
     const fullAuthUrl = `${authUrl}?${params.toString()}`;
     
     try {
-        // Use Chrome's built-in OAuth flow - this is the proper way for extensions!
         const responseUrl = await chrome.identity.launchWebAuthFlow({
             url: fullAuthUrl,
-            interactive: interactive // false for silent auth, true for user interaction
+            interactive: interactive
         });
 
         if (!responseUrl) {
             return {success: false, error: 'No response URL received'};
         }
 
-        // Extract the authorization code from the response URL
         const url = new URL(responseUrl);
         const code = url.searchParams.get('code');
         const error = url.searchParams.get('error');
         const returnedState = url.searchParams.get('state');
-
 
         if (error) {
             if (error === 'access_denied') {
@@ -214,19 +187,15 @@ async function startOAuthFlow(interactive = true) {
             return {success: false, error: 'No authorization code received'};
         }
 
-        // Get stored state for verification
         const storedData = await chrome.storage.local.get(['oauth_state']);
         const expectedState = storedData.oauth_state;
-        
-        // Verify state parameter for CSRF protection
+
         if (returnedState !== expectedState) {
             return {success: false, error: 'Invalid state parameter - possible CSRF attack'};
         }
 
-        // Exchange the code for tokens immediately
         const tokenResult = await exchangeCodeForTokens(code);
-        
-        // Clean up stored state data
+
         await chrome.storage.local.remove(['oauth_state']);
         if (tokenResult.success) {
             return {
@@ -243,8 +212,7 @@ async function startOAuthFlow(interactive = true) {
         if (error.message && error.message.includes('user did not approve')) {
             return {success: false, cancelled: true};
         }
-        
-        // If this was a silent attempt and it failed, that's expected
+
         if (!interactive) {
             return {success: false, error: 'Silent authentication failed', needsInteractive: true};
         }
@@ -290,7 +258,6 @@ async function exchangeCodeForTokens(code) {
         const tokens = await response.json();
         await TokenManager.setTokens(tokens);
 
-        // Track successful authentication
         if (typeof YotoAnalytics !== 'undefined') {
             YotoAnalytics.trackAuth(true);
         }
@@ -303,9 +270,7 @@ async function exchangeCodeForTokens(code) {
 
 async function makeAuthenticatedRequest(endpoint, options = {}) {
     let tokens = await TokenManager.getTokens();
-    
-    
-    // Check if token has required scopes for API access
+
     if (tokens?.access_token) {
         try {
             const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
@@ -330,8 +295,6 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
     try {
         const url = endpoint.startsWith('http') ? endpoint : `${CONFIG.YOTO_API_BASE}${endpoint}`;
 
-        // Don't set Content-Type for FormData - let browser set it with boundary
-        // Also don't set default Content-Type if it's already specified in options.headers
         const isFormData = options.body instanceof FormData;
         const isBinary = options.body instanceof ArrayBuffer || options.body instanceof Uint8Array;
         const hasContentType = options.headers && 'Content-Type' in options.headers;
@@ -347,12 +310,10 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             ...options.headers
         };
 
-
         const response = await fetch(url, {
             ...options,
             headers: authHeaders
         });
-
 
         if (response.status === 401) {
             YotoAnalytics.trackError('401 Unauthorized - Token expired', {
@@ -385,7 +346,6 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
                     throw new Error(`API error: ${errorJson.error.message}`);
                 }
             } catch (e) {
-                // Not JSON, use raw text
             }
             throw new Error(`API request failed: ${response.status} - ${errorText}`);
         }
@@ -439,7 +399,6 @@ async function getUserCards() {
     }
 }
 
-// Get battery status for all user devices
 async function getBatteryStatus() {
     try {
         const devicesResponse = await makeAuthenticatedRequest('/device-v2/devices/mine');
@@ -503,25 +462,21 @@ async function getBatteryStatus() {
     }
 }
 
-// Helper function to get user-specific cache key
 async function getUserSpecificCacheKey() {
     try {
         const tokens = await TokenManager.getTokens();
         if (tokens?.access_token) {
             const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
             const userId = payload.sub || 'default';
-            // Replace special characters that might cause issues with storage keys
             const safeUserId = userId.replace(/[|:]/g, '_');
             return `yoto_icons_cache_${safeUserId}`;
         }
     } catch (error) {
         console.warn('Failed to get user ID for cache key:', error);
     }
-    // Return null if no user is authenticated
     return null;
 }
 
-// Rate limiting for yotoicons.com requests
 const rateLimiter = {
     lastRequest: 0,
     minInterval: 1000, // 1 second between requests
@@ -537,14 +492,12 @@ const rateLimiter = {
     }
 };
 
-// Load cache from storage on startup
 async function loadIconsCache() {
     try {
         yotoIconsCache.clear();
 
         const cacheKey = await getUserSpecificCacheKey();
         if (!cacheKey) {
-            // No authenticated user, don't load cache
             return;
         }
 
@@ -558,17 +511,14 @@ async function loadIconsCache() {
         }
     } catch (error) {
         console.warn('Failed to load icons cache:', error);
-        // On error, ensure cache is clear
         yotoIconsCache.clear();
     }
 }
 
-// Save cache to storage
 async function saveIconsCache() {
     try {
         const cacheKey = await getUserSpecificCacheKey();
         if (!cacheKey) {
-            // No authenticated user, don't save cache
             return;
         }
 
@@ -581,19 +531,14 @@ async function saveIconsCache() {
     }
 }
 
-// Fetch icons from yotoicons.com
 async function fetchFromYotoicons(query) {
     try {
         const allIcons = [];
         const seenIds = new Set();
 
-        // Try to fetch multiple pages to get more results
-        // The site shows about 20 icons per page, so we'll fetch up to 25 pages for 500 icons
-        for (let page = 1; page <= 25; page++) {
-            // Rate limiting
+        for (let page = 1; page <= 10; page++) {
             await rateLimiter.wait();
 
-            // Use the correct URL pattern with sort and type parameters
             const searchUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}&sort=popular&type=singles&page=${page}`;
 
             const response = await fetch(searchUrl, {
@@ -609,20 +554,17 @@ async function fetchFromYotoicons(query) {
             const html = await response.text();
             const pageIcons = [];
 
-            // Use the most comprehensive pattern to catch all icon references
             const pattern = /\/static\/uploads\/(\d+)\.png/g;
             let match;
 
             while ((match = pattern.exec(html)) !== null) {
                 const iconId = match[1];
 
-                // Skip duplicates
                 if (seenIds.has(iconId)) continue;
                 seenIds.add(iconId);
 
                 const iconUrl = `https://www.yotoicons.com/static/uploads/${iconId}.png`;
 
-                // Simple metadata for now
                 pageIcons.push({
                     id: iconId,
                     url: iconUrl,
@@ -632,7 +574,6 @@ async function fetchFromYotoicons(query) {
                     searchQuery: query
                 });
 
-                // Stop if we have enough total icons (500 max)
                 if (allIcons.length + pageIcons.length >= 500) break;
             }
 
@@ -653,15 +594,12 @@ async function fetchFromYotoicons(query) {
     }
 }
 
-// Download icon from yotoicons.com and upload to Yoto
 async function downloadAndUploadIcon(yotoIcon) {
     try {
-        // Check cache first
         const cacheKey = yotoIcon.id;
         if (yotoIconsCache.has(cacheKey)) {
             const cached = yotoIconsCache.get(cacheKey);
-            
-            // Return cached entry regardless of dataUrl - we'll fix missing dataUrls by re-downloading the image
+
             if (cached.dataUrl) {
                 return {
                     title: `${yotoIcon.title} (cached)`,
@@ -674,7 +612,6 @@ async function downloadAndUploadIcon(yotoIcon) {
                     originalIconId: yotoIcon.id
                 };
             } else {
-                // For old cache entries without dataUrl, re-download just the image to create dataUrl
                 try {
                     const imageResponse = await fetch(yotoIcon.url);
                     if (imageResponse.ok) {
@@ -684,8 +621,7 @@ async function downloadAndUploadIcon(yotoIcon) {
                         bytes.forEach(byte => binary += String.fromCharCode(byte));
                         const base64 = btoa(binary);
                         const dataUrl = `data:image/png;base64,${base64}`;
-                        
-                        // Update cache with dataUrl
+
                         cached.dataUrl = dataUrl;
                         yotoIconsCache.set(cacheKey, cached);
                         saveIconsCache().catch(() => {});
@@ -702,10 +638,8 @@ async function downloadAndUploadIcon(yotoIcon) {
                         };
                     }
                 } catch (error) {
-                    // Silently fail and use fallback
                 }
-                
-                // Fall back to original cached entry with API URL
+
                 return {
                     title: `${yotoIcon.title} (cached)`,
                     mediaId: cached.mediaId,
@@ -718,8 +652,7 @@ async function downloadAndUploadIcon(yotoIcon) {
                 };
             }
         }
-        
-        // Download the icon
+
         const response = await fetch(yotoIcon.url);
         if (!response.ok) {
             throw new Error(`Failed to download icon: ${response.status}`);
@@ -727,13 +660,11 @@ async function downloadAndUploadIcon(yotoIcon) {
         
         const arrayBuffer = await response.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
-        
-        // Convert to base64 for upload
+
         let binary = '';
         bytes.forEach(byte => binary += String.fromCharCode(byte));
         const base64 = btoa(binary);
-        
-        // Upload to Yoto
+
         const uploadResult = await uploadIcon({
             data: base64,
             type: 'image/png',
@@ -743,27 +674,24 @@ async function downloadAndUploadIcon(yotoIcon) {
         if (uploadResult.error) {
             throw new Error(uploadResult.error);
         }
-        
-        // Create a data URL for display purposes (since uploaded icons are private)
+
         const dataUrl = `data:image/png;base64,${base64}`;
-        
-        // Cache the result
+
         const cacheEntry = {
             mediaId: uploadResult.mediaId,
             iconId: uploadResult.iconId,
             url: `https://api.yotoplay.com/media/${uploadResult.mediaId}`,
-            dataUrl: dataUrl, // Store data URL for display
+            dataUrl: dataUrl,
             uploadedAt: new Date().toISOString()
         };
         yotoIconsCache.set(cacheKey, cacheEntry);
-        
-        // Save cache to storage (fire and forget)
+
         saveIconsCache().catch(console.warn);
         
         return {
             title: `${yotoIcon.title} (by @${yotoIcon.author})`,
             mediaId: uploadResult.mediaId,
-            url: dataUrl, // Use data URL for display instead of API URL
+            url: dataUrl,
             source: 'yotoicons-uploaded',
             author: yotoIcon.author,
             iconId: uploadResult.iconId,
@@ -795,85 +723,49 @@ async function searchIcons(query) {
         } catch (error) {}
 
         const matchesWholeWord = (text, word) => {
-            // For numbers, do exact matching or look for the number in common formats
             if (/^\d+$/.test(word)) {
                 const patterns = [
-                    `\\b${word}\\b`,  // exact number
-                    `#${word}\\b`,     // hashtag format like #1
-                    `number ${word}\\b`, // "number 1" format
-                    `no\\.?\\s*${word}\\b` // "no. 1" or "no 1" format
+                    `\\b${word}\\b`,
+                    `#${word}\\b`,
+                    `number ${word}\\b`,
+                    `no\\.?\\s*${word}\\b`
                 ];
                 const regex = new RegExp(patterns.join('|'), 'i');
                 return regex.test(text);
             }
-            // For text, use word boundaries
             const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
             return regex.test(text);
         };
 
-        let yotoMatches = allIcons.filter(icon => {
-            const allText = [
-                icon.title,
-                icon.mediaId,
-                ...(icon.publicTags || [])
-            ].filter(Boolean).join(' ');
-            return matchesWholeWord(allText, query);
-        });
+        try {
+            let yotoIconsResults = await fetchFromYotoicons(query);
 
-        // If no matches and word appears plural, try singular form
-        if (yotoMatches.length === 0 && Utils.isPlural(query)) {
-            const singular = Utils.singularize(query);
-            if (singular !== query) {
-                yotoMatches = allIcons.filter(icon => {
-                    const allText = [
-                        icon.title,
-                        icon.mediaId,
-                        ...(icon.publicTags || [])
-                    ].filter(Boolean).join(' ');
-                    return matchesWholeWord(allText, singular);
-                });
+            if (yotoIconsResults.length === 0 && Utils.isPlural(query)) {
+                const singular = Utils.singularize(query);
+                if (singular !== query) {
+                    yotoIconsResults = await fetchFromYotoicons(singular);
+                }
             }
+
+            if (yotoIconsResults.length > 0) {
+                allIcons = allIcons.concat(yotoIconsResults);
+            }
+        } catch (error) {
         }
 
-        // If no public Yoto icons found, search yotoicons.com but DON'T upload yet
-        if (yotoMatches.length === 0) {
-            try {
-                // Try yotoicons.com with original query first
-                let yotoIconsResults = await fetchFromYotoicons(query);
-
-                // If no results and word appears plural, try singular on yotoicons.com
-                if (yotoIconsResults.length === 0 && Utils.isPlural(query)) {
-                    const singular = Utils.singularize(query);
-                    if (singular !== query) {
-                        yotoIconsResults = await fetchFromYotoicons(singular);
-                    }
-                }
-
-                if (yotoIconsResults.length > 0) {
-                    // Add yotoicons results directly without uploading
-                    // They already have their public URLs from fetchFromYotoicons
-                    allIcons = allIcons.concat(yotoIconsResults);
-                }
-            } catch (error) {
-                // Silently continue if yotoicons.com fails
-            }
-            
-            // Add fallback link if still no results
-            if (allIcons.filter(icon => !icon.isPlaceholder).length === 0) {
-                const yotoiconsUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}`;
-                const yotoiconsPlaceholder = {
-                    title: `Search "${query}" on yotoicons.com`,
-                    description: 'Click to search on yotoicons.com',
-                    url: yotoiconsUrl,
-                    source: 'yotoicons-link',
-                    mediaId: 'yotoicons-search',
-                    isPlaceholder: true
-                };
-                allIcons.push(yotoiconsPlaceholder);
-            }
+        if (allIcons.filter(icon => !icon.isPlaceholder).length === 0) {
+            const yotoiconsUrl = `https://www.yotoicons.com/icons?tag=${encodeURIComponent(query)}`;
+            const yotoiconsPlaceholder = {
+                title: `Search "${query}" on yotoicons.com`,
+                description: 'Click to search on yotoicons.com',
+                url: yotoiconsUrl,
+                source: 'yotoicons-link',
+                mediaId: 'yotoicons-search',
+                isPlaceholder: true
+            };
+            allIcons.push(yotoiconsPlaceholder);
         }
 
-        // Prepare search terms (original + singular if applicable)
         const searchTerms = [lowerQuery];
         if (Utils.isPlural(query)) {
             const singular = Utils.singularize(query);
@@ -886,8 +778,7 @@ async function searchIcons(query) {
             if (icon.isPlaceholder) {
                 return true;
             }
-            
-            // Always include yotoicons that were just uploaded for this search
+
             if (icon.source?.startsWith('yotoicons')) {
                 return true;
             }
@@ -897,19 +788,16 @@ async function searchIcons(query) {
                 icon.mediaId,
                 ...(icon.publicTags || [])
             ].filter(Boolean).join(' ');
-            
-            // Check if text matches any of our search terms using whole word matching
+
             return searchTerms.some(term => matchesWholeWord(allText, term));
         });
 
         filteredIcons.sort((a, b) => {
-            // Check for exact matches with any search term
             const aExact = searchTerms.some(term => a.title?.toLowerCase() === term);
             const bExact = searchTerms.some(term => b.title?.toLowerCase() === term);
             if (aExact && !bExact) return -1;
             if (!aExact && bExact) return 1;
 
-            // Prioritize: yoto-public > yotoicons-cached > yotoicons-uploaded > yotoicons-link > others
             const sourceOrder = {
                 'yoto-public': 1,
                 'yotoicons-cached': 2,
@@ -933,16 +821,17 @@ async function searchIcons(query) {
 
 async function searchIconsByCategory(category) {
     try {
-        // Search for icons using the category as a query
-        const searchResult = await searchIcons(category);
+        const translatedCategory = await TranslationService.translateToEnglish(category);
 
-        // Return up to 500 icons if we have them from the initial search
+        const searchQuery = translatedCategory || category;
+
+        const searchResult = await searchIcons(searchQuery);
+
         if (searchResult.icons && searchResult.icons.length >= 50) {
             return { icons: searchResult.icons.slice(0, 500) };
         }
 
-        // If not enough icons, try related terms
-        const relatedTerms = getRelatedTerms(category);
+        const relatedTerms = getRelatedTerms(searchQuery);
         let allIcons = searchResult.icons || [];
 
         for (const term of relatedTerms) {
@@ -950,7 +839,6 @@ async function searchIconsByCategory(category) {
 
             const additionalResults = await searchIcons(term);
             if (additionalResults.icons) {
-                // Filter out duplicates based on mediaId or id
                 const existingIds = new Set(allIcons.map(i => i.mediaId || i.id));
                 const newIcons = additionalResults.icons.filter(i => !existingIds.has(i.mediaId || i.id));
                 allIcons = allIcons.concat(newIcons);
@@ -991,7 +879,6 @@ function getRelatedTerms(category) {
 
 async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
     try {
-        // Get card content
         const cardContent = await getCardContent(cardId);
         if (cardContent.error) {
             return { error: cardContent.error };
@@ -1001,12 +888,10 @@ async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
             return { error: 'No chapters found in card' };
         }
 
-        // Process icons - upload yotoicons.com icons if needed
         const processedIcons = [];
         for (const icon of selectedIcons) {
             let processedIcon = icon;
 
-            // Upload icon if it's from yotoicons.com (not already uploaded)
             if (icon.source === 'yotoicons' || icon.source === 'yotoicons-uploaded' || (icon.url && icon.url.includes('yotoicons.com'))) {
                 const uploadResult = await downloadAndUploadIcon({
                     id: icon.originalIconId || icon.id,
@@ -1021,7 +906,6 @@ async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
                 }
             }
 
-            // Get the proper icon ID format
             let iconId = processedIcon.iconId || processedIcon.mediaId || processedIcon.displayIconId;
             if (iconId && !iconId.startsWith('yoto:#')) {
                 iconId = `yoto:#${iconId}`;
@@ -1053,7 +937,6 @@ async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
                         iconsUpdated++;
                         iconIndex++;
                     }
-                    // If track was not selected, preserve its existing icon
                 });
             }
 
@@ -1122,7 +1005,6 @@ async function matchIcons(tracks) {
     ]);
     
     const extractKeywords = (title) => {
-        // Remove punctuation and possessives, split into words
         const words = title
             .toLowerCase()
             .replace(/['']s\b/gi, '') // Remove possessives
@@ -1144,40 +1026,44 @@ async function matchIcons(tracks) {
     for (const track of tracks) {
         let iconOptions = [];
 
+        // Translate track title to English if not already in English (do this once per track)
+        const translatedTitle = await TranslationService.translateToEnglish(track.title);
+        const searchTitle = translatedTitle || track.title;
+
         try {
-            // First try with the full cleaned title
-            const cleanedTitle = track.title.replace(/['']s\b/gi, '');
+            const cleanedTitle = searchTitle.replace(/['']s\b/gi, '');
             const fullResults = await searchIcons(cleanedTitle);
             if (fullResults.icons && fullResults.icons.length > 0) {
                 const validIcons = fullResults.icons.filter(icon => {
                     return !icon.isPlaceholder && icon.url && (icon.url.startsWith('http') || icon.url.startsWith('data:'));
                 }).slice(0, 10);
-                
+
                 iconOptions = validIcons.map(icon => {
                     let iconUrl = icon.url || icon.mediaUrl || null;
-                    
+
                     if (!iconUrl && icon.mediaId) {
                         iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
                     }
-                    
+
                     const isValidUrl = iconUrl && (
-                        iconUrl.startsWith('http') || 
+                        iconUrl.startsWith('http') ||
                         iconUrl.startsWith('data:')
                     );
-                    
+
                     return {
                         url: isValidUrl ? iconUrl : null,
                         iconId: icon.mediaId || icon.id || icon.displayIconId || icon.iconId,
                         title: icon.title || null
                     };
                 });
-                
+
                 iconOptions = iconOptions.filter(option => option.url !== null);
             }
         } catch (error) {}
 
         if (iconOptions.length < 5) {
-            const keywords = extractKeywords(track.title);
+            // Use translated title for keyword extraction
+            const keywords = extractKeywords(searchTitle);
 
             for (const keyword of keywords) {
                 if (iconOptions.length >= 10) break;
@@ -1224,7 +1110,6 @@ async function matchIcons(tracks) {
             selectedIndex: 0
         };
 
-
         matches.push(matchResult);
     }
 
@@ -1259,7 +1144,6 @@ async function updateCardIcons(cardId, iconMatches) {
         for (const match of iconMatches) {
             let processedMatch = {...match};
 
-            // Check if this icon needs to be uploaded (from yotoicons.com)
             if (match.suggestedIcon && match.suggestedIcon.includes('yotoicons.com')) {
                 try {
                     const uploadResult = await downloadAndUploadIcon({
@@ -1286,7 +1170,6 @@ async function updateCardIcons(cardId, iconMatches) {
                 let hasMatch = false;
                 let chapterIconId = null;
 
-                // Find matching icon based on track titles
                 if (chapter.tracks && chapter.tracks.length > 0) {
                     for (const track of chapter.tracks) {
                         const iconMatch = processedIconMatches.find(match =>
@@ -1372,7 +1255,6 @@ async function updateCardIcons(cardId, iconMatches) {
                     possibleSuccess: true
                 };
             }
-            // Check if it's a 403 forbidden error
             if (e.message && (e.message.includes('403') || e.message.includes('forbidden'))) {
                 return {
                     success: false,
@@ -1383,7 +1265,6 @@ async function updateCardIcons(cardId, iconMatches) {
         }
 
     } catch (error) {
-        // Check if it's a 403 forbidden error
         if (error.message && (error.message.includes('403') || error.message.includes('forbidden'))) {
             return {
                 success: false,
@@ -1394,7 +1275,6 @@ async function updateCardIcons(cardId, iconMatches) {
     }
 }
 
-// Helper function to format duration
 function formatDuration(seconds) {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -1409,22 +1289,18 @@ function formatDuration(seconds) {
     }
 }
 
-// Upload cover image and get public URL
 async function uploadCoverImage(imageFileData) {
     try {
-        // Convert base64 string to binary array
         const binaryString = atob(imageFileData.data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
         }
         
-        // Create a File object from the bytes
         const imageFile = new File([bytes], imageFileData.name || 'cover.png', {
             type: imageFileData.type || 'image/png'
         });
         
-        // Upload the cover image using the dedicated coverImage endpoint
         const response = await makeAuthenticatedRequest(
             `/media/coverImage/user/me/upload?coverType=default`,
             {
@@ -1474,10 +1350,8 @@ async function uploadCoverImage(imageFileData) {
     }
 }
 
-// Upload icon to Yoto
 async function uploadIcon(iconFileData) {
     try {
-        // Convert base64 string to binary array
         const binaryString = atob(iconFileData.data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -1520,11 +1394,9 @@ async function uploadIcon(iconFileData) {
     }
 }
 
-// Upload audio file to Yoto
 async function uploadAudioFile(audioFileData) {
     try {
 
-        // Step 1: Get upload URL
         const uploadUrlResponse = await makeAuthenticatedRequest('/media/transcode/audio/uploadUrl', {
             method: 'GET'
         });
@@ -1543,7 +1415,6 @@ async function uploadAudioFile(audioFileData) {
         }
 
         
-        // Step 2: Upload the file
         const uploadResponse = await fetch(upload.uploadUrl, {
             method: 'PUT',
             body: audioFileData.blob,
@@ -1557,18 +1428,15 @@ async function uploadAudioFile(audioFileData) {
         }
 
         
-        // Step 3: Wait for transcoding
         let transcodedAudio = null;
         let attempts = 0;
         const maxAttempts = 60; // 60 seconds - increased for larger files
-
 
         while (attempts < maxAttempts) {
             const transcodeResponse = await makeAuthenticatedRequest(
                 `/media/upload/${upload.uploadId}/transcoded?loudnorm=false`
             );
 
-            // Check for specific errors
             if (transcodeResponse.error) {
                 // If we get a specific error, don't keep retrying
                 if (transcodeResponse.error.includes('403') ||
@@ -1609,7 +1477,6 @@ function generateRandomId() {
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-// Update existing playlist with new content
 async function updatePlaylistContent(cardId, existingChapters, newTracks, newIcons, metadata, title) {
     try {
         const cardContent = await getCardContent(cardId);
@@ -1684,7 +1551,6 @@ async function updatePlaylistContent(cardId, existingChapters, newTracks, newIco
                         chapter.display = { icon16x16: iconId };
                     }
 
-                    // Update all tracks within this chapter with the same icon
                     if (chapter.tracks && Array.isArray(chapter.tracks)) {
                         chapter.tracks.forEach(track => {
                             if (track.display) {
@@ -1740,7 +1606,6 @@ async function updatePlaylistContent(cardId, existingChapters, newTracks, newIco
     }
 }
 
-// Create playlist with uploaded content
 async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl = null, isVisualTimer = false, alwaysPlayFromStart = null) {
     try {
         const chapters = audioTracks.map((audio, index) => {
@@ -1789,7 +1654,6 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
         const totalFileSize = audioTracks.reduce((sum, audio) => 
             sum + (audio.transcodedAudio.transcodedInfo?.fileSize || 0), 0);
         
-        // Get user info from token
         const tokens = await TokenManager.getTokens();
         let userId = 'unknown';
         if (tokens?.access_token) {
@@ -1804,7 +1668,6 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
         // Ensure coverUrl is a string or null
         const coverUrlString = typeof coverUrl === 'string' ? coverUrl : null;
         
-        // Build metadata object
         const metadata = {
             description: '',
             media: {
@@ -1882,7 +1745,6 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             }
         }
         
-        // Check if we got a cardId in the response - this means success
         if (createResponse.cardId) {
             // Try to fetch the created card to verify it exists
             try {
@@ -1904,13 +1766,11 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
 const apiCache = {
     cache: new Map(),
     
-    // Generate a cache key from the request
     getKey: (endpoint, params = {}) => {
         const sortedParams = Object.keys(params).sort().map(k => `${k}=${params[k]}`).join('&');
         return `${endpoint}?${sortedParams}`;
     },
     
-    // Get cached data if it exists and is not expired
     get: function(endpoint, params = {}, ttlMinutes = 60) {
         const key = this.getKey(endpoint, params);
         const cached = this.cache.get(key);
@@ -1928,7 +1788,6 @@ const apiCache = {
         return cached.data;
     },
     
-    // Store data in cache
     set: function(endpoint, params = {}, data) {
         const key = this.getKey(endpoint, params);
         this.cache.set(key, {
@@ -1937,10 +1796,8 @@ const apiCache = {
         });
     },
     
-    // Clear all cache or specific endpoint
     clear: function(endpoint = null) {
         if (endpoint) {
-            // Clear specific endpoint
             const keysToDelete = [];
             for (const key of this.cache.keys()) {
                 if (key.startsWith(endpoint)) {
@@ -1949,7 +1806,6 @@ const apiCache = {
             }
             keysToDelete.forEach(key => this.cache.delete(key));
         } else {
-            // Clear all
             this.cache.clear();
         }
     }
@@ -2007,6 +1863,30 @@ const staticPodcastData = {
     ]
 };
 
+function getPodcastLanguage() {
+    const uiLang = chrome.i18n.getUILanguage(); // Returns e.g., "en", "fr", "es-ES", "de"
+    const langCode = uiLang.split('-')[0].toLowerCase(); // Get just the language code
+
+    // Map browser language codes to ListenNotes API language names
+    const languageMap = {
+        'en': 'English',
+        'fr': 'French',
+        'es': 'Spanish',
+        'de': 'German',
+        'it': 'Italian',
+        'pt': 'Portuguese',
+        'nl': 'Dutch',
+        'pl': 'Polish',
+        'ru': 'Russian',
+        'zh': 'Chinese',
+        'ja': 'Japanese',
+        'ko': 'Korean',
+        'sl': 'Slovenian'
+    };
+
+    return languageMap[langCode] || 'English'; // Default to English if not mapped
+}
+
 async function searchPodcasts(query) {
     try {
         const cached = apiCache.get('search', { q: query });
@@ -2014,7 +1894,8 @@ async function searchPodcasts(query) {
             return cached;
         }
 
-        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(query)}&type=podcast&only_in=title,description&language=English&safe_mode=0`);
+        const language = getPodcastLanguage();
+        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(query)}&type=podcast&only_in=title,description&language=${language}&safe_mode=0`);
 
         if (!response.ok) {
             if (response.status === 401) {
@@ -2036,7 +1917,6 @@ async function searchPodcasts(query) {
 
         const data = await response.json();
         
-        // Transform the results to a simpler format
         const podcasts = data.results.slice(0, 10).map(podcast => ({
             id: podcast.id,
             title: podcast.title_original,
@@ -2066,7 +1946,6 @@ async function searchPodcasts(query) {
 
 async function getGenres() {
     try {
-        // Check cache first (genres rarely change - 24 hour TTL)
         const cached = apiCache.get('genres', {}, 1440); // 1440 minutes = 24 hours
         if (cached) {
             return cached;
@@ -2096,7 +1975,6 @@ async function getGenres() {
 async function getBestPodcasts(genreId = null, page = 1) {
     try {
         // Use the search API to get popular kids podcasts
-        // Search for general kids content to get a variety of popular podcasts
         const searchTerms = [
             'kids stories',
             'science for kids', 
@@ -2108,14 +1986,14 @@ async function getBestPodcasts(genreId = null, page = 1) {
         // Pick a random search term for variety
         const searchTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
         
-        // Check cache first
         const cacheKey = `best_podcasts_${searchTerm}_${page}`;
         const cached = apiCache.get('best_podcasts', { term: searchTerm, page: page }, 60); // 1 hour cache
         if (cached) {
             return cached;
         }
         
-        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(searchTerm)}&type=podcast&only_in=title,description&language=English&safe_mode=1&offset=${(page - 1) * 10}`);
+        const language = getPodcastLanguage();
+        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(searchTerm)}&type=podcast&only_in=title,description&language=${language}&safe_mode=1&offset=${(page - 1) * 10}`);
         
         if (!response.ok) {
             throw new Error(`API response not ok: ${response.status}`);
@@ -2123,7 +2001,6 @@ async function getBestPodcasts(genreId = null, page = 1) {
         
         const data = await response.json();
         
-        // Transform results to match expected format
         const podcasts = data.results ? data.results.slice(0, 10).map(podcast => ({
             id: podcast.id,
             title: podcast.title_original,
@@ -2221,10 +2098,8 @@ async function getPodcastEpisodes(podcastId, nextEpisodePubDate = null) {
 
 async function importPodcastEpisodes(podcast, episodes) {
     try {
-        // Clear any previous import status
         await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp']);
         
-        // Set initial progress
         await chrome.storage.local.set({
             podcastImportProgress: {
                 status: 'in_progress',
@@ -2234,23 +2109,18 @@ async function importPodcastEpisodes(podcast, episodes) {
             }
         });
         
-        // Check if authenticated
         const isValid = await TokenManager.isTokenValid();
         if (!isValid) {
             return { error: 'Not authenticated. Please log in first.' };
         }
-        // Create a new playlist for the podcast
         const playlistName = `${podcast.title} - Podcast`;
         
-        // Process episodes in parallel with controlled concurrency
         const CONCURRENT_LIMIT = 3; // Process up to 3 episodes at once
         const audioTracks = [];
         let processedCount = 0;
         let failedCount = 0;
         
-        // Helper function to process a single episode
         const processEpisode = async (episode, index) => {
-            // Check episode duration (Yoto limit is 60 minutes = 3600 seconds)
             if (episode.audio_length_sec > 3600) {
                 console.warn(`Episode "${episode.title}" exceeds 60 minutes, it may be truncated by Yoto`);
             }
@@ -2265,7 +2135,6 @@ async function importPodcastEpisodes(podcast, episodes) {
                     // May fail due to CORS
                 }
                 
-                // Download the audio
                 try {
                     // Log the original URL
                     
@@ -2339,7 +2208,6 @@ async function importPodcastEpisodes(podcast, episodes) {
                 }
                 
                 
-                // Upload audio to Yoto
                 const uploadResult = await uploadAudioFile({
                     blob: audioBlob,
                     name: `${episode.title}.mp3`,
@@ -2362,7 +2230,6 @@ async function importPodcastEpisodes(podcast, episodes) {
                 return null;
             } finally {
                 processedCount++;
-                // Update progress
                 await chrome.storage.local.set({
                     podcastImportProgress: {
                         status: 'in_progress',
@@ -2374,7 +2241,6 @@ async function importPodcastEpisodes(podcast, episodes) {
             }
         };
         
-        // Process episodes in batches with concurrency control
         const results = [];
         for (let i = 0; i < episodes.length; i += CONCURRENT_LIMIT) {
             const batch = episodes.slice(i, Math.min(i + CONCURRENT_LIMIT, episodes.length));
@@ -2387,7 +2253,6 @@ async function importPodcastEpisodes(podcast, episodes) {
             results.push(...batchResults);
         }
         
-        // Filter out failed episodes and sort by original order
         const successfulTracks = results
             .filter(track => track !== null)
             .sort((a, b) => a.originalIndex - b.originalIndex)
@@ -2415,7 +2280,6 @@ async function importPodcastEpisodes(podcast, episodes) {
             return { error: 'Failed to import episodes. The podcast audio may be hosted on a domain that requires additional permissions.' };
         }
         
-        // Upload podcast cover image as playlist cover
         let coverImageUrl = null;
         if (podcast.thumbnail) {
             try {
@@ -2450,7 +2314,6 @@ async function importPodcastEpisodes(podcast, episodes) {
             }
         }
         
-        // Update progress for playlist creation
         await chrome.storage.local.set({
             podcastImportProgress: {
                 status: 'in_progress',
@@ -2470,7 +2333,6 @@ async function importPodcastEpisodes(podcast, episodes) {
         
         if (result.error) {
             const errorResult = { error: `Failed to create MYO card: ${result.error}` };
-            // Store the error result
             await chrome.storage.local.set({
                 podcastImportResult: errorResult,
                 podcastImportTimestamp: Date.now(),
@@ -2488,7 +2350,6 @@ async function importPodcastEpisodes(podcast, episodes) {
             tracksImported: audioTracks.length
         };
         
-        // Store the successful result
         await chrome.storage.local.set({
             podcastImportResult: successResult,
             podcastImportTimestamp: Date.now(),
@@ -2503,7 +2364,6 @@ async function importPodcastEpisodes(podcast, episodes) {
     } catch (error) {
         const errorResult = { error: error.message || 'Failed to import podcast episodes' };
         
-        // Store the error result
         await chrome.storage.local.set({
             podcastImportResult: errorResult,
             podcastImportTimestamp: Date.now(),
@@ -2541,7 +2401,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         userEmail: userEmail
                     });
                     break;
-
 
                 case 'CLEAR_AUTH':
                     await TokenManager.clearAllAuthData();
@@ -2694,7 +2553,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                     break;
 
-
                 case 'UPDATE_STATS':
                     await updateStats(request.stats);
                     sendResponse({success: true});
@@ -2706,7 +2564,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                     
                 case 'UPLOAD_TIMER_AUDIO':
-                    // Handle large timer audio files by loading them directly in the service worker
                     try {
                         const audioUrl = chrome.runtime.getURL(`assets/audio/timer/${request.fileName}`);
                         const audioResponse = await fetch(audioUrl);
@@ -2722,7 +2579,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         reader.onloadend = async function() {
                             const base64Data = reader.result.split(',')[1];
 
-                            // Convert base64 to blob for uploadAudioFile
                             const binaryString = atob(base64Data);
                             const bytes = new Uint8Array(binaryString.length);
                             for (let i = 0; i < binaryString.length; i++) {
@@ -2768,7 +2624,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             break;
                         }
 
-                        // Convert base64 to blob with chunked processing for large files
                         let audioBlob;
                         try {
                             // For large files, decode in chunks to avoid memory issues
@@ -2832,7 +2687,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'UPLOAD_COVER':
-                    // Upload cover image and get its public URL
                     const coverResponse = await uploadCoverImage({
                         data: request.file.data,
                         type: request.file.type,
@@ -2954,7 +2808,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'OPEN_EXTENSION_PAGE':
-                    // Open an extension page in a new tab
                     chrome.tabs.create({
                         url: chrome.runtime.getURL(request.page)
                     });
@@ -3023,7 +2876,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     
                     // Run the actual import in the background
                     importPodcastEpisodes(request.podcast, request.episodes).then(result => {
-                        // Store the result for later retrieval
                         chrome.storage.local.set({
                             podcastImportResult: result,
                             podcastImportTimestamp: Date.now()
@@ -3050,10 +2902,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 case 'CANCEL_PODCAST_IMPORT':
                     // Cancel the podcast import
-                    // Clear any stored import data
                     await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
                     
-                    // Set a cancelled status
                     await chrome.storage.local.set({
                         podcastImportResult: {cancelled: true, message: 'Import cancelled by user'},
                         podcastImportTimestamp: Date.now()

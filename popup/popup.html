@@ -11,36 +11,32 @@
     </div>
     
     <div class="popup-content">
-      <p class="description">Transform how you create Yoto MYO cards with smart imports, automatic icon matching, and more delightful shortcuts.</p>
-      
+      <p class="description" data-i18n="extensionDescription"></p>
+
       <div id="auth-status" class="auth-status">
         <span class="auth-indicator"></span>
-        <span class="auth-text">Checking authentication...</span>
+        <span class="auth-text" data-i18n="popup_checkingAuth"></span>
       </div>
-      
-      <button id="auth-button" class="popup-button auth-button" style="display: none;">
-        Sign in with Yoto
+
+      <button id="auth-button" class="popup-button auth-button" style="display: none;" data-i18n="popup_signIn">
       </button>
-      
-      <button id="go-to-yoto" class="popup-button primary">
-        Go to Yoto Playlists
+
+      <button id="go-to-yoto" class="popup-button primary" data-i18n="popup_goToYoto">
       </button>
 
       <button id="battery-status" class="popup-button secondary" style="display: none;">
         <span class="battery-icon">🔋</span>
-        Device Battery Status
+        <span data-i18n="popup_batteryStatus"></span>
       </button>
 
-      <button id="manage-extension" class="popup-button secondary">
-        Manage Extension
+      <button id="manage-extension" class="popup-button secondary" data-i18n="popup_manageExtension">
       </button>
 
-      <button id="sign-out" class="popup-button secondary" style="display: none;">
-        Sign Out
+      <button id="sign-out" class="popup-button secondary" style="display: none;" data-i18n="popup_signOut">
       </button>
-      
+
       <div class="popup-footer">
-        <p class="footer-note">Visit the Yoto Playlists page to use the features.</p>
+        <p class="footer-note" data-i18n="popup_visitYoto"></p>
       </div>
     </div>
   </div>
@@ -49,11 +45,11 @@
   <div id="battery-modal" class="modal" style="display: none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Device Battery Status</h3>
+        <h3 data-i18n="popup_batteryStatus"></h3>
         <button class="close-modal">&times;</button>
       </div>
       <div id="battery-content" class="battery-content">
-        <div class="loading">Loading device information...</div>
+        <div class="loading" data-i18n="popup_loadingDeviceInfo"></div>
       </div>
     </div>
   </div>

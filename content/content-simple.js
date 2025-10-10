@@ -44,7 +44,7 @@ function cycleIcon(trackId, direction) {
   }
   
   if (iconTitleDisplay && match.iconOptions[newIndex]) {
-    iconTitleDisplay.textContent = match.iconOptions[newIndex].title || 'Untitled Icon';
+    iconTitleDisplay.textContent = match.iconOptions[newIndex].title || chrome.i18n.getMessage('modal_untitledIcon');
   }
 }
 
@@ -94,9 +94,9 @@ function showIconPreview(matches) {
   `;
   
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Icon Matches Found</h2>
+    <h2 style=\"margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;\">${chrome.i18n.getMessage('modal_iconMatchesFound')}</h2>
     <div style="margin-bottom: 20px; color: #666;">
-      Found potential icons for ${matches.length} track${matches.length !== 1 ? 's' : ''}
+      ${chrome.i18n.getMessage('modal_foundIconsForTracks', [matches.length.toString(), matches.length !== 1 ? 's' : ''])}
     </div>
     <div id="match-list" style="display: flex; flex-direction: column; gap: 12px;">
       ${matches.map(match => {
@@ -164,16 +164,16 @@ function showIconPreview(matches) {
             <div style="font-weight: 500; color: #2c3e50;">${match.trackTitle}</div>
             ${hasMultipleIcons ? `
             <div class="icon-count" style="font-size: 12px; color: #999; margin-top: 4px;">
-              ${selectedIndex + 1}/${match.iconOptions.length} icons available
+              ${chrome.i18n.getMessage('iconMatch_iconsAvailableOf', [(selectedIndex + 1).toString(), match.iconOptions.length.toString()])}
             </div>
             ` : `
             <div style="font-size: 12px; color: #999; margin-top: 4px;">
-              ${match.iconOptions && match.iconOptions.length > 0 ? 'Icon found' : 'No icons found'}
+              ${match.iconOptions && match.iconOptions.length > 0 ? chrome.i18n.getMessage('modal_iconFound') : chrome.i18n.getMessage('modal_noIconsFound')}
             </div>
             `}
             ${selectedIcon && selectedIcon.title ? `
             <div class="icon-title" style="font-size: 11px; color: #666; margin-top: 2px;">
-              Icon: ${selectedIcon.title}
+              ${chrome.i18n.getMessage('iconMatch_iconLabel', [selectedIcon.title])}
             </div>
             ` : ''}
           </div>
@@ -195,7 +195,7 @@ function showIconPreview(matches) {
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">Cancel</button>
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="apply-icons" style="
         padding: 10px 20px;
         background: #FFD700;
@@ -205,7 +205,7 @@ function showIconPreview(matches) {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Apply Icons</button>
+      ">${chrome.i18n.getMessage('button_applyIcons')}</button>
     </div>
   `;
   
@@ -271,7 +271,7 @@ function showIconPreview(matches) {
 
     const applyButton = document.querySelector('#apply-icons');
     applyButton.disabled = true;
-    applyButton.textContent = 'Applying...';
+    applyButton.textContent = chrome.i18n.getMessage('button_applying');
     
     try {
       const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
@@ -286,7 +286,7 @@ function showIconPreview(matches) {
       }
       
       if (!cardId) {
-        alert('Could not identify card ID');
+        alert(chrome.i18n.getMessage('error_couldNotIdentifyCardId'));
         return;
       }
 
@@ -313,7 +313,7 @@ function showIconPreview(matches) {
       
       
       if (validMatches.length === 0) {
-        alert('No valid icons to apply. Try searching for different terms or check the icon matching.');
+        alert(chrome.i18n.getMessage('notification_noValidIcons'));
         modal.remove();
         return;
       }
@@ -325,28 +325,6 @@ function showIconPreview(matches) {
       });
       
       if (response.success) {
-        
-        const successDiv = document.createElement('div');
-        successDiv.style.cssText = `
-          position: fixed;
-          top: 20vh;
-          left: 50%;
-          transform: translateX(-50%);
-          background: #4CAF50;
-          color: white;
-          padding: 12px 20px;
-          border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-          z-index: 10001;
-          font-size: 14px;
-        `;
-        successDiv.textContent = `✓ Icons applied to ${validMatches.length} tracks! Refresh the page to see changes.`;
-        document.body.appendChild(successDiv);
-        
-        setTimeout(() => {
-          successDiv.remove();
-        }, 3000);
-        
         modal.remove();
 
         const refreshNotice = document.createElement('div');
@@ -366,8 +344,8 @@ function showIconPreview(matches) {
           min-width: 300px;
         `;
         refreshNotice.innerHTML = `
-          <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">✓ Icons applied successfully!</div>
-          <div style="font-size: 14px; opacity: 0.95;">Please refresh the page to see your changes.</div>
+          <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('notification_iconsAppliedSuccessfully')}</div>
+          <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_pleaseRefreshPage')}</div>
         `;
         document.body.appendChild(refreshNotice);
 
@@ -422,7 +400,7 @@ function showIconPreview(matches) {
           `;
           
           errorDiv.innerHTML = `
-            <h3 style="margin: 0 0 16px 0; color: #dc3545;">Unable to Apply Icons</h3>
+            <h3 style=\"margin: 0 0 16px 0; color: #dc3545;\">${chrome.i18n.getMessage('iconMatch_unableToApplyIcons')}</h3>
             <p style="color: #666; margin-bottom: 20px;">
               The Yoto API requires special permissions to update cards that we don't currently have.
             </p>
@@ -450,17 +428,17 @@ function showIconPreview(matches) {
           
           modal.remove();
         } else {
-          const errorMessage = response.error || 'Unknown error occurred';
-          alert('Failed to apply icons: ' + errorMessage);
+          const errorMessage = response.error || chrome.i18n.getMessage('error_unknownError');
+          alert(chrome.i18n.getMessage('error_failedToApplyIcons', [errorMessage]));
         }
-        
+
         applyButton.disabled = false;
-        applyButton.textContent = 'Apply Icons';
+        applyButton.textContent = chrome.i18n.getMessage('button_applyIcons');
       }
     } catch (error) {
-      alert('Error applying icons: ' + error.message);
+      alert(chrome.i18n.getMessage('error_failedToApplyIcons', [error.message]));
       applyButton.disabled = false;
-      applyButton.textContent = 'Apply Icons';
+      applyButton.textContent = chrome.i18n.getMessage('button_applyIcons');
     }
   };
 
@@ -509,7 +487,7 @@ function createImportButton() {
   
   button.innerHTML = `
     ${importIcon}
-    <span>Import</span>
+    <span>${chrome.i18n.getMessage('button_import')}</span>
   `;
   
   button.onmouseenter = () => {
@@ -566,7 +544,7 @@ function createIconArtButton() {
 
   button.innerHTML = `
     ${createIcon}
-    <span>Create Icon</span>
+    <span>${chrome.i18n.getMessage('button_createIcon')}</span>
   `;
 
   button.onmouseenter = () => {
@@ -667,8 +645,8 @@ function openIconArtModal() {
       }
     </style>
 
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Create Icon</h2>
-    <p style="margin-bottom: 20px; color: #666;">Choose how you want to create your custom Yoto icon.</p>
+    <h2 style=\"margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;\">${chrome.i18n.getMessage('modal_createIcon')}</h2>
+    <p style="margin-bottom: 20px; color: #666;">${chrome.i18n.getMessage('createIcon_chooseHowToCreate')}</p>
 
     <div id="mode-selection" style="margin-bottom: 20px; display: flex; gap: 20px; justify-content: center;">
       <button id="image-mode-btn" class="mode-select-btn">
@@ -694,11 +672,11 @@ function openIconArtModal() {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Choose Image</button>
+      ">${chrome.i18n.getMessage('createIcon_chooseImage')}</button>
     </div>
 
     <div id="positioning-section" style="display: none;">
-      <p style="margin-bottom: 10px; color: #666; text-align: center;">Position and scale your image, then click "Convert to Pixel Art"</p>
+      <p style="margin-bottom: 10px; color: #666; text-align: center;">${chrome.i18n.getMessage('createIcon_positionAndScale')}</p>
       <div id="positioning-container" style="
         position: relative;
         margin: 20px auto;
@@ -733,7 +711,7 @@ function openIconArtModal() {
       </div>
 
       <div id="scale-controls" style="margin: 20px 0; text-align: center;">
-        <label style="display: block; margin-bottom: 10px; color: #666;">Scale: <span id="scale-value">100%</span></label>
+        <label style="display: block; margin-bottom: 10px; color: #666;">${chrome.i18n.getMessage('createIcon_scale')} <span id="scale-value">100%</span></label>
         <input type="range" id="scale-slider" min="10" max="300" value="100" style="width: 300px;">
       </div>
 
@@ -747,7 +725,7 @@ function openIconArtModal() {
           cursor: pointer;
           font-size: 14px;
           font-weight: 500;
-        ">Convert to Pixel Art</button>
+        ">${chrome.i18n.getMessage('createIcon_convertToPixelArt')}</button>
       </div>
     </div>
 
@@ -755,7 +733,7 @@ function openIconArtModal() {
       <div style="display: flex; gap: 20px; align-items: start; justify-content: center;">
         <!-- Original image reference on the left -->
         <div id="reference-section" style="display: none;">
-          <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; text-align: center;">Original</p>
+          <p style="margin: 0 0 10px 0; color: #666; font-size: 14px; text-align: center;">${chrome.i18n.getMessage('createIcon_original')}</p>
           <div style="
             width: 200px;
             height: 200px;
@@ -781,12 +759,12 @@ function openIconArtModal() {
             cursor: pointer;
             font-size: 14px;
             width: 100%;
-          ">Reset Grid</button>
+          ">${chrome.i18n.getMessage('createIcon_resetGrid')}</button>
         </div>
 
         <!-- Pixelated grid for editing on the right -->
         <div>
-          <p id="pixel-edit-label" style="margin: 0 0 10px 0; color: #666; font-size: 14px; text-align: center; display: none;">Touch up your pixel art</p>
+          <p id="pixel-edit-label" style="margin: 0 0 10px 0; color: #666; font-size: 14px; text-align: center; display: none;">${chrome.i18n.getMessage('createIcon_touchUpPixelArt')}</p>
           <div id="canvas-container" style="
             position: relative;
             margin: 0 auto;
@@ -905,7 +883,7 @@ function openIconArtModal() {
               border-radius: 4px;
               cursor: pointer;
             ">
-            <span style="color: #666; font-size: 14px;">Custom Color</span>
+            <span style="color: #666; font-size: 14px;">${chrome.i18n.getMessage('createIcon_customColor')}</span>
           </div>
         </div>
       </div>
@@ -920,7 +898,7 @@ function openIconArtModal() {
           cursor: pointer;
           font-size: 14px;
           margin-right: 10px;
-        ">Reset</button>
+        ">${chrome.i18n.getMessage('createIcon_reset')}</button>
         <button id="toggle-paint" style="
           padding: 8px 16px;
           background: #f3f4f6;
@@ -932,7 +910,7 @@ function openIconArtModal() {
           margin-right: 10px;
           display: none;
         ">
-          <span id="paint-text">Paint</span>
+          <span id="paint-text">${chrome.i18n.getMessage('createIcon_paint')}</span>
         </button>
         <button id="toggle-eraser" style="
           padding: 8px 16px;
@@ -944,7 +922,7 @@ function openIconArtModal() {
           font-size: 14px;
           margin-right: 10px;
         ">
-          <span id="eraser-text">Eraser</span>
+          <span id="eraser-text">${chrome.i18n.getMessage('createIcon_eraser')}</span>
         </button>
         <button id="undo-action" style="
           padding: 8px 16px;
@@ -955,7 +933,7 @@ function openIconArtModal() {
           cursor: pointer;
           font-size: 14px;
           margin-right: 10px;
-        ">Undo</button>
+        ">${chrome.i18n.getMessage('createIcon_undo')}</button>
         <button id="preview-icon" style="
           padding: 8px 16px;
           background: #3b82f6;
@@ -964,11 +942,11 @@ function openIconArtModal() {
           border-radius: 6px;
           cursor: pointer;
           font-size: 14px;
-        ">Preview Icon</button>
+        ">${chrome.i18n.getMessage('createIcon_previewIcon')}</button>
       </div>
 
       <div id="preview-section" style="display: none; margin-top: 20px; padding: 20px; background: #f9f9f9; border-radius: 8px;">
-        <h3 style="margin: 0 0 10px 0; color: #2c3e50;">Icon Preview</h3>
+        <h3 style="margin: 0 0 10px 0; color: #2c3e50;">${chrome.i18n.getMessage('createIcon_iconPreview')}</h3>
         <div style="display: flex; align-items: center; gap: 20px;">
           <canvas id="preview-canvas" width="16" height="16" style="
             width: 64px;
@@ -977,8 +955,8 @@ function openIconArtModal() {
             border: 1px solid #e0e0e0;
           "></canvas>
           <div>
-            <p style="margin: 5px 0; color: #666; font-size: 14px;">Actual size: 16x16 pixels</p>
-            <p style="margin: 5px 0; color: #666; font-size: 14px;">Format: PNG</p>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;">${chrome.i18n.getMessage('createIcon_actualSize')}</p>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;">${chrome.i18n.getMessage('createIcon_format')}</p>
           </div>
         </div>
       </div>
@@ -1000,7 +978,7 @@ function openIconArtModal() {
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">Cancel</button>
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="upload-icon" style="
         padding: 10px 20px;
         background: #3b82f6;
@@ -1010,7 +988,7 @@ function openIconArtModal() {
         cursor: pointer;
         font-size: 14px;
         display: none;
-      ">Upload Icon to Yoto</button>
+      ">${chrome.i18n.getMessage('createIcon_uploadIconToYoto')}</button>
     </div>
   `;
 
@@ -1171,7 +1149,6 @@ function initializeIconArtEditor() {
         positioningImage.src = event.target.result;
 
         // Initial positioning - center the image
-        // Calculate scale to fit the image nicely in the container
         const initialScale = Math.min(containerSize / img.width, containerSize / img.height);
         const scalePercent = Math.round(initialScale * 100);
 
@@ -1198,7 +1175,6 @@ function initializeIconArtEditor() {
           modalContent.style.maxWidth = '800px';
         }
 
-        // Initialize positioning mode
         paintMode = false;
         eraserMode = false;
       };
@@ -1231,20 +1207,18 @@ function initializeIconArtEditor() {
     positioningImage.style.top = `${imageY}px`;
   }
 
-  // Paint button toggle (only visible for image mode)
   togglePaintBtn.onclick = () => {
     paintMode = !paintMode;
 
     if (paintMode) {
-      // Disable eraser if active
       if (eraserMode) {
         eraserMode = false;
-        eraserText.textContent = 'Eraser';
+        eraserText.textContent = chrome.i18n.getMessage('createIcon_eraser');
         toggleEraserBtn.style.background = '#f3f4f6';
         toggleEraserBtn.style.color = '#374151';
       }
 
-      paintText.textContent = 'Disable Paint';
+      paintText.textContent = chrome.i18n.getMessage('button_disablePaint');
       togglePaintBtn.style.background = '#10b981';
       togglePaintBtn.style.color = 'white';
       eraserCanvas.style.display = 'block';
@@ -1253,7 +1227,7 @@ function initializeIconArtEditor() {
       colorPalette.style.display = 'block';
       drawPaintedPixels();
     } else {
-      paintText.textContent = 'Paint';
+      paintText.textContent = chrome.i18n.getMessage('button_paint');
       togglePaintBtn.style.background = '#f3f4f6';
       togglePaintBtn.style.color = '#374151';
       eraserCanvas.style.display = 'none';
@@ -1263,19 +1237,17 @@ function initializeIconArtEditor() {
     }
   };
 
-  // Toggle eraser mode
   toggleEraserBtn.onclick = () => {
     eraserMode = !eraserMode;
     if (eraserMode) {
-      // Disable paint mode when eraser is active
       if (paintMode) {
         paintMode = false;
-        paintText.textContent = 'Paint';
+        paintText.textContent = chrome.i18n.getMessage('button_paint');
         togglePaintBtn.style.background = '#f3f4f6';
         togglePaintBtn.style.color = '#374151';
       }
 
-      eraserText.textContent = 'Disable Eraser';
+      eraserText.textContent = chrome.i18n.getMessage('createIcon_disableEraser');
       toggleEraserBtn.style.background = '#ef4444';
       toggleEraserBtn.style.color = 'white';
       eraserCanvas.style.display = 'block';
@@ -1284,7 +1256,7 @@ function initializeIconArtEditor() {
       colorPalette.style.display = 'none';
       drawErasedPixels(); // This will now also draw painted pixels
     } else {
-      eraserText.textContent = 'Eraser';
+      eraserText.textContent = chrome.i18n.getMessage('createIcon_eraser');
       toggleEraserBtn.style.background = '#f3f4f6';
       toggleEraserBtn.style.color = '#374151';
 
@@ -1305,13 +1277,11 @@ function initializeIconArtEditor() {
     }
   };
 
-  // Undo last action (combined for paint and erase)
   undoBtn.onclick = () => {
     if (actionHistory.length > 0) {
       const lastAction = actionHistory.pop();
 
       if (lastAction.type === 'stroke') {
-        // Undo a whole stroke (multiple pixels)
         for (let i = lastAction.actions.length - 1; i >= 0; i--) {
           const action = lastAction.actions[i];
           if (action.type === 'erase') {
@@ -1350,7 +1320,6 @@ function initializeIconArtEditor() {
   // Color picker handlers
   colorPicker.onchange = (e) => {
     selectedColor = e.target.value;
-    // Remove selection from all presets
     colorPresets.forEach(p => {
       p.classList.remove('selected');
       p.style.border = 'none';
@@ -1362,7 +1331,6 @@ function initializeIconArtEditor() {
       selectedColor = preset.dataset.color;
       colorPicker.value = selectedColor;
 
-      // Update selection visual
       colorPresets.forEach(p => {
         p.classList.remove('selected');
         p.style.border = 'none';
@@ -1372,14 +1340,12 @@ function initializeIconArtEditor() {
     };
   });
 
-  // Draw painted pixels
   function drawPaintedPixels() {
     const eraserCtx = eraserCanvas.getContext('2d');
     eraserCanvas.width = gridSize;
     eraserCanvas.height = gridSize;
     eraserCtx.clearRect(0, 0, gridSize, gridSize);
 
-    // First draw erased pixels as white
     erasedPixels.forEach(pixelKey => {
       const [px, py] = pixelKey.split(',').map(Number);
       const pixelSize = gridSize / 16;
@@ -1390,7 +1356,6 @@ function initializeIconArtEditor() {
       eraserCtx.fillRect(x, y, pixelSize, pixelSize);
     });
 
-    // Then draw painted pixels
     paintedPixels.forEach((color, pixelKey) => {
       const [px, py] = pixelKey.split(',').map(Number);
       const pixelSize = gridSize / 16;
@@ -1400,21 +1365,18 @@ function initializeIconArtEditor() {
       eraserCtx.fillStyle = color;
       eraserCtx.fillRect(x, y, pixelSize, pixelSize);
 
-      // Add subtle border
       eraserCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
       eraserCtx.lineWidth = 0.5;
       eraserCtx.strokeRect(x, y, pixelSize, pixelSize);
     });
   }
 
-  // Draw erased pixels (and painted pixels to keep them visible)
   function drawErasedPixels() {
     const eraserCtx = eraserCanvas.getContext('2d');
     eraserCanvas.width = gridSize;
     eraserCanvas.height = gridSize;
     eraserCtx.clearRect(0, 0, gridSize, gridSize);
 
-    // First draw painted pixels so they remain visible
     paintedPixels.forEach((color, pixelKey) => {
       const [px, py] = pixelKey.split(',').map(Number);
       const pixelSize = gridSize / 16;
@@ -1424,13 +1386,11 @@ function initializeIconArtEditor() {
       eraserCtx.fillStyle = color;
       eraserCtx.fillRect(x, y, pixelSize, pixelSize);
 
-      // Add subtle border
       eraserCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
       eraserCtx.lineWidth = 0.5;
       eraserCtx.strokeRect(x, y, pixelSize, pixelSize);
     });
 
-    // Then draw white squares for erased pixels
     eraserCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
 
     erasedPixels.forEach(pixelKey => {
@@ -1442,14 +1402,12 @@ function initializeIconArtEditor() {
       // Fill with white to show erased area
       eraserCtx.fillRect(x, y, pixelSize, pixelSize);
 
-      // Add subtle border for visibility
       eraserCtx.strokeStyle = 'rgba(200, 200, 200, 0.5)';
       eraserCtx.lineWidth = 0.5;
       eraserCtx.strokeRect(x, y, pixelSize, pixelSize);
     });
   }
 
-  // Helper function to paint/erase a pixel
   function processPixel(x, y, isNewStroke = false) {
     const pixelSize = gridSize / 16;
     const px = Math.floor(x / pixelSize);
@@ -1463,7 +1421,6 @@ function initializeIconArtEditor() {
       lastPaintedPixel = pixelKey;
 
       if (paintMode) {
-        // Paint mode
         const previousColor = paintedPixels.get(pixelKey) || null;
 
         // Only paint if it's not already the selected color
@@ -1471,21 +1428,17 @@ function initializeIconArtEditor() {
           paintedPixels.set(pixelKey, selectedColor);
           const action = { type: 'paint', pixelKey, previousColor, newColor: selectedColor };
           currentStrokeActions.push(action);
-          // Remove from erased if it was erased
           erasedPixels.delete(pixelKey);
           drawPaintedPixels();
         }
       } else if (eraserMode) {
         // Eraser mode
         if (!erasedPixels.has(pixelKey)) {
-          // Store previous paint color if there was one
           const previousPaint = paintedPixels.get(pixelKey) || null;
 
-          // Erase the pixel
           erasedPixels.add(pixelKey);
           const action = { type: 'erase', pixelKey, previousPaint };
           currentStrokeActions.push(action);
-          // Remove paint if it was painted
           paintedPixels.delete(pixelKey);
           drawErasedPixels();
         }
@@ -1528,7 +1481,6 @@ function initializeIconArtEditor() {
     isPainting = false;
     lastPaintedPixel = null;
 
-    // Add all actions from this stroke to the main history as a single undo-able group
     if (currentStrokeActions.length > 0) {
       if (currentStrokeActions.length === 1) {
         // Single pixel - add as single action
@@ -1548,7 +1500,6 @@ function initializeIconArtEditor() {
     isPainting = false;
     lastPaintedPixel = null;
 
-    // Save current stroke to history
     if (currentStrokeActions.length > 0) {
       if (currentStrokeActions.length === 1) {
         actionHistory.push(currentStrokeActions[0]);
@@ -1610,7 +1561,6 @@ function initializeIconArtEditor() {
       isPainting = false;
       lastPaintedPixel = null;
 
-      // Save current stroke to history
       if (currentStrokeActions.length > 0) {
         if (currentStrokeActions.length === 1) {
           actionHistory.push(currentStrokeActions[0]);
@@ -1754,7 +1704,6 @@ function initializeIconArtEditor() {
     };
   }
 
-  // Reset position
   document.getElementById('reset-position').onclick = () => {
     imageX = 0;
     imageY = 0;
@@ -1768,7 +1717,6 @@ function initializeIconArtEditor() {
       updateImagePosition();
     }
 
-    // Clear all editing
     erasedPixels.clear();
     paintedPixels.clear();
     actionHistory = [];
@@ -1786,7 +1734,6 @@ function initializeIconArtEditor() {
     if (!imageData && !isBlankCanvas) return;
 
     const previewCtx = previewCanvas.getContext('2d', { willReadFrequently: true });
-    // Clear with transparency
     previewCtx.clearRect(0, 0, 16, 16);
 
     // For blank canvas mode, just show the painted pixels
@@ -1798,13 +1745,11 @@ function initializeIconArtEditor() {
       previewCtx.imageSmoothingEnabled = false;
       previewCtx.drawImage(pixelatedCanvas, 0, 0, containerSize, containerSize, 0, 0, 16, 16);
     } else if (imageData) {
-      // Calculate the portion of the image that's in the grid
       const sourceX = (gridX - imageX) / imageScale;
       const sourceY = (gridY - imageY) / imageScale;
       const sourceWidth = gridSize / imageScale;
       const sourceHeight = gridSize / imageScale;
 
-      // Draw the cropped image to the 16x16 canvas
       previewCtx.drawImage(
         imageData,
         sourceX, sourceY, sourceWidth, sourceHeight,
@@ -1812,7 +1757,6 @@ function initializeIconArtEditor() {
       );
     }
 
-    // Process pixels to convert black to dark gray, apply erased pixels, and painted pixels
     const imageData16 = previewCtx.getImageData(0, 0, 16, 16);
     const data = imageData16.data;
 
@@ -1822,7 +1766,6 @@ function initializeIconArtEditor() {
       const py = Math.floor(pixelIndex / 16);
       const pixelKey = `${px},${py}`;
 
-      // Check for painted pixels first
       if (paintedPixels.has(pixelKey)) {
         const color = paintedPixels.get(pixelKey);
         const rgb = hexToRgb(color);
@@ -1857,15 +1800,13 @@ function initializeIconArtEditor() {
     document.getElementById('preview-section').style.display = 'block';
   };
 
-  // Upload icon to Yoto
   uploadIconBtn.onclick = async () => {
     if (!imageData && !isBlankCanvas) return;
 
     uploadIconBtn.disabled = true;
-    uploadIconBtn.textContent = 'Uploading...';
+    uploadIconBtn.textContent = chrome.i18n.getMessage('button_uploading');
 
     try {
-      // Create 16x16 canvas with transparent background
       const iconCanvas = document.createElement('canvas');
       iconCanvas.width = 16;
       iconCanvas.height = 16;
@@ -1882,13 +1823,11 @@ function initializeIconArtEditor() {
         iconCtx.imageSmoothingEnabled = false;
         iconCtx.drawImage(pixelatedCanvas, 0, 0, containerSize, containerSize, 0, 0, 16, 16);
       } else if (imageData) {
-        // Calculate the portion of the image that's in the grid
         const sourceX = (gridX - imageX) / imageScale;
         const sourceY = (gridY - imageY) / imageScale;
         const sourceWidth = gridSize / imageScale;
         const sourceHeight = gridSize / imageScale;
 
-        // Draw the cropped image
         iconCtx.drawImage(
           imageData,
           sourceX, sourceY, sourceWidth, sourceHeight,
@@ -1896,7 +1835,6 @@ function initializeIconArtEditor() {
         );
       }
 
-      // Process pixels to convert black to dark gray, apply erased pixels, and painted pixels
       const imageData16 = iconCtx.getImageData(0, 0, 16, 16);
       const data = imageData16.data;
 
@@ -1906,7 +1844,6 @@ function initializeIconArtEditor() {
         const py = Math.floor(pixelIndex / 16);
         const pixelKey = `${px},${py}`;
 
-        // Check for painted pixels first
         if (paintedPixels.has(pixelKey)) {
           const color = paintedPixels.get(pixelKey);
           const rgb = hexToRgb(color);
@@ -1938,9 +1875,7 @@ function initializeIconArtEditor() {
 
       iconCtx.putImageData(imageData16, 0, 0);
 
-      // Convert to blob
       iconCanvas.toBlob(async (blob) => {
-        // Send to background script to upload
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64 = reader.result.split(',')[1];
@@ -1955,10 +1890,9 @@ function initializeIconArtEditor() {
           });
 
           if (response && response.success) {
-            uploadIconBtn.textContent = 'Uploaded!';
+            uploadIconBtn.textContent = chrome.i18n.getMessage('button_uploaded');
             uploadIconBtn.style.background = '#10b981';
 
-            // Apply the icon to current tracks if on edit page
             const tracks = extractTracks();
             if (tracks.length > 0 && response.iconId) {
               await applyCustomIconToTracks(tracks, response.iconId);
@@ -1981,8 +1915,8 @@ function initializeIconArtEditor() {
               min-width: 300px;
             `;
             successNotice.innerHTML = `
-              <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">✓ Icon uploaded successfully!</div>
-              <div style="font-size: 14px; opacity: 0.95;">Please refresh the page to see your new icon.</div>
+              <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('notification_iconUploadedSuccess')}</div>
+              <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_pleaseRefreshPage')}</div>
             `;
             document.body.appendChild(successNotice);
 
@@ -1995,10 +1929,10 @@ function initializeIconArtEditor() {
             }, 6000);
           } else {
             console.error('Icon upload failed:', response?.error || 'Unknown error');
-            uploadIconBtn.textContent = 'Upload Failed';
+            uploadIconBtn.textContent = chrome.i18n.getMessage('button_uploadFailed');
             uploadIconBtn.style.background = '#ef4444';
             setTimeout(() => {
-              uploadIconBtn.textContent = 'Upload Icon to Yoto';
+              uploadIconBtn.textContent = chrome.i18n.getMessage('createIcon_uploadIconToYoto');
               uploadIconBtn.style.background = '#3b82f6';
               uploadIconBtn.disabled = false;
             }, 2000);
@@ -2008,10 +1942,10 @@ function initializeIconArtEditor() {
       }, 'image/png');
     } catch (error) {
       console.error('Error uploading icon:', error);
-      uploadIconBtn.textContent = 'Upload Failed';
+      uploadIconBtn.textContent = chrome.i18n.getMessage('button_uploadFailed');
       uploadIconBtn.style.background = '#ef4444';
       setTimeout(() => {
-        uploadIconBtn.textContent = 'Upload Icon to Yoto';
+        uploadIconBtn.textContent = chrome.i18n.getMessage('createIcon_uploadIconToYoto');
         uploadIconBtn.style.background = '#3b82f6';
         uploadIconBtn.disabled = false;
       }, 2000);
@@ -2066,7 +2000,6 @@ async function applyCustomIconToTracks(tracks, iconId) {
   }
   const cardId = urlMatch[1];
 
-  // Apply the custom icon to all tracks on the current card
   for (const track of tracks) {
     try {
       await chrome.runtime.sendMessage({
@@ -2174,7 +2107,7 @@ function createButton() {
     transition: background-color 0.2s;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   `;
-  generalOption.textContent = 'Track Title';
+  generalOption.textContent = chrome.i18n.getMessage('button_trackTitle');
   generalOption.onmouseenter = () => generalOption.style.backgroundColor = '#f3f4f6';
   generalOption.onmouseleave = () => generalOption.style.backgroundColor = 'transparent';
   
@@ -2193,7 +2126,7 @@ function createButton() {
     border-top: 1px solid #e5e7eb;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   `;
-  categoryOption.textContent = 'Category';
+  categoryOption.textContent = chrome.i18n.getMessage('button_category');
   categoryOption.onmouseenter = () => categoryOption.style.backgroundColor = '#f3f4f6';
   categoryOption.onmouseleave = () => categoryOption.style.backgroundColor = 'transparent';
   
@@ -2202,7 +2135,7 @@ function createButton() {
   
   button.innerHTML = `
     ${puzzlePieceIcon}
-    <span>Icon Match</span>
+    <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
   `;
   
   button.onmouseenter = () => {
@@ -2304,8 +2237,13 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
           if (apiTrack) {
             const trackIcon = apiTrack.display?.icon16x16 || apiTrack.icon16x16 || apiTrack.iconAudioId;
             if (trackIcon) {
-              hasIcon = true;
-              iconUrl = trackIcon;
+              const isDefaultIcon = trackIcon === 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q' ||
+                                    trackIcon === 'yoto:#public/icon.png' ||
+                                    trackIcon.includes('aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q');
+              if (!isDefaultIcon) {
+                hasIcon = true;
+                iconUrl = trackIcon;
+              }
             }
           }
         }
@@ -2322,8 +2260,10 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
           if (text === track.title) {
             const iconImg = element.querySelector('img');
             if (iconImg && iconImg.src) {
+              const isDefaultIcon = iconImg.src.includes('aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q');
               if (!iconImg.src.includes('data:image') &&
                   !iconImg.src.includes('placeholder') &&
+                  !isDefaultIcon &&
                   (iconImg.src.includes('yotocdn') ||
                    iconImg.src.includes('yoto') ||
                    iconImg.src.includes('icon'))) {
@@ -2345,13 +2285,12 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
     const continueBtn = document.getElementById('continue-icon-match');
     if (continueBtn) {
       continueBtn.disabled = selectedCount === 0;
-      continueBtn.textContent = 'Continue';
+      continueBtn.textContent = chrome.i18n.getMessage('button_continue');
       continueBtn.style.opacity = selectedCount === 0 ? '0.5' : '1';
       continueBtn.style.cursor = selectedCount === 0 ? 'not-allowed' : 'pointer';
     }
   };
 
-  // Add draggable functionality
   let isDragging = false;
   let currentX;
   let currentY;
@@ -2370,11 +2309,11 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
       border-bottom: 1px solid #e5e7eb;
     ">
       <h2 style="margin: 0; color: #1f2937; font-size: 20px; font-weight: 600;">
-        Select Tracks for Icon ${matchType === 'category' ? 'Category' : 'Match'}
+        ${matchType === 'category' ? chrome.i18n.getMessage('modal_selectTracksForIconCategory') : chrome.i18n.getMessage('modal_selectTracksForIconMatch')}
       </h2>
     </div>
     <p style="margin: 0 0 20px 0; color: #6b7280; font-size: 14px;">
-      Choose which tracks to search icons for.
+      ${chrome.i18n.getMessage('modal_chooseTracksToSearch')}
     </p>
 
     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
@@ -2386,7 +2325,7 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">Select All</button>
+      ">${chrome.i18n.getMessage('button_selectAll')}</button>
       <button id="select-none-tracks" style="
         padding: 8px 16px;
         background: #f3f4f6;
@@ -2395,7 +2334,7 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">Select None</button>
+      ">${chrome.i18n.getMessage('button_selectNone')}</button>
       <button id="select-without-icons" style="
         padding: 8px 16px;
         background: #3b82f6;
@@ -2404,7 +2343,7 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">Select Tracks Without Icons</button>
+      ">${chrome.i18n.getMessage('button_selectTracksWithoutIcons')}</button>
     </div>
 
     <div style="
@@ -2416,7 +2355,6 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
       background: #ffffff;
     ">
       ${tracksWithIcons.map((track, index) => {
-        // Get icon URL - use default if no icon
         const defaultIconUrl = chrome.runtime.getURL('assets/images/default-icon.png');
         let iconUrl = defaultIconUrl;
 
@@ -2531,7 +2469,7 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">Cancel</button>
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="continue-icon-match" style="
         padding: 10px 24px;
         background: #3b82f6;
@@ -2541,14 +2479,13 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Continue</button>
+      ">${chrome.i18n.getMessage('button_continue')}</button>
     </div>
   `;
 
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-  // Add drag functionality
   const header = document.getElementById('modal-header');
 
   function dragStart(e) {
@@ -2646,7 +2583,7 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
       button.disabled = false;
       button.innerHTML = `
         ${puzzlePieceIcon}
-        <span>Icon Match</span>
+        <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
       `;
       button.style.opacity = '1';
     }
@@ -2676,13 +2613,13 @@ async function handleIconMatch(matchType) {
     if (!authCached) {
       button.innerHTML = `
         ${puzzlePieceIcon}
-        <span>Authorizing...</span>
+        <span>${chrome.i18n.getMessage('button_authorizing')}</span>
       `;
       chrome.runtime.sendMessage({ action: 'START_AUTH' });
       setTimeout(() => {
         button.innerHTML = `
           ${puzzlePieceIcon}
-          <span>Icon Match</span>
+          <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
         `;
         authCached = null; // Invalidate cache
       }, 2000);
@@ -2691,7 +2628,7 @@ async function handleIconMatch(matchType) {
       button.disabled = true;
       button.innerHTML = `
         ${puzzlePieceIcon}
-        <span>Verifying access...</span>
+        <span>${chrome.i18n.getMessage('button_verifyingAccess')}</span>
       `;
       button.style.opacity = '0.7';
 
@@ -2699,11 +2636,11 @@ async function handleIconMatch(matchType) {
       const cardId = urlMatch ? urlMatch[1] : null;
 
       if (!cardId) {
-        alert('Could not identify card ID from URL');
+        alert(chrome.i18n.getMessage('error_couldNotIdentifyCardIdFromUrl'));
         button.disabled = false;
         button.innerHTML = `
           ${puzzlePieceIcon}
-          <span>Icon Match</span>
+          <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
         `;
         button.style.opacity = '1';
         return;
@@ -2717,17 +2654,17 @@ async function handleIconMatch(matchType) {
       if (verifyResponse.needsAuth) {
         button.innerHTML = `
           ${puzzlePieceIcon}
-          <span>Re-authenticating...</span>
+          <span>${chrome.i18n.getMessage('button_reAuthenticating')}</span>
         `;
 
         const authResult = await chrome.runtime.sendMessage({ action: 'START_AUTH' });
 
         if (!authResult.authenticated) {
-          alert('Please authenticate to use icon matching');
+          alert(chrome.i18n.getMessage('notification_authRequiredForIconMatch'));
           button.disabled = false;
           button.innerHTML = `
             ${puzzlePieceIcon}
-            <span>Icon Match</span>
+            <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
           `;
           button.style.opacity = '1';
           return;
@@ -2738,7 +2675,7 @@ async function handleIconMatch(matchType) {
         button.disabled = false;
         button.innerHTML = `
           ${puzzlePieceIcon}
-          <span>Icon Match</span>
+          <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
         `;
         button.style.opacity = '1';
         return;
@@ -2746,7 +2683,7 @@ async function handleIconMatch(matchType) {
 
       button.innerHTML = `
         ${puzzlePieceIcon}
-        <span>Fetching content...</span>
+        <span>${chrome.i18n.getMessage('button_fetchingContent')}</span>
       `;
       
       const playlistNameInput = document.querySelector('input[type="text"]');
@@ -2762,9 +2699,9 @@ async function handleIconMatch(matchType) {
       if (contentResponse.error) {
         if (contentResponse.error.includes('403')) {
         } else if (contentResponse.error.includes('401')) {
-          alert('Authentication required. Please refresh the page and try again.');
+          alert(chrome.i18n.getMessage('error_authRequiredRefresh'));
           button.disabled = false;
-          button.innerHTML = `${puzzlePieceIcon}<span>Icon Match</span>`;
+          button.innerHTML = `${puzzlePieceIcon}<span>${chrome.i18n.getMessage('button_iconMatch')}</span>`;
           button.style.opacity = '1';
           return;
         } else {
@@ -2781,11 +2718,14 @@ async function handleIconMatch(matchType) {
             if (chapter.tracks && Array.isArray(chapter.tracks)) {
               chapter.tracks.forEach((track, trackIndex) => {
                 if (track.title) {
-                  // Check for icon in display object or at track level
-                  const hasIcon = !!(track.display?.icon16x16 || track.icon16x16 || track.iconAudioId);
+                  const iconValue = track.display?.icon16x16 || track.icon16x16 || track.iconAudioId;
+                  const isDefaultIcon = iconValue && (
+                    iconValue === 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q' ||
+                    iconValue === 'yoto:#public/icon.png' ||
+                    iconValue.includes('aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q')
+                  );
+                  const hasIcon = !!(iconValue && !isDefaultIcon);
                   let iconUrl = track.display?.icon16x16 || track.icon16x16 || null;
-
-                  // Keep iconUrl as is - we'll convert it when displaying
 
                   tracks.push({
                     id: track.key || `track-${chapterIndex}-${trackIndex}`,
@@ -2890,11 +2830,11 @@ async function handleIconMatch(matchType) {
       const actualTracks = tracks.filter(t => t.type === 'track' || (!t.type && t.title && t.title !== playlistTitle));
 
       if (actualTracks.length === 0) {
-        alert('No tracks found in this card. Please add some tracks first.');
+        alert(chrome.i18n.getMessage('error_noTracksFound'));
         button.disabled = false;
         button.innerHTML = `
           ${puzzlePieceIcon}
-          <span>Icon Match</span>
+          <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
         `;
         button.style.opacity = '1';
         return;
@@ -2905,7 +2845,7 @@ async function handleIconMatch(matchType) {
           button.disabled = false;
           button.innerHTML = `
             ${puzzlePieceIcon}
-            <span>Icon Match</span>
+            <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
           `;
           button.style.opacity = '1';
           return;
@@ -2916,7 +2856,7 @@ async function handleIconMatch(matchType) {
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="4"/>
             <path d="M12 2a10 10 0 0 1 0 20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
           </svg>
-          <span>Matching ${selectedTracks.length} track${selectedTracks.length !== 1 ? 's' : ''}...</span>
+          <span>${chrome.i18n.getMessage('status_matchingTracks', [selectedTracks.length.toString(), selectedTracks.length !== 1 ? 's' : ''])}</span>
         `;
 
         if (!document.querySelector('#yoto-magic-spinner-style')) {
@@ -2957,22 +2897,21 @@ async function handleIconMatch(matchType) {
           if (response.matches && response.matches.length > 0) {
             showIconPreview(response.matches);
           } else {
-            alert('No icon matches found. Try adding more descriptive track titles.');
+            alert(chrome.i18n.getMessage('notification_noIconMatchesFound'));
           }
         } catch (error) {
-          alert('Error matching icons. Please try again.');
+          alert(chrome.i18n.getMessage('notification_errorMatchingIcons'));
         }
 
         button.disabled = false;
         button.innerHTML = `
           ${puzzlePieceIcon}
-          <span>Icon Match</span>
+          <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
         `;
         button.style.opacity = '1';
       }, matchType, contentResponse, button);
     }
   } else if (matchType === 'category') {
-    // Handle category match
     await handleCategoryIconMatch(button);
   }
 }
@@ -2990,7 +2929,6 @@ function checkAndInjectButton() {
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'flex gap-2 mt-2';
 
-    // Add both Icon Match and Icon Art buttons on edit page
     const iconMatchButton = createButton();
     const iconArtButton = createIconArtButton();
     buttonContainer.appendChild(iconMatchButton);
@@ -3011,7 +2949,6 @@ function checkAndInjectButton() {
       const buttonContainer = document.createElement('div');
       buttonContainer.className = 'flex gap-2 mt-4';
 
-      // Add both Icon Match and Icon Art buttons on edit page
       const iconMatchButton = createButton();
       const iconArtButton = createIconArtButton();
       buttonContainer.appendChild(iconMatchButton);
@@ -3099,7 +3036,7 @@ async function handleImportClick() {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
         <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <span>Authorizing...</span>
+      <span>${chrome.i18n.getMessage('button_authorizing')}</span>
     `;
     chrome.runtime.sendMessage({ action: 'START_AUTH' });
     setTimeout(() => {
@@ -3118,7 +3055,7 @@ async function handleImportClick() {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
     
-    let folderName = 'Imported Playlist';
+    let folderName = chrome.i18n.getMessage('label_importedPlaylist');
     if (files[0] && files[0].webkitRelativePath) {
       const pathParts = files[0].webkitRelativePath.split('/');
       if (pathParts.length > 0) {
@@ -3142,22 +3079,20 @@ async function handleImportClick() {
         return numA - numB;
       });
     
-    // Find cover image (non-numeric filename)
     const coverImage = imageFiles.find(f => !/^\d+\.(png|jpg|jpeg|gif|webp)$/i.test(f.name.split('/').pop()));
     
     if (audioFiles.length === 0) {
-      alert('No audio files found in audio_files folder');
+      alert(chrome.i18n.getMessage('error_noAudioFilesInFolder'));
       return;
     }
     
-    // Show import modal
     showImportModal(audioFiles, trackIcons, coverImage, folderName);
   };
   
   input.click();
 }
 
-function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Imported Playlist') {
+function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrome.i18n.getMessage('label_importedPlaylist')) {
   const existing = document.querySelector('#yoto-import-modal');
   if (existing) existing.remove();
   
@@ -3190,7 +3125,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
   `;
   
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Import Playlist</h2>
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('modal_importPlaylistTitle')}</h2>
     <div style="margin-bottom: 20px; color: #666;">
       <p>Ready to import:</p>
       <ul style="margin: 10px 0; padding-left: 20px;">
@@ -3234,7 +3169,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Start Import</button>
+      ">${chrome.i18n.getMessage('button_startImport')}</button>
     </div>
   `;
   
@@ -3255,11 +3190,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     e.stopPropagation();
   };
   
-  // Event handlers
   document.querySelector('#cancel-import').onclick = () => modal.remove();
   
   document.querySelector('#start-import').onclick = async () => {
-    const playlistName = document.querySelector('#import-playlist-name').value || 'Imported Playlist';
+    const playlistName = document.querySelector('#import-playlist-name').value || chrome.i18n.getMessage('label_importedPlaylist');
     const progressDiv = document.querySelector('#import-progress');
     const progressBar = document.querySelector('#import-progress-bar');
     const statusText = document.querySelector('#import-status');
@@ -3267,7 +3201,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
     
     progressDiv.style.display = 'block';
     startButton.disabled = true;
-    startButton.textContent = 'Importing...';
+    startButton.textContent = chrome.i18n.getMessage('button_importing');
     
     try {
       const urlMatch = window.location.href.match(/\/card\/([^\/]+)/);
@@ -3277,10 +3211,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         cardId = cardId.split('/')[0];
       }
       
-      // Step 1: Upload cover image (if any)
       let coverUrl = null;
       if (coverImage) {
-        statusText.textContent = 'Uploading cover image...';
+        statusText.textContent = chrome.i18n.getMessage('status_uploadingCoverImage');
         progressBar.style.width = '5%';
         
         try {
@@ -3298,8 +3231,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         }
       }
       
-      // Step 2: Upload icons in parallel batches
-      statusText.textContent = 'Uploading icons...';
+      statusText.textContent = chrome.i18n.getMessage('status_uploadingIcons');
       progressBar.style.width = '10%';
 
       const iconIds = [];
@@ -3311,7 +3243,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
 
       for (let i = 0; i < trackIcons.length; i += BATCH_SIZE) {
         const batch = iconBase64Results.slice(i, Math.min(i + BATCH_SIZE, trackIcons.length));
-        statusText.textContent = `Uploading icons ${i + 1}-${Math.min(i + BATCH_SIZE, trackIcons.length)} of ${trackIcons.length}...`;
+        statusText.textContent = chrome.i18n.getMessage('status_uploadingIconsProgress', [(i + 1).toString(), Math.min(i + BATCH_SIZE, trackIcons.length).toString(), trackIcons.length.toString()]);
 
         const batchPromises = batch.map(async (iconBase64, batchIndex) => {
           try {
@@ -3340,8 +3272,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
         progressBar.style.width = `${10 + (30 * Math.min(i + BATCH_SIZE, trackIcons.length) / trackIcons.length)}%`;
       }
       
-      // Step 3: Upload and transcode audio files in parallel batches
-      statusText.textContent = 'Processing audio files...';
+      statusText.textContent = chrome.i18n.getMessage('status_processingAudioFiles');
       progressBar.style.width = '40%';
 
       const audioTracks = [];
@@ -3350,13 +3281,11 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       // Pre-convert audio files to base64 in smaller batches to manage memory
       for (let i = 0; i < audioFiles.length; i += AUDIO_BATCH_SIZE) {
         const audioBatch = audioFiles.slice(i, Math.min(i + AUDIO_BATCH_SIZE, audioFiles.length));
-        statusText.textContent = `Processing audio ${i + 1}-${Math.min(i + AUDIO_BATCH_SIZE, audioFiles.length)} of ${audioFiles.length}...`;
+        statusText.textContent = chrome.i18n.getMessage('status_processingAudioProgress', [(i + 1).toString(), Math.min(i + AUDIO_BATCH_SIZE, audioFiles.length).toString(), audioFiles.length.toString()]);
 
-        // Convert batch to base64 in parallel
         const audioBase64Promises = audioBatch.map(file => fileToBase64(file));
         const audioBase64Results = await Promise.all(audioBase64Promises);
 
-        // Upload batch in parallel
         const uploadPromises = audioBase64Results.map(async (audioBase64, batchIndex) => {
           const fileIndex = i + batchIndex;
           try {
@@ -3388,15 +3317,13 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
 
         const results = await Promise.all(uploadPromises);
 
-        // Sort results by index to maintain order
         results.sort((a, b) => a.index - b.index);
         results.forEach(result => audioTracks.push(result.track));
 
         progressBar.style.width = `${40 + (40 * Math.min(i + AUDIO_BATCH_SIZE, audioFiles.length) / audioFiles.length)}%`;
       }
       
-      // Step 3: Create playlist content
-      statusText.textContent = 'Creating playlist...';
+      statusText.textContent = chrome.i18n.getMessage('status_creatingPlaylist');
       progressBar.style.width = '80%';
       
       const createResponse = await chrome.runtime.sendMessage({
@@ -3413,11 +3340,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       }
       
       progressBar.style.width = '100%';
-      statusText.textContent = 'Import complete!';
+      statusText.textContent = chrome.i18n.getMessage('status_importComplete');
       
-      // Show success message with auto-refresh
       setTimeout(() => {
-        // Clear modal but keep it positioned
         modal.innerHTML = '';
         modal.style.cssText = `
           position: fixed;
@@ -3459,7 +3384,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
               </svg>
             </div>
-            <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Import Complete!</h2>
+            <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('modal_importComplete')}</h2>
             <p style="margin: 0 0 20px 0; color: #666; font-size: 16px;">
               <strong>"${playlistName}"</strong> has been created
             </p>
@@ -3517,18 +3442,16 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = 'Impo
       }, 500);
       
     } catch (error) {
-      alert('Import failed: ' + error.message);
+      alert(chrome.i18n.getMessage('notification_importFailedMessage', [error.message]));
       modal.remove();
     }
   };
   
-  // Helper function to convert File to base64 - optimized version
   async function fileToBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         const arrayBuffer = reader.result;
-        // Convert ArrayBuffer to base64 string for message passing
         const bytes = new Uint8Array(arrayBuffer);
 
         // Use faster base64 encoding for larger files
@@ -3615,11 +3538,10 @@ async function handleCategoryIconMatch(button) {
   const cardId = urlMatch ? urlMatch[1] : null;
 
   if (!cardId) {
-    alert('Could not identify card ID from URL');
+    alert(chrome.i18n.getMessage('error_couldNotIdentifyCardIdFromUrl'));
     return;
   }
 
-  // Get tracks from API like in the Title workflow
   const contentResponse = await chrome.runtime.sendMessage({
     action: 'GET_CARD_CONTENT',
     cardId: cardId
@@ -3632,7 +3554,13 @@ async function handleCategoryIconMatch(button) {
       if (chapter.tracks && Array.isArray(chapter.tracks)) {
         chapter.tracks.forEach((track, trackIndex) => {
           if (track.title) {
-            const hasIcon = !!(track.display?.icon16x16 || track.icon16x16 || track.iconAudioId);
+            const iconValue = track.display?.icon16x16 || track.icon16x16 || track.iconAudioId;
+            const isDefaultIcon = iconValue && (
+              iconValue === 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q' ||
+              iconValue === 'yoto:#public/icon.png' ||
+              iconValue.includes('aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q')
+            );
+            const hasIcon = !!(iconValue && !isDefaultIcon);
             let iconUrl = track.display?.icon16x16 || track.icon16x16 || null;
 
             tracks.push({
@@ -3654,14 +3582,14 @@ async function handleCategoryIconMatch(button) {
   const actualTracks = tracks.filter(t => t.type === 'track');
 
   if (actualTracks.length === 0) {
-    alert('No tracks found in this card. Please add some tracks first.');
+    alert(chrome.i18n.getMessage('error_noTracksFound'));
 
     if (button) {
       const puzzlePieceIcon = button.querySelector('svg')?.outerHTML || '';
       button.disabled = false;
       button.innerHTML = `
         ${puzzlePieceIcon}
-        <span>Icon Match</span>
+        <span>${chrome.i18n.getMessage('button_iconMatch')}</span>
       `;
       button.style.opacity = '1';
     }
@@ -3705,9 +3633,29 @@ function showCategorySelectionModal(cardId, selectedTracks) {
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   `;
   
-  // Common categories for icons
-  const categories = [ 'Animals', 'Art', 'Buildings', 'Chapters', 'Emotions', 'Fantasy', 'Food', 'Games', 'Holiday', 'Music', 'Nature', 'School', 'Space', 'Science', 'Sports', 'Tools', 'Transportation', 'Weather'];
+  // Common categories for icons - value is English (for API), label is localized
+  const categories = [
+    { value: 'animals', label: chrome.i18n.getMessage('category_animals') },
+    { value: 'art', label: chrome.i18n.getMessage('category_art') },
+    { value: 'buildings', label: chrome.i18n.getMessage('category_buildings') },
+    { value: 'chapters', label: chrome.i18n.getMessage('category_chapters') },
+    { value: 'emotions', label: chrome.i18n.getMessage('category_emotions') },
+    { value: 'fantasy', label: chrome.i18n.getMessage('category_fantasy') },
+    { value: 'food', label: chrome.i18n.getMessage('category_food') },
+    { value: 'games', label: chrome.i18n.getMessage('category_games') },
+    { value: 'holiday', label: chrome.i18n.getMessage('category_holiday') },
+    { value: 'music', label: chrome.i18n.getMessage('category_music') },
+    { value: 'nature', label: chrome.i18n.getMessage('category_nature') },
+    { value: 'school', label: chrome.i18n.getMessage('category_school') },
+    { value: 'space', label: chrome.i18n.getMessage('category_space') },
+    { value: 'science', label: chrome.i18n.getMessage('category_science') },
+    { value: 'sports', label: chrome.i18n.getMessage('category_sports') },
+    { value: 'tools', label: chrome.i18n.getMessage('category_tools') },
+    { value: 'transportation', label: chrome.i18n.getMessage('category_transportation') },
+    { value: 'weather', label: chrome.i18n.getMessage('category_weather') }
+  ];
 
+  const plural = trackCount !== 1 ? 's' : '';
   content.innerHTML = `
     <style>
       @keyframes spin {
@@ -3715,14 +3663,14 @@ function showCategorySelectionModal(cardId, selectedTracks) {
         100% { transform: rotate(360deg); }
       }
     </style>
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Category Icon Match</h2>
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('modal_categoryIconMatch')}</h2>
     <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
-      Select a category to find icons for your ${trackCount} track${trackCount !== 1 ? 's' : ''}
+      ${chrome.i18n.getMessage('modal_categoryDescription', [trackCount.toString(), plural])}
     </p>
-    
+
     <div style="margin-bottom: 20px;">
       <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-        Choose a category:
+        ${chrome.i18n.getMessage('modal_chooseCategory')}
       </label>
       <select id="category-select" style="
         width: 100%;
@@ -3731,16 +3679,16 @@ function showCategorySelectionModal(cardId, selectedTracks) {
         border-radius: 6px;
         font-size: 14px;
       ">
-        <option value="">Select a category...</option>
-        ${categories.map(cat => `<option value="${cat.toLowerCase()}">${cat}</option>`).join('')}
+        <option value="">${chrome.i18n.getMessage('modal_selectCategory')}</option>
+        ${categories.map(cat => `<option value="${cat.value}">${cat.label}</option>`).join('')}
       </select>
     </div>
-    
+
     <div style="margin-bottom: 20px;">
       <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-        Or enter a custom category:
+        ${chrome.i18n.getMessage('modal_customCategory')}
       </label>
-      <input type="text" id="custom-category" placeholder="e.g., dinosaurs, robots, fairy tales" style="
+      <input type="text" id="custom-category" placeholder="${chrome.i18n.getMessage('modal_customCategoryPlaceholder')}" style="
         width: 100%;
         padding: 10px;
         border: 1px solid #d1d5db;
@@ -3748,7 +3696,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
         font-size: 14px;
       ">
     </div>
-    
+
     <div style="display: flex; gap: 12px; justify-content: flex-end;">
       <button id="category-cancel" style="
         padding: 10px 20px;
@@ -3758,7 +3706,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Cancel</button>
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="category-search" style="
         padding: 10px 20px;
         background: #3b82f6;
@@ -3768,7 +3716,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">Search Icons</button>
+      ">${chrome.i18n.getMessage('button_search')} Icons</button>
     </div>
   `;
   
@@ -3808,7 +3756,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
     const category = customCategory.value || categorySelect.value;
     
     if (!category) {
-      alert('Please select or enter a category');
+      alert(chrome.i18n.getMessage('notification_selectOrEnterCategory'));
       return;
     }
     
@@ -3843,7 +3791,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
     }
     
     if (!searchResponse.icons || searchResponse.icons.length === 0) {
-      alert(`No icons found for category "${category}". Please try another category.`);
+      alert(`${chrome.i18n.getMessage('modal_noIconsFound')} for category "${category}". Please try another category.`);
       searchBtn.innerHTML = originalBtnContent;
       searchBtn.disabled = false;
       return;
@@ -4030,7 +3978,7 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
     if (selectedIcons.length === 0) return;
     
     const applyBtn = document.getElementById('icon-apply');
-    applyBtn.textContent = 'Applying...';
+    applyBtn.textContent = chrome.i18n.getMessage('button_applying');
     applyBtn.disabled = true;
     
     const result = await chrome.runtime.sendMessage({
@@ -4041,9 +3989,8 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
     });
     
     if (result.error) {
-      alert('Error applying icons: ' + result.error);
+      alert(chrome.i18n.getMessage('error_failedToApplyIcons', [result.error]));
     } else {
-      // Calculate the actual number of unique icons applied (capped at track count)
       const iconsApplied = Math.min(selectedIcons.length, trackCount);
       
       const successNotice = document.createElement('div');
@@ -4052,7 +3999,7 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        background: #10b981;
+        background: #3b82f6;
         color: white;
         padding: 30px 40px;
         border-radius: 12px;
@@ -4062,10 +4009,14 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
         text-align: center;
         min-width: 300px;
       `;
+
+      const iconPlural = iconsApplied !== 1 ? 's' : '';
+      const trackPlural = trackCount !== 1 ? 's' : '';
+
       successNotice.innerHTML = `
-        <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">✓ Icons applied successfully!</div>
-        <div style="font-size: 14px; opacity: 0.95;">Applied ${iconsApplied} icon${iconsApplied !== 1 ? 's' : ''} to ${trackCount} track${trackCount !== 1 ? 's' : ''}</div>
-        <div style="font-size: 14px; opacity: 0.95; margin-top: 10px;">Please refresh the page to see your changes.</div>
+        <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('notification_iconsAppliedSuccessfully')}</div>
+        <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_appliedIconsToTracks', [iconsApplied.toString(), iconPlural, trackCount.toString(), trackPlural])}</div>
+        <div style="font-size: 14px; opacity: 0.95; margin-top: 10px;">${chrome.i18n.getMessage('notification_pleaseRefreshPage')}</div>
       `;
 
       modal.remove();

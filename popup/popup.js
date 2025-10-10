@@ -1,4 +1,18 @@
+// Initialize i18n translations
+function initializeI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(element => {
+    const messageKey = element.getAttribute('data-i18n');
+    const message = chrome.i18n.getMessage(messageKey);
+    if (message) {
+      element.textContent = message;
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
+  // Initialize translations first
+  initializeI18n();
+
   const goToYotoButton = document.getElementById('go-to-yoto');
   const manageExtensionButton = document.getElementById('manage-extension');
   const signOutButton = document.getElementById('sign-out');
@@ -9,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   const batteryModal = document.getElementById('battery-modal');
   const batteryContent = document.getElementById('battery-content');
   const closeModal = document.querySelector('.close-modal');
-  
+
   // Check battery levels and update icon
   async function checkBatteryLevels() {
     try {
@@ -46,9 +60,9 @@ document.addEventListener('DOMContentLoaded', async function() {
         authStatus.className = 'auth-status authenticated';
         // Show user email if available, otherwise just show authenticated
         if (response.userEmail) {
-          authText.innerHTML = `Authenticated with Yoto<br><span style="font-size: 11px; opacity: 0.8;">${response.userEmail}</span>`;
+          authText.innerHTML = `${chrome.i18n.getMessage("status_authenticated")}<br><span style="font-size: 11px; opacity: 0.8;">${response.userEmail}</span>`;
         } else {
-          authText.textContent = 'Authenticated with Yoto';
+          authText.textContent = chrome.i18n.getMessage('status_authenticated');
         }
         authButton.style.display = 'none';
         signOutButton.style.display = 'block';
@@ -56,14 +70,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         checkBatteryLevels();
       } else {
         authStatus.className = 'auth-status not-authenticated';
-        authText.textContent = 'Not authenticated';
+        authText.textContent = chrome.i18n.getMessage('status_notAuthenticated');
         authButton.style.display = 'block';
         signOutButton.style.display = 'none';
         batteryButton.style.display = 'none';
       }
     } catch (error) {
       authStatus.className = 'auth-status not-authenticated';
-      authText.textContent = 'Authentication status unknown';
+      authText.textContent = chrome.i18n.getMessage('status_authStatusUnknown');
       authButton.style.display = 'block';
       signOutButton.style.display = 'none';
       batteryButton.style.display = 'none';
@@ -76,37 +90,37 @@ document.addEventListener('DOMContentLoaded', async function() {
   // Auth button handler
   authButton.addEventListener('click', async function() {
     authButton.disabled = true;
-    authButton.textContent = 'Authenticating...';
-    
+    authButton.textContent = chrome.i18n.getMessage('status_authenticating');
+
     try {
       // Request interactive authentication
       const result = await chrome.runtime.sendMessage({ action: 'START_AUTH_INTERACTIVE' });
-      
+
       if (result.success) {
         await checkAuthStatus();
-        
+
         // Notify content scripts about auth status change
-        chrome.runtime.sendMessage({ 
-          action: 'BROADCAST_AUTH_STATUS', 
-          authenticated: true 
+        chrome.runtime.sendMessage({
+          action: 'BROADCAST_AUTH_STATUS',
+          authenticated: true
         });
       } else if (result.cancelled) {
-        authButton.textContent = 'Sign in with Yoto';
+        authButton.textContent = chrome.i18n.getMessage('popup_signIn');
         authButton.disabled = false;
       } else {
-        authButton.textContent = 'Authentication failed - Try again';
+        authButton.textContent = chrome.i18n.getMessage('button_tryAgain');
         authButton.disabled = false;
-        
+
         setTimeout(() => {
-          authButton.textContent = 'Sign in with Yoto';
+          authButton.textContent = chrome.i18n.getMessage('popup_signIn');
         }, 3000);
       }
     } catch (error) {
-      authButton.textContent = 'Error - Try again';
+      authButton.textContent = chrome.i18n.getMessage('button_tryAgain');
       authButton.disabled = false;
-      
+
       setTimeout(() => {
-        authButton.textContent = 'Sign in with Yoto';
+        authButton.textContent = chrome.i18n.getMessage('popup_signIn');
       }, 3000);
     }
   });
@@ -128,32 +142,32 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (signOutButton) {
     signOutButton.addEventListener('click', async function() {
       signOutButton.disabled = true;
-      signOutButton.textContent = 'Signing out...';
+      signOutButton.textContent = chrome.i18n.getMessage('button_signingOut');
 
       try {
         const result = await chrome.runtime.sendMessage({ action: 'CLEAR_AUTH' });
 
         if (result.success) {
           authStatus.className = 'auth-status not-authenticated';
-          authText.textContent = 'Not authenticated';
+          authText.textContent = chrome.i18n.getMessage('status_notAuthenticated');
           authButton.style.display = 'block';
           signOutButton.style.display = 'none';
-          signOutButton.textContent = 'Sign Out';
+          signOutButton.textContent = chrome.i18n.getMessage('popup_signOut');
           signOutButton.disabled = false;
         } else {
-          signOutButton.textContent = 'Error - Try again';
+          signOutButton.textContent = chrome.i18n.getMessage('button_errorTryAgain');
           signOutButton.disabled = false;
 
           setTimeout(() => {
-            signOutButton.textContent = 'Sign Out';
+            signOutButton.textContent = chrome.i18n.getMessage('popup_signOut');
           }, 2000);
         }
       } catch (error) {
-        signOutButton.textContent = 'Error - Try again';
+        signOutButton.textContent = chrome.i18n.getMessage('button_errorTryAgain');
         signOutButton.disabled = false;
 
         setTimeout(() => {
-          signOutButton.textContent = 'Sign Out';
+          signOutButton.textContent = chrome.i18n.getMessage('popup_signOut');
         }, 2000);
       }
     });
@@ -163,7 +177,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (batteryButton) {
     batteryButton.addEventListener('click', async function() {
       batteryModal.style.display = 'flex';
-      batteryContent.innerHTML = '<div class="loading">Loading device information...</div>';
+      batteryContent.innerHTML = `<div class="loading">${chrome.i18n.getMessage('popup_loadingDeviceInfo')}</div>`;
 
       try {
         const response = await chrome.runtime.sendMessage({ action: 'GET_BATTERY_STATUS' });
@@ -183,10 +197,10 @@ document.addEventListener('DOMContentLoaded', async function() {
           let html = '';
 
           const familyDisplayNames = {
-            'v2': 'Yoto Player (V2)',
-            'v3': 'Yoto Player (V3)',
-            'mini': 'Yoto Mini',
-            'Unknown': 'Other Devices'
+            'v2': chrome.i18n.getMessage('device_yotoPlayerV2'),
+            'v3': chrome.i18n.getMessage('device_yotoPlayerV3'),
+            'mini': chrome.i18n.getMessage('device_yotoMini'),
+            'Unknown': chrome.i18n.getMessage('device_otherDevices')
           };
 
           Object.keys(devicesByFamily).sort().forEach(family => {
@@ -208,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
               html += `
                 <div class="device-item">
-                  <div class="device-name">${device.name || 'Unknown Device'}</div>
+                  <div class="device-name">${device.name || chrome.i18n.getMessage('device_unknownDevice')}</div>
                   <div class="battery-info">
                     <div class="battery-bar">
                       <div class="battery-fill ${batteryClass}" style="width: ${batteryLevel}%"></div>
@@ -216,8 +230,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                     <span class="battery-percent">${batteryLevel}%</span>
                   </div>
                   <div class="device-status">
-                    ${isCharging ? '<span class="status-item charging-indicator">⚡ Charging</span>' : ''}
-                    ${!isOnline ? '<span class="status-item offline-indicator">• Offline</span>' : '<span class="status-item">• Online</span>'}
+                    ${isCharging ? `<span class="status-item charging-indicator">⚡ ${chrome.i18n.getMessage('label_charging')}</span>` : ''}
+                    ${!isOnline ? `<span class="status-item offline-indicator">• ${chrome.i18n.getMessage('label_offline')}</span>` : `<span class="status-item">• ${chrome.i18n.getMessage('label_online')}</span>`}
                   </div>
                 </div>
               `;
@@ -246,10 +260,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
           }
         } else {
-          batteryContent.innerHTML = '<div class="error-message">No devices found. Make sure your Yoto devices are connected to your account.</div>';
+          batteryContent.innerHTML = `<div class="error-message">${chrome.i18n.getMessage('label_noDevicesFound')}</div>`;
         }
       } catch (error) {
-        batteryContent.innerHTML = '<div class="error-message">Failed to load device information. Please try again.</div>';
+        batteryContent.innerHTML = `<div class="error-message">${chrome.i18n.getMessage('label_failedToLoadDeviceInfo')}</div>`;
       }
     });
   }

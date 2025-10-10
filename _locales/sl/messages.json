@@ -1,0 +1,2192 @@
+{
+  "button_applyIcons": {
+    "message": "Uporabi ikone",
+    "description": "Button to apply selected icons"
+  },
+  "button_applying": {
+    "message": "Uporablja se...",
+    "description": "Button state while applying"
+  },
+  "button_authenticate": {
+    "message": "Preveri pristnost zdaj",
+    "description": "Button to authenticate"
+  },
+  "button_authenticateNow": {
+    "message": "Preveri pristnost",
+    "description": "Auth banner button text after cancelled authentication"
+  },
+  "button_authenticating": {
+    "message": "Preverjanje pristnosti...",
+    "description": "Button state while authenticating"
+  },
+  "button_authorizing": {
+    "message": "Avtorizacija...",
+    "description": "Button state while authorizing"
+  },
+  "button_bulkIconMatch": {
+    "message": "Množično ujemanje ikon",
+    "description": "Button to match icons in bulk"
+  },
+  "button_bulkImport": {
+    "message": "Množični uvoz",
+    "description": "Button to perform bulk import of multiple playlists"
+  },
+  "button_cancel": {
+    "message": "Prekliči",
+    "description": "Cancel button"
+  },
+  "button_category": {
+    "message": "Kategorija",
+    "description": "Dropdown option for category search"
+  },
+  "button_close": {
+    "message": "Zapri",
+    "description": "Close button"
+  },
+  "button_continue": {
+    "message": "Nadaljuj",
+    "description": "Continue button"
+  },
+  "button_createIcon": {
+    "message": "Ustvarite ikono",
+    "description": "Button to create custom icon"
+  },
+  "button_deselectAll": {
+    "message": "Prekliči izbor vsega",
+    "description": "Deselect all checkbox button"
+  },
+  "button_disablePaint": {
+    "message": "Onemogoči barvanje",
+    "description": "Button to disable paint mode"
+  },
+  "button_errorTryAgain": {
+    "message": "Napaka – poskusi znova",
+    "description": "Button state when error occurs"
+  },
+  "button_fetchingContent": {
+    "message": "Prenos vsebine...",
+    "description": "Button state while fetching content"
+  },
+  "button_grantPermission": {
+    "message": "Dodelitev dovoljenja",
+    "description": "Button to grant podcast permission"
+  },
+  "button_iconMatch": {
+    "message": "Ujemanje ikon",
+    "description": "Button to match icons to tracks"
+  },
+  "button_import": {
+    "message": "Uvozi epizode",
+    "description": "Button to import podcast episodes"
+  },
+  "button_importFolder": {
+    "message": "Uvoz mape",
+    "description": "Button to import from folder"
+  },
+  "button_importPlaylist": {
+    "message": "Uvoz seznama predvajanja",
+    "description": "Button to import a playlist"
+  },
+  "button_importPodcast": {
+    "message": "Uvozi podcast",
+    "description": "Button to import a podcast"
+  },
+  "button_importZipFile": {
+    "message": "Uvoz ZIP datoteke",
+    "description": "Button to import from ZIP file"
+  },
+  "button_importing": {
+    "message": "Uvoz...",
+    "description": "Button state while importing"
+  },
+  "button_loadMore": {
+    "message": "Naloži več epizod",
+    "description": "Button to load more episodes"
+  },
+  "button_paint": {
+    "message": "Barvanje",
+    "description": "Button to enable paint mode"
+  },
+  "button_proceedToBulkImport": {
+    "message": "Nadaljuj z množičnim uvozom",
+    "description": "Proceed to bulk import button"
+  },
+  "button_reAuthenticating": {
+    "message": "Ponovno preverjanje pristnosti...",
+    "description": "Button state while re-authenticating"
+  },
+  "button_search": {
+    "message": "Iskanje",
+    "description": "Search button"
+  },
+  "button_searchingForIcons": {
+    "message": "Iskanje ikon...",
+    "description": "Button state while searching for icons"
+  },
+  "button_selectAll": {
+    "message": "Izberi vse",
+    "description": "Button to select all items"
+  },
+  "button_selectFolder": {
+    "message": "Izberi mapo",
+    "description": "Button to select folder for bulk import"
+  },
+  "button_selectNone": {
+    "message": "Izberi nič",
+    "description": "Button to deselect all items"
+  },
+  "button_selectTracksWithoutIcons": {
+    "message": "Izberi skladbe brez ikon",
+    "description": "Button to select only tracks without icons"
+  },
+  "button_selectZipFile": {
+    "message": "Izberi ZIP datoteko",
+    "description": "Button to select ZIP for bulk import"
+  },
+  "button_signingOut": {
+    "message": "Odjava...",
+    "description": "Button state while signing out"
+  },
+  "button_start": {
+    "message": "Začni",
+    "description": "Generic start button"
+  },
+  "button_startBulkImport": {
+    "message": "Začni množični uvoz",
+    "description": "Start bulk import button"
+  },
+  "button_startImport": {
+    "message": "Začni uvoz",
+    "description": "Button to start importing"
+  },
+  "button_trackTitle": {
+    "message": "Naslov skladbe",
+    "description": "Dropdown option for track title matching"
+  },
+  "button_tryAgain": {
+    "message": "Poskusi znova",
+    "description": "Try again button"
+  },
+  "button_updatePlaylist": {
+    "message": "Posodobi predvajalni seznam",
+    "description": "Button to update an existing playlist"
+  },
+  "button_uploadFailed": {
+    "message": "Naložitev ni uspela",
+    "description": "Button state when upload fails"
+  },
+  "button_uploaded": {
+    "message": "Naloženo!",
+    "description": "Button state after successful upload"
+  },
+  "button_uploading": {
+    "message": "Nalaganje...",
+    "description": "Button state during upload"
+  },
+  "button_verifyingAccess": {
+    "message": "Preverjanje dostopa...",
+    "description": "Button state while verifying access"
+  },
+  "button_visualTimer": {
+    "message": "Vizualni časomer",
+    "description": "Button to create a visual timer card"
+  },
+  "category_animals": {
+    "message": "Živali",
+    "description": "Category name for animals"
+  },
+  "category_art": {
+    "message": "Umetnost",
+    "description": "Category name for art"
+  },
+  "category_buildings": {
+    "message": "Stavbe",
+    "description": "Category name for buildings"
+  },
+  "category_chapters": {
+    "message": "Poglavja",
+    "description": "Category name for chapters/numbers"
+  },
+  "category_emotions": {
+    "message": "Čustva",
+    "description": "Category name for emotions"
+  },
+  "category_fantasy": {
+    "message": "Fantazija",
+    "description": "Category name for fantasy"
+  },
+  "category_food": {
+    "message": "Hrana",
+    "description": "Category name for food"
+  },
+  "category_games": {
+    "message": "Igre",
+    "description": "Category name for games"
+  },
+  "category_holiday": {
+    "message": "Prazniki",
+    "description": "Category name for holidays"
+  },
+  "category_music": {
+    "message": "Glasba",
+    "description": "Category name for music"
+  },
+  "category_nature": {
+    "message": "Narava",
+    "description": "Category name for nature"
+  },
+  "category_school": {
+    "message": "Šola",
+    "description": "Category name for school"
+  },
+  "category_science": {
+    "message": "Znanost",
+    "description": "Category name for science"
+  },
+  "category_space": {
+    "message": "Vesolje",
+    "description": "Category name for space"
+  },
+  "category_sports": {
+    "message": "Šport",
+    "description": "Category name for sports"
+  },
+  "category_tools": {
+    "message": "Orodja",
+    "description": "Category name for tools"
+  },
+  "category_transportation": {
+    "message": "Prevoz",
+    "description": "Category name for transportation"
+  },
+  "category_weather": {
+    "message": "Vreme",
+    "description": "Category name for weather"
+  },
+  "confirm_clearCache": {
+    "message": "To bo izbrisalo vse ikone iz predpomnilnika. Ste prepričani?",
+    "description": "Confirmation to clear cache"
+  },
+  "confirm_disconnectAccount": {
+    "message": "Ste prepričani, da želite prekiniti povezavo z računom Yoto?",
+    "description": "Confirmation to disconnect account"
+  },
+  "confirm_resetSettings": {
+    "message": "To bo ponastavilo vse nastavitve na privzete. Ste prepričani?",
+    "description": "Confirmation to reset settings"
+  },
+  "createIcon_actualSize": {
+    "message": "Dejanska velikost: 16x16 pikslov",
+    "description": "Info about icon size"
+  },
+  "createIcon_chooseHowToCreate": {
+    "message": "Izberite, kako želite ustvariti svojo ikono Yoto.",
+    "description": "Description text for Create Icon modal"
+  },
+  "createIcon_chooseImage": {
+    "message": "Izberite sliko",
+    "description": "Button to choose an image file"
+  },
+  "createIcon_convertToPixelArt": {
+    "message": "Pretvori v pikselno umetnost",
+    "description": "Button to convert image to pixel art"
+  },
+  "createIcon_customColor": {
+    "message": "Prilagojena barva",
+    "description": "Label for custom color picker"
+  },
+  "createIcon_disableEraser": {
+    "message": "Onemogoči radirko",
+    "description": "Button label when eraser is active"
+  },
+  "createIcon_eraser": {
+    "message": "Radirka",
+    "description": "Eraser mode button label"
+  },
+  "createIcon_format": {
+    "message": "Oblika: PNG",
+    "description": "Info about icon format"
+  },
+  "createIcon_iconPreview": {
+    "message": "Predogled ikone",
+    "description": "Section title for icon preview"
+  },
+  "createIcon_original": {
+    "message": "Original",
+    "description": "Label for original image reference"
+  },
+  "createIcon_paint": {
+    "message": "Barvanje",
+    "description": "Paint mode button label"
+  },
+  "createIcon_positionAndScale": {
+    "message": "Položite in prilagodite velikost slike, nato kliknite »Pretvori v pikselno umetnost«.",
+    "description": "Instructions for positioning image"
+  },
+  "createIcon_previewIcon": {
+    "message": "Predogled ikone",
+    "description": "Button to preview the icon"
+  },
+  "createIcon_reset": {
+    "message": "Ponastavi",
+    "description": "Button to reset changes"
+  },
+  "createIcon_resetGrid": {
+    "message": "Ponastavi mrežo",
+    "description": "Button to reset the grid"
+  },
+  "createIcon_scale": {
+    "message": "Lestvica",
+    "description": "Label for scale slider"
+  },
+  "createIcon_touchUpPixelArt": {
+    "message": "Dopolnite svojo pikselno umetnost.",
+    "description": "Instructions for editing pixel art"
+  },
+  "createIcon_undo": {
+    "message": "Razveljavi",
+    "description": "Undo button label"
+  },
+  "createIcon_uploadIconToYoto": {
+    "message": "Naloži ikono v Yoto.",
+    "description": "Button to upload created icon to Yoto"
+  },
+  "device_otherDevices": {
+    "message": "Druge naprave",
+    "description": "Label for unknown device family"
+  },
+  "device_unknownDevice": {
+    "message": "Neznana naprava",
+    "description": "Fallback name for unknown device"
+  },
+  "device_yotoMini": {
+    "message": "Yoto Mini",
+    "description": "Device family name for Yoto Mini"
+  },
+  "device_yotoPlayerV2": {
+    "message": "Yoto Player (V2)",
+    "description": "Device family name for Yoto Player V2"
+  },
+  "device_yotoPlayerV3": {
+    "message": "Yoto Player (V3)",
+    "description": "Device family name for Yoto Player V3"
+  },
+  "error_apiError": {
+    "message": "Napaka: $MESSAGE$",
+    "description": "Generic API error",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "API unavailable"
+      }
+    }
+  },
+  "error_authRequiredRefresh": {
+    "message": "Potrebna je avtentifikacija. Osvežite stran in poskusite znova.",
+    "description": "Error when authentication is needed"
+  },
+  "error_closeModalAndRetry": {
+    "message": "Zaprite to okno in poskusite znova uvoziti.",
+    "description": "Instruction to retry after permission"
+  },
+  "error_couldNotIdentifyCardId": {
+    "message": "Kartice ni mogoče identificirati",
+    "description": "Error when card ID cannot be identified"
+  },
+  "error_couldNotIdentifyCardIdFromUrl": {
+    "message": "Kartice ni mogoče identificirati iz URL-ja",
+    "description": "Error when card ID cannot be extracted from URL"
+  },
+  "error_failedSearch": {
+    "message": "Iskanje podcastov ni uspelo. Prosim poskusite znova.",
+    "description": "Error when search fails"
+  },
+  "error_failedToApplyIcons": {
+    "message": "Uporaba ikon ni uspela: $MESSAGE$",
+    "description": "Error when icon application fails",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "error_fileTooLarge40MB": {
+    "message": "$FILENAME$ je prevelik (največ 40 MB zaradi omejitev brskalnika)",
+    "description": "Error for individual file over 40MB",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "large-file.mp3"
+      }
+    }
+  },
+  "error_generic": {
+    "message": "Napaka: $MESSAGE$",
+    "description": "Generic error message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Something went wrong"
+      }
+    }
+  },
+  "error_importTakingTooLong": {
+    "message": "Uvoz traja dlje, kot je bilo pričakovano. Osvežite stran.",
+    "description": "Error when import times out"
+  },
+  "error_invalidDuration": {
+    "message": "Vnesite veljavno trajanje med 1 in 120 minutami",
+    "description": "Error for invalid timer duration"
+  },
+  "error_loadingCards": {
+    "message": "Napaka pri nalaganju kartic. Poskusite znova.",
+    "description": "Error loading cards list"
+  },
+  "error_networkUploadFailed": {
+    "message": "Napaka omrežja pri nalaganju $FILENAME$ ($SIZE$MB). Datoteka je morda prevelika ali je bila prekinjena povezava.",
+    "description": "Network error during upload",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "track.mp3"
+      },
+      "size": {
+        "content": "$2",
+        "example": "45"
+      }
+    }
+  },
+  "error_noAudioFilesInFolder": {
+    "message": "V mapi audio_files ni bilo najdenih avdio datotek",
+    "description": "Error when no audio files are found"
+  },
+  "error_noCardsFound": {
+    "message": "Ni bilo najdenih kartic MYO. Najprej ustvarite kartico.",
+    "description": "Error when user has no cards"
+  },
+  "error_noPodcastsFound": {
+    "message": "Ni najdenih podcastov za \"$QUERY$\"",
+    "description": "Error when no podcasts found",
+    "placeholders": {
+      "query": {
+        "content": "$1",
+        "example": "example podcast"
+      }
+    }
+  },
+  "error_noTracksFound": {
+    "message": "Na tej kartici ni bilo najdenih skladb. Najprej dodajte nekaj skladb.",
+    "description": "Error when card has no tracks"
+  },
+  "error_permissionRequired": {
+    "message": "Za dostop do avdio datotek podcasta je potrebno dovoljenje.",
+    "description": "Permission required error"
+  },
+  "error_unknownError": {
+    "message": "Pojavila se je neznana napaka",
+    "description": "Generic unknown error message"
+  },
+  "error_uploadFailedLargeFiles": {
+    "message": "Nalaganje ni uspelo. Te datoteke so morda prevelike (priporočeno največ 40 MB):",
+    "description": "Header for list of failed large files"
+  },
+  "error_uploadFailedTooLarge": {
+    "message": "Nalaganje datoteke „$FILENAME$“ ni uspelo. Datoteka je morda prevelika. Poskusite osvežiti stran in uvoziti manjše serije datotek.",
+    "description": "Upload failed due to file size",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "episode.mp3"
+      }
+    }
+  },
+  "error_usageLimitReached": {
+    "message": "Dosežena omejitev uporabe",
+    "description": "Usage limit error title"
+  },
+  "extensionDescription": {
+    "message": "Spremenite način ustvarjanja kartic Yoto MYO s pametnim uvozom, samodejnim ujemanjem ikon in praktičnimi bližnjicami.",
+    "description": "Description of the extension"
+  },
+  "extensionName": {
+    "message": "Yoto MYO Magic",
+    "description": "Name of the extension"
+  },
+  "iconMatch_iconLabel": {
+    "message": "Ikona: $TITLE$",
+    "description": "Label showing icon title",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "Music Note"
+      }
+    }
+  },
+  "iconMatch_iconsAvailableOf": {
+    "message": "Na voljo je $CURRENT$/$TOTAL$ ikon",
+    "description": "Counter for available icons in Icon Match modal",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "1"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
+  "iconMatch_unableToApplyIcons": {
+    "message": "Ikone ni mogoče uporabiti",
+    "description": "Error modal title when icons cannot be applied"
+  },
+  "input_customDurationPlaceholder": {
+    "message": "Vnesite minute (1–120)",
+    "description": "Placeholder for custom duration input"
+  },
+  "input_podcastSearchPlaceholder": {
+    "message": "npr. Radiolab za otroke",
+    "description": "Podcast search input placeholder"
+  },
+  "input_searchCards": {
+    "message": "Poiščite svoje kartice...",
+    "description": "Card search input placeholder"
+  },
+  "input_timerNamePlaceholder": {
+    "message": "npr. Timer za spanje",
+    "description": "Placeholder for timer name input"
+  },
+  "label_audioFiles": {
+    "message": "$COUNT$ avdio datoteka$PLURAL$",
+    "description": "Audio files count in import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "4"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "label_cancelImport": {
+    "message": "Prekliči uvoz",
+    "description": "Label for cancel import button"
+  },
+  "label_charging": {
+    "message": "⚡ Polnjenje",
+    "description": "Label for charging status"
+  },
+  "label_compressFiles": {
+    "message": "Stisnite datoteko(-e) na velikost manj kot 40 MB",
+    "description": "Suggestion to compress files"
+  },
+  "label_contentWillUploadSinglePlaylist": {
+    "message": "Vsebina se bo naložila v eno samo predvajalno listo s $COUNT$ skladbami:",
+    "description": "Description for merged playlist upload",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "15"
+      }
+    }
+  },
+  "label_coverImage": {
+    "message": "1 slika naslovnice",
+    "description": "Cover image count in import"
+  },
+  "label_coverNotChanged": {
+    "message": "✓ Slika naslovnice se ne bo spremenila",
+    "description": "Info about cover not changing"
+  },
+  "label_customTimer": {
+    "message": "Prilagojeni časomer",
+    "description": "Custom timer option"
+  },
+  "label_customTimerDescription": {
+    "message": "Ustvarite svoj časomer s prilagojenimi nastavitvami",
+    "description": "Description for custom timer"
+  },
+  "label_downloadingEpisodes": {
+    "message": "Prenašanje in obdelava epizod...",
+    "description": "Label when downloading episodes"
+  },
+  "label_enterPodcastName": {
+    "message": "Vnesite ime podcasta za iskanje:",
+    "description": "Label for podcast search input"
+  },
+  "label_existingContentPreserved": {
+    "message": "✓ Obstoječa vsebina bo ohranjena",
+    "description": "Info about update preserving content"
+  },
+  "label_failedToLoadDeviceInfo": {
+    "message": "Naložitev podatkov o napravi ni uspela. Poskusite znova.",
+    "description": "Error when device info fails to load"
+  },
+  "label_file": {
+    "message": "Datoteka: $FILENAME$",
+    "description": "Label showing filename",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "playlist.zip"
+      }
+    }
+  },
+  "label_filesSkipped": {
+    "message": "Preskočene datoteke (prevelike):",
+    "description": "Section showing skipped files"
+  },
+  "label_filesSkippedSize": {
+    "message": "Nekatere datoteke so bile preskočene zaradi omejitev velikosti.",
+    "description": "Warning about skipped files"
+  },
+  "label_foundItems": {
+    "message": "Najdenih $COUNT$ elementov",
+    "description": "Label showing found items count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
+  },
+  "label_howToFix": {
+    "message": "Kako popraviti:",
+    "description": "Section title for fix instructions"
+  },
+  "label_iconsAppliedByNumber": {
+    "message": "Ikone bodo dodane skladbam na podlagi številk imen datotek.",
+    "description": "Info about icon numbering"
+  },
+  "label_import": {
+    "message": "Uvoz:",
+    "description": "Import label (appears before item title)"
+  },
+  "label_importMode": {
+    "message": "Način uvoza:",
+    "description": "Label for import mode selection"
+  },
+  "label_importedPlaylist": {
+    "message": "Uvoženi seznam predvajanja",
+    "description": "Default name for imported playlist"
+  },
+  "label_minute": {
+    "message": "minuta",
+    "description": "Singular form of minute"
+  },
+  "label_minutes": {
+    "message": "minute",
+    "description": "Plural form of minutes"
+  },
+  "label_noDevicesFound": {
+    "message": "Naprav ni bilo mogoče najti. Preverite, ali so vaše naprave Yoto povezane z vašim računom.",
+    "description": "Message when no devices are found"
+  },
+  "label_numTracks": {
+    "message": "$COUNT$ skladb",
+    "description": "Number of tracks in playlist",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "15"
+      }
+    }
+  },
+  "label_offline": {
+    "message": "• Offline",
+    "description": "Label for offline status"
+  },
+  "label_online": {
+    "message": "• Online",
+    "description": "Label for online status"
+  },
+  "label_overallProgress": {
+    "message": "Skupni napredek:",
+    "description": "Overall progress label in bulk import"
+  },
+  "label_playlistDetails": {
+    "message": "Podrobnosti seznama predvajanja:",
+    "description": "Header for playlist details section"
+  },
+  "label_playlistName": {
+    "message": "Ime seznama predvajanja",
+    "description": "Label for playlist name input"
+  },
+  "label_playlistNameColon": {
+    "message": "Ime seznama predvajanja:",
+    "description": "Label for playlist name input with colon"
+  },
+  "label_popularKidsPodcasts": {
+    "message": "Priljubljeni otroški podcasti:",
+    "description": "Label for popular kids podcasts section"
+  },
+  "label_readyMadeDescription": {
+    "message": "Vnaprej nastavljeni časovniki za pogoste dejavnosti",
+    "description": "Description for ready-made timers"
+  },
+  "label_readyToImport": {
+    "message": "Pripravljeno za uvoz:",
+    "description": "Header before import details"
+  },
+  "label_refreshPage": {
+    "message": "Osveži stran",
+    "description": "Refresh button text"
+  },
+  "label_selectEpisodesToImport": {
+    "message": "Izberite epizode za uvoz:",
+    "description": "Label for episode selection in podcast import"
+  },
+  "label_selectedCount": {
+    "message": "($COUNT$ izbran$PLURAL$)",
+    "description": "Label showing selected count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "i"
+      }
+    }
+  },
+  "label_separatePlaylists": {
+    "message": "Ločeni seznami predvajanja",
+    "description": "Import mode option"
+  },
+  "label_separatePlaylistsDescription": {
+    "message": "Vsaka podmapica/ZIP postane svoj seznam predvajanja",
+    "description": "Description for separate playlists mode"
+  },
+  "label_singleMergedPlaylist": {
+    "message": "Enotni združen seznam predvajanja",
+    "description": "Import mode option"
+  },
+  "label_singlePlaylistDescription": {
+    "message": "Združite vse podmapice v en seznam predvajanja",
+    "description": "Description for merged playlist mode"
+  },
+  "label_successfullyImported": {
+    "message": "Uspešno uvožen$PLURAL$ $COUNT$ epizod$PLURAL$!",
+    "description": "Success message after import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "e"
+      }
+    }
+  },
+  "label_timerName": {
+    "message": "Ime časovnika",
+    "description": "Label for timer name input"
+  },
+  "label_timerOptimized": {
+    "message": "Segmenti časovnika so optimizirani za jasno vizualno odštevanje.",
+    "description": "Info about timer optimization"
+  },
+  "label_timerType": {
+    "message": "Vrsta časovnika:",
+    "description": "Label for timer type selection"
+  },
+  "label_trackIcons": {
+    "message": "$COUNT$ ikona skladbe$PLURAL$",
+    "description": "Track icons count in import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "0"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "label_unknown": {
+    "message": "Neznano",
+    "description": "When update date is unknown"
+  },
+  "label_untitledCard": {
+    "message": "Kartica brez naslova",
+    "description": "Fallback name for cards without title"
+  },
+  "label_update": {
+    "message": "Posodobitev:",
+    "description": "Label for update modal (appears before card title)"
+  },
+  "label_updated": {
+    "message": "Posodobljeno",
+    "description": "Label before last updated date"
+  },
+  "label_uploadDirectly": {
+    "message": "Naložite jih neposredno prek Yoto; ali",
+    "description": "Suggestion for large files"
+  },
+  "label_visualTimerDefault": {
+    "message": "Vizualni časovnik – 5 minut,",
+    "description": "Default name for visual timer"
+  },
+  "label_withCover": {
+    "message": "1 naslovnica",
+    "description": "Suffix when cover image is included"
+  },
+  "modal_bulkImportSettings": {
+    "message": "Nastavitve množičnega uvoza",
+    "description": "Title for bulk import settings modal"
+  },
+  "modal_categoryDescription": {
+    "message": "Izberite kategorijo za iskanje ikon za $COUNT$ posnetek$PLURAL$",
+    "description": "Description for category selection",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "e"
+      }
+    }
+  },
+  "modal_categoryIconMatch": {
+    "message": "Ujemanje ikon po kategorijah",
+    "description": "Title for category icon match modal"
+  },
+  "modal_chooseCardDescription": {
+    "message": "Izberite, katero kartico MYO želite posodobiti z novo vsebino:",
+    "description": "Card selection description"
+  },
+  "modal_chooseCategory": {
+    "message": "Izberite kategorijo:",
+    "description": "Label for category dropdown"
+  },
+  "modal_chooseImportMethod": {
+    "message": "Izberite metodo uvoza",
+    "description": "Title for import method selection modal"
+  },
+  "modal_chooseTracksToSearch": {
+    "message": "Izberite, za katere skladbe želite iskati ikone.",
+    "description": "Description for track selection modal"
+  },
+  "modal_collectionDetected": {
+    "message": "Zbirka zaznana!",
+    "description": "Collection detected modal title"
+  },
+  "modal_createIcon": {
+    "message": "Ustvarite ikono",
+    "description": "Title for create icon modal"
+  },
+  "modal_customCategory": {
+    "message": "Ali vnesite kategorijo po meri:",
+    "description": "Label for custom category input"
+  },
+  "modal_customCategoryPlaceholder": {
+    "message": "npr. dinozavri, roboti, pravljice",
+    "description": "Placeholder for custom category input"
+  },
+  "modal_customVisualTimer": {
+    "message": "Prilagojeni vizualni časovnik",
+    "description": "Title for custom timer modal"
+  },
+  "modal_extractingFiles": {
+    "message": "Izvlekanje datotek...",
+    "description": "ZIP extraction modal title"
+  },
+  "modal_foundIconsForTracks": {
+    "message": "Najdene potencialne ikone za $COUNT$ skladbo$PLURAL$",
+    "description": "Description of icon matches found",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "modal_grantPermissionInPopup": {
+    "message": "Prosimo, dodelite dovoljenje v pojavnem oknu, ki se prikaže.",
+    "description": "Instruction for granting permission"
+  },
+  "modal_iconFound": {
+    "message": "Ikona najdena",
+    "description": "Status when single icon is found"
+  },
+  "modal_iconMatchesFound": {
+    "message": "Najdene ujemajoče se ikone",
+    "description": "Title for icon matches modal"
+  },
+  "modal_iconsAvailable": {
+    "message": "$CURRENT$ od $TOTAL$ ikon na voljo",
+    "description": "Counter showing available icons",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "1"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
+  "modal_importComplete": {
+    "message": "Uvoz zaključen!",
+    "description": "Title for import complete modal"
+  },
+  "modal_importMergedPlaylist": {
+    "message": "Uvoz združenega seznama predvajanja",
+    "description": "Title for merged playlist import modal"
+  },
+  "modal_importPlaylistTitle": {
+    "message": "Uvoz seznama predvajanja",
+    "description": "Title for import playlist modal"
+  },
+  "modal_importPodcast": {
+    "message": "Uvozi podcast",
+    "description": "Title for import podcast modal"
+  },
+  "modal_importPodcastPermission": {
+    "message": "Uvozi podcast - Potrebno dovoljenje",
+    "description": "Title when permission is required"
+  },
+  "modal_importPodcastTitle": {
+    "message": "Uvoz $PODCASTTITLE$",
+    "description": "Podcast import modal title",
+    "placeholders": {
+      "podcasttitle": {
+        "content": "$1",
+        "example": "Radiolab"
+      }
+    }
+  },
+  "modal_importSuccessful": {
+    "message": "Uvoz uspešen!",
+    "description": "Success modal title"
+  },
+  "modal_largeFilesDetected": {
+    "message": "Zaznane velike datoteke",
+    "description": "Large files warning modal title"
+  },
+  "modal_noIconsFound": {
+    "message": "Ikone niso bile najdene",
+    "description": "Status when no icons are found"
+  },
+  "modal_noPopupInstruction": {
+    "message": "Če se pojavno okno ne prikaže, preverite nastavitve razširitev brskalnika.",
+    "description": "Fallback instruction if popup blocked"
+  },
+  "modal_permissionDescription": {
+    "message": "Za uvoz epizod podcastov potrebujemo dovoljenje za prenos avdio datotek iz različnih storitev gostovanja podcastov.",
+    "description": "Description explaining podcast permission need"
+  },
+  "modal_permissionNote": {
+    "message": "Opomba: To dovoljenje se uporablja samo pri uvozu podcastov. Vaši podatki o brskanju ostanejo zasebni.",
+    "description": "Privacy note about permission usage"
+  },
+  "modal_permissionReason1": {
+    "message": "Podcasti so gostovani na mnogih različnih domenah",
+    "description": "Permission reason list item 1"
+  },
+  "modal_permissionReason2": {
+    "message": "Za Yoto moramo prenesti in pretvoriti avdio datoteke",
+    "description": "Permission reason list item 2"
+  },
+  "modal_permissionReason3": {
+    "message": "Chrome za ta dostop zahteva izrecno dovoljenje",
+    "description": "Permission reason list item 3"
+  },
+  "modal_permissionTitle": {
+    "message": "Zakaj je to potrebno?",
+    "description": "Permission modal section title"
+  },
+  "modal_readyMadeTimers": {
+    "message": "Pripravljeni časovniki",
+    "description": "Ready-made timers modal title"
+  },
+  "modal_requestingPermission": {
+    "message": "Zahtevanje dovoljenja...",
+    "description": "Permission request in progress title"
+  },
+  "modal_selectCardToUpdate": {
+    "message": "Izberite kartico za posodobitev",
+    "description": "Update card selection modal title"
+  },
+  "modal_selectCategory": {
+    "message": "Izberite kategorijo...",
+    "description": "Placeholder for category dropdown"
+  },
+  "modal_selectFilesToAdd": {
+    "message": "Izberite datoteke, ki jih želite dodati tej kartici.",
+    "description": "Update modal description"
+  },
+  "modal_selectHowToImport": {
+    "message": "Izberite, kako želite uvoziti svoj seznam predvajanja:",
+    "description": "Description for import method selection"
+  },
+  "modal_selectTimerType": {
+    "message": "Izberite vrsto časovnika, da začnete.",
+    "description": "Timer selection description"
+  },
+  "modal_selectTracksForIconCategory": {
+    "message": "Izberite skladbe za kategorijo ikon",
+    "description": "Title for track selection modal in Category Icon Match"
+  },
+  "modal_selectTracksForIconMatch": {
+    "message": "Izberite skladbe za ujemanje ikon",
+    "description": "Title for track selection modal in Icon Match"
+  },
+  "modal_selectZipOrFolder": {
+    "message": "Izberite ZIP datoteko ali mapo, ki vsebuje vaše avdio datoteke.",
+    "description": "Bulk import description"
+  },
+  "modal_untitledIcon": {
+    "message": "Ikon brez naslova",
+    "description": "Fallback name for icons without title"
+  },
+  "modal_updateCardTitle": {
+    "message": "Posodobitev: $CARDTITLE$",
+    "description": "Update import modal title with card name",
+    "placeholders": {
+      "cardtitle": {
+        "content": "$1",
+        "example": "My Playlist"
+      }
+    }
+  },
+  "modal_visualTimerSettings": {
+    "message": "Nastavitve vizualnega časovnika",
+    "description": "Title for visual timer settings modal"
+  },
+  "notification_appliedIconsToTracks": {
+    "message": "Uporabljena ikona $ICONS$ za skladbo $TRACKS$",
+    "description": "Details about applied icons",
+    "placeholders": {
+      "icons": {
+        "content": "$1",
+        "example": "5"
+      },
+      "iconplural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "tracks": {
+        "content": "$3",
+        "example": "10"
+      },
+      "trackplural": {
+        "content": "$4",
+        "example": "s"
+      }
+    }
+  },
+  "notification_authError": {
+    "message": "Napaka pri avtentifikaciji. Poskusite znova.",
+    "description": "Error message when auth encounters error"
+  },
+  "notification_authFailed": {
+    "message": "Avtentifikacija ni uspela. Poskusite znova.",
+    "description": "Error message when auth fails"
+  },
+  "notification_authRequired": {
+    "message": "Potrebna je avtentifikacija. Osvežite stran in poskusite znova.",
+    "description": "Message when authentication is required"
+  },
+  "notification_authRequiredForBulkImport": {
+    "message": "Avtentificirajte se, da boste lahko uporabljali množični uvoz",
+    "description": "Info message for bulk import"
+  },
+  "notification_authRequiredForIconMatch": {
+    "message": "Avtentificirajte se, da boste lahko uporabljali ujemanje ikon",
+    "description": "Info message for icon matching"
+  },
+  "notification_authRequiredForImport": {
+    "message": "Avtentificirajte se, da boste lahko uporabljali funkcije uvoza",
+    "description": "Info message for import features"
+  },
+  "notification_authRequiredForTimer": {
+    "message": "Za uporabo vizualnega časovnika se avtentificirajte",
+    "description": "Info message for visual timer"
+  },
+  "notification_authRequiredForUpdate": {
+    "message": "Za uporabo funkcij posodobitve se avtentificirajte",
+    "description": "Info message for update features"
+  },
+  "notification_authSuccess": {
+    "message": "Avtentifikacija uspešna! Zdaj lahko uporabljate ujemanje ikon.",
+    "description": "Success message after authentication"
+  },
+  "notification_authSuccessIconMatch": {
+    "message": "✓ Avtentifikacija uspešna! Ujemanje ikon omogočeno.",
+    "description": "Success message with checkmark for icon matching"
+  },
+  "notification_authSuccessImport": {
+    "message": "✓ Avtentifikacija uspešna! Zdaj lahko uporabljate funkcije uvoza.",
+    "description": "Success message for import features"
+  },
+  "notification_connectionLost": {
+    "message": "Povezava razširitve prekinjena. Osvežite stran in poskusite znova.",
+    "description": "Error when extension connection is lost"
+  },
+  "notification_enterPodcastName": {
+    "message": "Vnesite ime podcasta",
+    "description": "Error when podcast name is empty"
+  },
+  "notification_errorApplyingIcons": {
+    "message": "Napaka pri uporabi ikon: $MESSAGE$",
+    "description": "Error during icon application",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Unknown error"
+      }
+    }
+  },
+  "notification_errorMatchingIcons": {
+    "message": "Napaka pri ujemanju ikon. Poskusite znova.",
+    "description": "Error during icon matching"
+  },
+  "notification_errorOccurred": {
+    "message": "Prišlo je do napake. Poskusite znova.",
+    "description": "Generic error message"
+  },
+  "notification_errorProcessingBulkFolder": {
+    "message": "Napaka pri obdelavi mape v večjem obsegu: $MESSAGE$",
+    "description": "Error processing bulk folder",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Invalid format"
+      }
+    }
+  },
+  "notification_errorProcessingBulkZip": {
+    "message": "Napaka pri obdelavi ZIP datoteke v večjem obsegu: $MESSAGE$",
+    "description": "Error processing bulk ZIP",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Invalid format"
+      }
+    }
+  },
+  "notification_errorProcessingFile": {
+    "message": "Napaka pri obdelavi datoteke. Preverite format datoteke.",
+    "description": "Error when file processing fails"
+  },
+  "notification_errorReadingZip": {
+    "message": "Napaka pri branju ZIP datoteke. Poskusite znova.",
+    "description": "Error when reading ZIP fails"
+  },
+  "notification_errorSearchingIcons": {
+    "message": "Napaka pri iskanju ikon: $MESSAGE$",
+    "description": "Error when icon search fails",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "API error"
+      }
+    }
+  },
+  "notification_extractedPlaylists": {
+    "message": "Uspešno izpisano $COUNT$ predvajanih seznamov iz $TYPE$$TYPEPLURAL$. Priprava uvoza...",
+    "description": "Success message for extracted playlists",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "type": {
+        "content": "$3",
+        "example": "ZIP file"
+      },
+      "typeplural": {
+        "content": "$4",
+        "example": "s"
+      }
+    }
+  },
+  "notification_failedToApplyIcons": {
+    "message": "Uporaba ikon ni uspela: $MESSAGE$",
+    "description": "Error when applying icons fails",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "notification_failedToLoadEpisodes": {
+    "message": "Naložitev več epizod ni uspela",
+    "description": "Error when loading more episodes fails"
+  },
+  "notification_failedToLoadPodcastEpisodes": {
+    "message": "Naložitev epizod podcasta ni uspela",
+    "description": "Error when podcast episodes fail to load"
+  },
+  "notification_failedToMergePlaylists": {
+    "message": "Združitev seznamov predvajanja ni uspela",
+    "description": "Error when merging playlists fails"
+  },
+  "notification_failedToProcessZip": {
+    "message": "Obdelava ZIP datoteke ni uspela. Napaka: $MESSAGE$",
+    "description": "Error with details about ZIP processing",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Invalid format"
+      }
+    }
+  },
+  "notification_folderProcessed": {
+    "message": "Obdelana mapa: $TRACKS$ skladb, $ICONS$ ikon$COVER$",
+    "description": "Success message after processing folder",
+    "placeholders": {
+      "tracks": {
+        "content": "$1",
+        "example": "10"
+      },
+      "icons": {
+        "content": "$2",
+        "example": "5"
+      },
+      "cover": {
+        "content": "$3",
+        "example": ", 1 cover"
+      }
+    }
+  },
+  "notification_foundPlaylists": {
+    "message": "Najdenih $COUNT$ seznamov predvajanja$PLURAL$. Priprava uvoza...",
+    "description": "Success message for found playlists",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "notification_iconUploadedSuccess": {
+    "message": "✓ Ikona je bila uspešno naložena!",
+    "description": "Success message when icon is uploaded"
+  },
+  "notification_iconsAppliedSuccess": {
+    "message": "✓ Ikone uspešno uporabljene!",
+    "description": "Success message when icons are applied"
+  },
+  "notification_importAllFailed": {
+    "message": "Uvoz vseh seznamov predvajanja ni uspel",
+    "description": "Error when all imports fail"
+  },
+  "notification_importFailed": {
+    "message": "Uvoz ni uspel: $MESSAGE$",
+    "description": "Error message during import",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "notification_importPartialSuccess": {
+    "message": "Uvoženih $SUCCESS$ seznamov predvajanja$SUCCESSPLURAL$, $FAILED$ ni uspelo",
+    "description": "Warning when some imports fail",
+    "placeholders": {
+      "success": {
+        "content": "$1",
+        "example": "2"
+      },
+      "successplural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "failed": {
+        "content": "$3",
+        "example": "1"
+      }
+    }
+  },
+  "notification_importSuccess": {
+    "message": "Uspešno uvoženih $COUNT$ seznamov predvajanja$PLURAL$!",
+    "description": "Success message after import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "notification_invalidZip": {
+    "message": "Izberite veljavno datoteko ZIP",
+    "description": "Error when ZIP file is invalid"
+  },
+  "notification_mergedFoldersToPlaylist": {
+    "message": "Vse mape so bile uspešno združene v en sam seznam predvajanja. Priprava uvoza...",
+    "description": "Success when folders merged to single playlist"
+  },
+  "notification_mergedToSinglePlaylist": {
+    "message": "Vse vsebine so bile uspešno združene v eno samo predvajanje. Pripravljanje uvoza...",
+    "description": "Success when content merged to single playlist"
+  },
+  "notification_noAudioFiles": {
+    "message": "Ni bilo najdenih avdio datotek. Preverite, ali mapa vsebuje avdio datoteke (.mp3, .m4a, .m4b itd.).",
+    "description": "Error when no audio files found in folder"
+  },
+  "notification_noAudioFilesInAudioFolder": {
+    "message": "V mapi audio_files ni bilo najdenih avdio datotek",
+    "description": "Error when audio_files folder is empty"
+  },
+  "notification_noAudioFilesZip": {
+    "message": "V ZIP datoteki ni bilo najdenih avdio datotek. Preverite, ali ZIP datoteka vsebuje avdio datoteke (.mp3, .m4a, .m4b itd.).",
+    "description": "Error when no audio files found in ZIP"
+  },
+  "notification_noAudioOrIconFiles": {
+    "message": "V izbiri ni bilo najdenih avdio datotek ali ikon",
+    "description": "Error when selection has no valid files"
+  },
+  "notification_noEpisodesFound": {
+    "message": "Za ta podcast ni bilo najdenih epizod",
+    "description": "Error when podcast has no episodes"
+  },
+  "notification_noFilesToUpdate": {
+    "message": "Po filtriranju ni datotek za posodobitev",
+    "description": "Error when no files remain to update"
+  },
+  "notification_noIconMatchesFound": {
+    "message": "Ni bilo najdenih ujemajočih ikon. Poskusite dodati bolj opisne naslove skladb.",
+    "description": "Error when no icon matches found"
+  },
+  "notification_noIconsForCategory": {
+    "message": "Za kategorijo „$CATEGORY$“ ni bilo najdenih ikon. Poskusite z drugo kategorijo.",
+    "description": "Error when category has no icons",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "dinosaurs"
+      }
+    }
+  },
+  "notification_noValidFilesAfterFilter": {
+    "message": "Po filtriranju ni seznamov predvajanja z veljavnimi datotekami",
+    "description": "Error when filtering removes all files"
+  },
+  "notification_noValidIcons": {
+    "message": "Ni veljavnih ikon za uporabo. Poskusite poiskati druge izraze ali preverite ujemanje ikon.",
+    "description": "Error when no valid icons to apply"
+  },
+  "notification_noValidPlaylists": {
+    "message": "Ni bilo najdenih veljavnih seznamov predvajanja. Za množični uvoz naložite ZIP datoteko, ki vsebuje več ZIP datotek ali map s seznami predvajanja.",
+    "description": "Error when no valid playlists found"
+  },
+  "notification_noValidPlaylistsFolder": {
+    "message": "V mapah ni bilo najdenih veljavnih avdio datotek. Preverite, ali mape vsebujejo avdio datoteke.",
+    "description": "Error when folders have no audio files"
+  },
+  "notification_noValidPlaylistsInFolder": {
+    "message": "V izbrani mapi ni bilo najdenih veljavnih seznamov predvajanja",
+    "description": "Error when selected folder has no playlists"
+  },
+  "notification_noValidPlaylistsZip": {
+    "message": "Iz vgrajenih ZIP datotek ni bilo mogoče izvleči veljavnih seznamov predvajanja. Preverite, ali vsaka ZIP datoteka vsebuje avdio datoteke.",
+    "description": "Error when nested ZIPs have no valid playlists"
+  },
+  "notification_permissionDenied": {
+    "message": "Dovoljenje zavrnjeno. Podcastov ne boste mogli uvoziti.",
+    "description": "Error message when permission denied"
+  },
+  "notification_permissionGranted": {
+    "message": "Dovoljenje odobreno! Zdaj lahko uvozite podkaste.",
+    "description": "Success message when permission is granted"
+  },
+  "notification_permissionGrantedClose": {
+    "message": "Dovoljenje odobreno! Zdaj lahko zaprete to okno in poskusite uvoziti ponovno.",
+    "description": "Success message to close modal"
+  },
+  "notification_permissionGrantedRetry": {
+    "message": "Dovoljenje odobreno! Zdaj lahko ponovno poskusite uvoziti podkast.",
+    "description": "Success message to retry import"
+  },
+  "notification_playlistCreated": {
+    "message": "Seznam predvajanja je bil uspešno ustvarjen!",
+    "description": "Success when playlist is created"
+  },
+  "notification_pleaseRefreshPage": {
+    "message": "Osvežite stran, da vidite spremembe.",
+    "description": "Instruction to refresh page after applying icons"
+  },
+  "notification_possibleSuccess": {
+    "message": "Prejeta napaka 500, vendar na podlagi testiranja so bile vaše ikone morda uspešno uporabljene.",
+    "description": "Warning message about possible success despite error"
+  },
+  "notification_proceedingWithoutAuth": {
+    "message": "Nadaljujemo brez preverjanja avtentifikacije...",
+    "description": "Warning when proceeding without auth"
+  },
+  "notification_rootLevelAudioFiles": {
+    "message": "Opomba: Najdeni avdio datoteki na korenski ravni. Obdelava kot enoten seznam predvajanja. Za množični uvoz datoteke razvrstite v mape ali ločene ZIP datoteke.",
+    "description": "Warning when audio files found at root"
+  },
+  "notification_selectAtLeastOneEpisode": {
+    "message": "Izberite vsaj eno epizodo za uvoz",
+    "description": "Warning to select episodes"
+  },
+  "notification_selectAtLeastOnePlaylist": {
+    "message": "Izberite vsaj en seznam predvajanja za uvoz",
+    "description": "Error when no playlists selected"
+  },
+  "notification_selectOrEnterCategory": {
+    "message": "Izberite ali vnesite kategorijo",
+    "description": "Error when category not provided"
+  },
+  "notification_updateFailed": {
+    "message": "Posodobitev kartice ni uspela: $MESSAGE$",
+    "description": "Error when card update fails",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "notification_zipProcessed": {
+    "message": "ZIP obdelan: $TRACKS$ skladbe, $ICONS$ ikone$COVER$",
+    "description": "Success message after processing ZIP",
+    "placeholders": {
+      "tracks": {
+        "content": "$1",
+        "example": "10"
+      },
+      "icons": {
+        "content": "$2",
+        "example": "5"
+      },
+      "cover": {
+        "content": "$3",
+        "example": ", 1 cover"
+      }
+    }
+  },
+  "popup_batteryStatus": {
+    "message": "Stanje baterije naprave",
+    "description": "Button to view battery status"
+  },
+  "popup_checkingAuth": {
+    "message": "Preverjanje pristnosti...",
+    "description": "Status when checking authentication"
+  },
+  "popup_goToYoto": {
+    "message": "Pojdi na Yoto predvajalne sezname",
+    "description": "Button to go to Yoto playlists page"
+  },
+  "popup_loadingDeviceInfo": {
+    "message": "Nalaganje informacij o napravi...",
+    "description": "Loading message for device info"
+  },
+  "popup_manageExtension": {
+    "message": "Upravljaj razširitev",
+    "description": "Button to manage extension"
+  },
+  "popup_signIn": {
+    "message": "Prijavi se z Yoto",
+    "description": "Sign in button in popup"
+  },
+  "popup_signOut": {
+    "message": "Odjavi se",
+    "description": "Button to sign out"
+  },
+  "popup_visitYoto": {
+    "message": "Obiščite stran s predvajalnimi seznami Yoto za uporabo funkcij.",
+    "description": "Footer note in popup"
+  },
+  "status_analyzingFolder": {
+    "message": "Analiza strukture mape...",
+    "description": "Status when analyzing folder"
+  },
+  "status_authStatusUnknown": {
+    "message": "Stanje avtentifikacije neznano",
+    "description": "Status when auth status cannot be determined"
+  },
+  "status_authenticated": {
+    "message": "Avtentificirano z Yoto",
+    "description": "Status when user is authenticated"
+  },
+  "status_authenticating": {
+    "message": "Preverjanje pristnosti...",
+    "description": "Status message during authentication"
+  },
+  "status_cancellingImport": {
+    "message": "Preklic uvoza...",
+    "description": "Status when cancelling import"
+  },
+  "status_cardUpdatedSuccess": {
+    "message": "Kartica uspešno posodobljena!",
+    "description": "Success message for card update"
+  },
+  "status_completed": {
+    "message": "Dokončano",
+    "description": "Status when completed"
+  },
+  "status_creatingCard": {
+    "message": "Ustvarjanje kartice časovnika...",
+    "description": "Status when creating card"
+  },
+  "status_creatingPlaylist": {
+    "message": "Ustvarjanje seznama predvajanja...",
+    "description": "Status when creating playlist"
+  },
+  "status_extractingPlaylist": {
+    "message": "Izvlekanje seznama predvajanja $CURRENT$ od $TOTAL$...",
+    "description": "Status for extracting nested playlists",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "2"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
+  "status_extractingPlaylists": {
+    "message": "Ekstrahiranje predvajalnih seznamov...",
+    "description": "Status when extracting playlists"
+  },
+  "status_fetchingCardContent": {
+    "message": "Pridobivanje obstoječe vsebine kartice...",
+    "description": "Fetching card data for update"
+  },
+  "status_finalizingPlaylist": {
+    "message": "Dokončanje seznama predvajanja...",
+    "description": "Final step of playlist creation"
+  },
+  "status_generatingTimerIcons": {
+    "message": "Ustvarjanje ikon časovnika...",
+    "description": "Status generating icons for timer"
+  },
+  "status_importCancelled": {
+    "message": "Uvoz preklican",
+    "description": "Status when import is cancelled"
+  },
+  "status_importComplete": {
+    "message": "Uvoz zaključen!",
+    "description": "Status when import is complete"
+  },
+  "status_importCompleteDetails": {
+    "message": "Uvoz zaključen: $SUCCESS$ uspešno, $FAILED$ neuspešno",
+    "description": "Final import status with counts",
+    "placeholders": {
+      "success": {
+        "content": "$1",
+        "example": "5"
+      },
+      "failed": {
+        "content": "$2",
+        "example": "1"
+      }
+    }
+  },
+  "status_importing": {
+    "message": "Uvoz...",
+    "description": "Status during import"
+  },
+  "status_importingPlaylist": {
+    "message": "Uvoz: $NAME$",
+    "description": "Status for importing a playlist",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Playlist"
+      }
+    }
+  },
+  "status_loading": {
+    "message": "Nalaganje...",
+    "description": "Generic loading message"
+  },
+  "status_loadingAudioFiles": {
+    "message": "Nalaganje avdio datotek...",
+    "description": "Status loading audio"
+  },
+  "status_loadingCards": {
+    "message": "Nalaganje kartic...",
+    "description": "Loading state for cards list"
+  },
+  "status_loadingEpisodes": {
+    "message": "Nalaganje epizod...",
+    "description": "Loading podcast episodes"
+  },
+  "status_loadingZip": {
+    "message": "Nalaganje ZIP datoteke...",
+    "description": "Status when loading ZIP file"
+  },
+  "status_matchingTracks": {
+    "message": "Ujemanje $COUNT$ skladb$PLURAL$...",
+    "description": "Status when matching icons to tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "status_notAuthenticated": {
+    "message": "Ni avtentificirano",
+    "description": "Status when user is not authenticated"
+  },
+  "status_openingZip": {
+    "message": "Odpiranje ZIP arhiva...",
+    "description": "Opening ZIP file"
+  },
+  "status_overallProgress": {
+    "message": "Skupni napredek: $CURRENT$/$TOTAL$ seznama predvajanja",
+    "description": "Overall import progress",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "2"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
+  "status_percentComplete": {
+    "message": "$PERCENT$% zaključeno",
+    "description": "Import progress percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
+  "status_preparingTimerTracks": {
+    "message": "Priprava skladb za časovnik...",
+    "description": "Status preparing timer tracks"
+  },
+  "status_preparingToothbrushTimer": {
+    "message": "Priprava skladb za časovnik zobne ščetke...",
+    "description": "Status when creating toothbrush timer"
+  },
+  "status_processing": {
+    "message": "Obdelava...",
+    "description": "Generic processing message"
+  },
+  "status_processingAudioFiles": {
+    "message": "Obdelava avdio datotek...",
+    "description": "Status when processing audio files"
+  },
+  "status_processingAudioProgress": {
+    "message": "Obdelava avdio $START$-$END$ od $TOTAL$...",
+    "description": "Status when processing audio with progress",
+    "placeholders": {
+      "start": {
+        "content": "$1",
+        "example": "1"
+      },
+      "end": {
+        "content": "$2",
+        "example": "5"
+      },
+      "total": {
+        "content": "$3",
+        "example": "20"
+      }
+    }
+  },
+  "status_processingBulkFolder": {
+    "message": "Obdelava mape...",
+    "description": "Status when processing bulk folder"
+  },
+  "status_processingFolder": {
+    "message": "Obdelava mape $CURRENT$ od $TOTAL$...",
+    "description": "Status for processing folders",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "3"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "status_processingFolders": {
+    "message": "Obdelava map...",
+    "description": "Processing folder structure"
+  },
+  "status_processingZip": {
+    "message": "Obdelava ZIP datoteke...",
+    "description": "Status when processing ZIP"
+  },
+  "status_refreshing": {
+    "message": "Osveževanje strani...",
+    "description": "Page refresh in progress"
+  },
+  "status_refreshingPage": {
+    "message": "Osveževanje strani za prikaz novih seznamov predvajanja...",
+    "description": "Refreshing after import"
+  },
+  "status_searchingPodcasts": {
+    "message": "Iskanje podcastov...",
+    "description": "Searching for podcasts"
+  },
+  "status_startingImport": {
+    "message": "Začetek uvoza $COUNT$ epizod$PLURAL$...",
+    "description": "Status when starting podcast episode import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "status_startingUpload": {
+    "message": "Začetek nalaganja...",
+    "description": "Starting file upload"
+  },
+  "status_successfullyImportedEpisodes": {
+    "message": "Uspešno uvoženo $COUNT$ epizod!",
+    "description": "Success message for episode import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "status_timerCreatedSuccess": {
+    "message": "Števec je bil uspešno ustvarjen! Osveževanje strani...",
+    "description": "Success message for custom timer"
+  },
+  "status_toothbrushTimerSuccess": {
+    "message": "Števec za zobno ščetko je bil uspešno ustvarjen! Osveževanje...",
+    "description": "Success message for toothbrush timer"
+  },
+  "status_updateFailed": {
+    "message": "Posodobitev ni uspela: $MESSAGE$",
+    "description": "Update failed with error",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "status_updatingCard": {
+    "message": "Posodabljanje kartice...",
+    "description": "Finalizing card update"
+  },
+  "status_uploadingAudioFile": {
+    "message": "Prenos avdio $CURRENT$/$TOTAL$...",
+    "description": "Status for individual audio upload",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "3"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "status_uploadingAudioFiles": {
+    "message": "Prenos avdio datotek... $CURRENT$/$TOTAL$",
+    "description": "Status for uploading audio files",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "5"
+      },
+      "total": {
+        "content": "$2",
+        "example": "20"
+      }
+    }
+  },
+  "status_uploadingAudioTracks": {
+    "message": "Prenos avdio posnetkov...",
+    "description": "Status uploading tracks"
+  },
+  "status_uploadingCover": {
+    "message": "Nalaganje naslovnice...",
+    "description": "Status when uploading cover"
+  },
+  "status_uploadingCoverImage": {
+    "message": "Prenos slike naslovnice...",
+    "description": "Status when uploading cover image"
+  },
+  "status_uploadingFiles": {
+    "message": "Prenos datotek...",
+    "description": "Files uploading"
+  },
+  "status_uploadingIcon": {
+    "message": "Prenos ikone $CURRENT$ od $TOTAL$...",
+    "description": "Status message showing icon upload progress",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "2"
+      },
+      "total": {
+        "content": "$2",
+        "example": "9"
+      }
+    }
+  },
+  "status_uploadingIconFiles": {
+    "message": "Prenos datotek ikon...",
+    "description": "Uploading icons in update"
+  },
+  "status_uploadingIcons": {
+    "message": "Nalaganje ikone $CURRENT$ od $TOTAL$...",
+    "description": "Status when uploading icons",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "1"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "status_uploadingIconsProgress": {
+    "message": "Prenos ikon $START$-$END$ od $TOTAL$...",
+    "description": "Status when uploading icons with progress",
+    "placeholders": {
+      "start": {
+        "content": "$1",
+        "example": "1"
+      },
+      "end": {
+        "content": "$2",
+        "example": "5"
+      },
+      "total": {
+        "content": "$3",
+        "example": "10"
+      }
+    }
+  },
+  "status_uploadingPlaylist": {
+    "message": "Prenos: $NAME$",
+    "description": "Status for uploading a playlist",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Playlist"
+      }
+    }
+  },
+  "status_uploadingTracks": {
+    "message": "Nalaganje posnetkov...",
+    "description": "Status when uploading tracks"
+  },
+  "status_uploadingTracksPercent": {
+    "message": "Prenos skladb... $PERCENT$%",
+    "description": "Status when uploading tracks with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
+  "timer_alarmCalmBells": {
+    "message": "Mirni zvončki",
+    "description": "Alarm sound option - calm bells"
+  },
+  "timer_alarmChristmasBells": {
+    "message": "Božični zvončki",
+    "description": "Alarm sound option - christmas bells"
+  },
+  "timer_alarmFriendlyChime": {
+    "message": "Prijazen zvonček",
+    "description": "Alarm sound option - friendly chime"
+  },
+  "timer_alarmHappyTune": {
+    "message": "Vesela melodija",
+    "description": "Alarm sound option - happy tune"
+  },
+  "timer_alarmNone": {
+    "message": "Brez alarma",
+    "description": "Option for no alarm sound"
+  },
+  "timer_alarmSoftBell": {
+    "message": "Mehki zvonček",
+    "description": "Alarm sound option - soft bell"
+  },
+  "timer_alarmSpookySound": {
+    "message": "Strašljiv zvok",
+    "description": "Alarm sound option - spooky sound"
+  },
+  "timer_alarmSunshineMelody": {
+    "message": "Sončna melodija",
+    "description": "Alarm sound option - sunshine melody"
+  },
+  "timer_bottomLeftBack": {
+    "message": "Spodaj levo zadaj (0:45)",
+    "description": "Toothbrush timer track - bottom left back teeth"
+  },
+  "timer_bottomLeftFront": {
+    "message": "Spodaj levo spredaj (1:00)",
+    "description": "Toothbrush timer track - bottom left front teeth"
+  },
+  "timer_bottomRightBack": {
+    "message": "Spodaj desno zadaj (0:15)",
+    "description": "Toothbrush timer track - bottom right back teeth"
+  },
+  "timer_bottomRightFront": {
+    "message": "Spodaj desno spredaj (0:30)",
+    "description": "Toothbrush timer track - bottom right front teeth"
+  },
+  "timer_buttonBack": {
+    "message": "Zadaj",
+    "description": "Button to go back"
+  },
+  "timer_buttonCreateTimer": {
+    "message": "Ustvari časovnik",
+    "description": "Button to create timer"
+  },
+  "timer_chooseTimer": {
+    "message": "Izberi časovnik...",
+    "description": "Placeholder for timer selection dropdown"
+  },
+  "timer_complete": {
+    "message": "Časovnik dokončan",
+    "description": "Timer completion alternative title"
+  },
+  "timer_customDuration": {
+    "message": "Po meri Trajanje (minute)",
+    "description": "Label for custom duration option"
+  },
+  "timer_defaultName": {
+    "message": "Vizualni časovnik - $MINUTES$ $MINUTETEXT$",
+    "description": "Default name for visual timer with duration",
+    "placeholders": {
+      "minutes": {
+        "content": "$1",
+        "example": "5"
+      },
+      "minutetext": {
+        "content": "$2",
+        "example": "minutes"
+      }
+    }
+  },
+  "timer_detailsDuration": {
+    "message": "• Trajanje: 2 minuti 5 sekund",
+    "description": "Toothbrush timer duration detail"
+  },
+  "timer_detailsPerfectFor": {
+    "message": "• Idealno za jutranje in večerne rutine",
+    "description": "Toothbrush timer use case detail"
+  },
+  "timer_detailsSegments": {
+    "message": "• Segmenti: 5-sekundni uvod, nato 15-sekundni segmenti",
+    "description": "Toothbrush timer segments detail"
+  },
+  "timer_duration10min": {
+    "message": "10 minut",
+    "description": "Timer duration option - 10 minutes"
+  },
+  "timer_duration15min": {
+    "message": "15 minut",
+    "description": "Timer duration option - 15 minutes"
+  },
+  "timer_duration20min": {
+    "message": "20 minut",
+    "description": "Timer duration option - 20 minutes"
+  },
+  "timer_duration2min": {
+    "message": "2 minuti",
+    "description": "Timer duration option - 2 minutes"
+  },
+  "timer_duration30min": {
+    "message": "30 minut",
+    "description": "Timer duration option - 30 minutes"
+  },
+  "timer_duration5min": {
+    "message": "5 minut",
+    "description": "Timer duration option - 5 minutes"
+  },
+  "timer_duration60min": {
+    "message": "60 minut",
+    "description": "Timer duration option - 60 minutes"
+  },
+  "timer_iconStyleBlocks": {
+    "message": "Bloki",
+    "description": "Timer icon style option - blocks"
+  },
+  "timer_iconStyleCircle": {
+    "message": "Krog",
+    "description": "Timer icon style option - circle"
+  },
+  "timer_iconStyleDots": {
+    "message": "Pike",
+    "description": "Timer icon style option - dots"
+  },
+  "timer_iconStyleFlower": {
+    "message": "Cvet",
+    "description": "Timer icon style option - flower bloom"
+  },
+  "timer_iconStyleGhost": {
+    "message": "Duh",
+    "description": "Timer icon style option - ghost"
+  },
+  "timer_iconStylePizza": {
+    "message": "Pizza",
+    "description": "Timer icon style option - pizza"
+  },
+  "timer_iconStyleSandTimer": {
+    "message": "Pesek",
+    "description": "Timer icon style option - sand timer"
+  },
+  "timer_iconStyleTreeLights": {
+    "message": "Luči na drevesu",
+    "description": "Timer icon style option - tree lights"
+  },
+  "timer_labelEndAlarmSound": {
+    "message": "Zvok alarma ob koncu",
+    "description": "Label for alarm sound selection"
+  },
+  "timer_labelIconStyle": {
+    "message": "Slog ikone",
+    "description": "Label for icon style selection"
+  },
+  "timer_labelSelectTimer": {
+    "message": "Izberite časovnik",
+    "description": "Label for timer selection"
+  },
+  "timer_labelTimerDetails": {
+    "message": "Podrobnosti časovnika",
+    "description": "Header for timer details section"
+  },
+  "timer_minuteLeft": {
+    "message": "Ostaja 1 minuta",
+    "description": "Timer track title for 1 minute remaining"
+  },
+  "timer_minuteSecondsLeft": {
+    "message": "Ostaja 1 minuta $SECONDS$ sekunda$PLURAL$",
+    "description": "Timer track title for 1 minute and seconds remaining",
+    "placeholders": {
+      "seconds": {
+        "content": "$1",
+        "example": "30"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "timer_minutesLeft": {
+    "message": "Ostaja $MINUTES$ minut",
+    "description": "Timer track title for multiple minutes remaining",
+    "placeholders": {
+      "minutes": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "timer_minutesSecondsLeft": {
+    "message": "Ostaja $MINUTES$ minut $SECONDS$ sekunda$PLURAL$",
+    "description": "Timer track title for minutes and seconds remaining",
+    "placeholders": {
+      "minutes": {
+        "content": "$1",
+        "example": "5"
+      },
+      "seconds": {
+        "content": "$2",
+        "example": "30"
+      },
+      "plural": {
+        "content": "$3",
+        "example": "s"
+      }
+    }
+  },
+  "timer_secondsLeft": {
+    "message": "Ostaja $SECONDS$ sekund",
+    "description": "Timer track title for seconds remaining",
+    "placeholders": {
+      "seconds": {
+        "content": "$1",
+        "example": "30"
+      }
+    }
+  },
+  "timer_sparklySmile": {
+    "message": "Sijajen nasmeh!",
+    "description": "Toothbrush timer final track"
+  },
+  "timer_timesUp": {
+    "message": "Čas je potekel!",
+    "description": "Timer completion track title"
+  },
+  "timer_toothbrushIntro": {
+    "message": "Pripravite zobno ščetko!",
+    "description": "Toothbrush timer intro track title"
+  },
+  "timer_toothbrushTimer": {
+    "message": "🦷 Števec za zobno ščetko (2 min 5 sek)",
+    "description": "Ready-made toothbrush timer option"
+  },
+  "timer_toothbrushTitle": {
+    "message": "Števec za zobno ščetko",
+    "description": "Title for the toothbrush timer playlist"
+  },
+  "timer_topLeftBack": {
+    "message": "Zgornji levi zadnji (1:45)",
+    "description": "Toothbrush timer track - top left back teeth"
+  },
+  "timer_topLeftFront": {
+    "message": "Zgornji levi sprednji (2:00)",
+    "description": "Toothbrush timer track - top left front teeth"
+  },
+  "timer_topRightBack": {
+    "message": "Zgornji desni zadnji (1:15)",
+    "description": "Toothbrush timer track - top right back teeth"
+  },
+  "timer_topRightFront": {
+    "message": "Zgornji desni sprednji (1:30)",
+    "description": "Toothbrush timer track - top right front teeth"
+  }
+}
