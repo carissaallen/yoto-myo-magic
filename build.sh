@@ -26,6 +26,7 @@ zip -r "$OUTPUT_FILE" \
     callback.html \
     callback.js \
     config.js \
+    _locales/ \
     assets/ \
     background/ \
     content/ \
@@ -38,6 +39,8 @@ zip -r "$OUTPUT_FILE" \
     -x "*.swp" \
     -x "*.swo" \
     -x "*~" \
+    -x "*.backup" \
+    -x "*_translations.txt" \
     -x "test-files/*" \
     -x "docs/*" \
     -x "*.md" \
