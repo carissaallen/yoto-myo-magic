@@ -1,11 +1,195 @@
 {
-  "extensionName": {
-    "message": "Yoto MYO Magic",
-    "description": "Name of the extension"
+  "button_applyIcons": {
+    "message": "Icons anwenden",
+    "description": "Button to apply selected icons"
   },
-  "extensionDescription": {
-    "message": "Verwandeln Sie die Art und Weise, wie Sie Yoto MYO-Karten erstellen, mit intelligenten Importen, automatischer Icon-Zuordnung und weiteren nützlichen Funktionen.",
-    "description": "Description of the extension"
+  "button_applying": {
+    "message": "Wird angewendet...",
+    "description": "Button state while applying icons"
+  },
+  "button_authenticate": {
+    "message": "Jetzt authentifizieren",
+    "description": "Button to authenticate"
+  },
+  "button_authenticateNow": {
+    "message": "Jetzt authentifizieren",
+    "description": "Auth banner button text after cancelled authentication"
+  },
+  "button_authenticating": {
+    "message": "Authentifizierung...",
+    "description": "Button state during authentication"
+  },
+  "button_authorizing": {
+    "message": "Autorisierung...",
+    "description": "Button state while authorizing"
+  },
+  "button_bulkIconMatch": {
+    "message": "Massen-Icon-Übereinstimmung",
+    "description": "Button for bulk icon matching"
+  },
+  "button_bulkImport": {
+    "message": "Massenimport",
+    "description": "Button to bulk import multiple playlists"
+  },
+  "button_cancel": {
+    "message": "Abbrechen",
+    "description": "Cancel button"
+  },
+  "button_category": {
+    "message": "Kategorie",
+    "description": "Button label for category"
+  },
+  "button_close": {
+    "message": "Schließen",
+    "description": "Close button"
+  },
+  "button_continue": {
+    "message": "Weiter",
+    "description": "Continue button"
+  },
+  "button_createIcon": {
+    "message": "Icon erstellen",
+    "description": "Button to create a custom icon"
+  },
+  "button_deselectAll": {
+    "message": "Alle abwählen",
+    "description": "Deselect all checkbox button"
+  },
+  "button_disablePaint": {
+    "message": "Malen deaktivieren",
+    "description": "Button to disable paint mode"
+  },
+  "button_errorTryAgain": {
+    "message": "Fehler - Erneut versuchen",
+    "description": "Button state showing error with retry option"
+  },
+  "button_fetchingContent": {
+    "message": "Inhalt wird abgerufen...",
+    "description": "Button state while fetching content"
+  },
+  "button_grantPermission": {
+    "message": "Berechtigung erteilen",
+    "description": "Button to grant podcast permission"
+  },
+  "button_iconMatch": {
+    "message": "Icon-Übereinstimmung",
+    "description": "Button for icon matching"
+  },
+  "button_import": {
+    "message": "Episoden importieren",
+    "description": "Button to import podcast episodes"
+  },
+  "button_importFolder": {
+    "message": "Ordner importieren",
+    "description": "Button to import from folder"
+  },
+  "button_importPlaylist": {
+    "message": "Wiedergabeliste importieren",
+    "description": "Button to import a playlist"
+  },
+  "button_importPodcast": {
+    "message": "Podcast importieren",
+    "description": "Button to import a podcast"
+  },
+  "button_importZipFile": {
+    "message": "ZIP-Datei importieren",
+    "description": "Button to import from ZIP file"
+  },
+  "button_importing": {
+    "message": "Importieren...",
+    "description": "Button state while importing"
+  },
+  "button_loadMore": {
+    "message": "Mehr Episoden laden",
+    "description": "Button to load more episodes"
+  },
+  "button_paint": {
+    "message": "Malen",
+    "description": "Button to enable paint mode"
+  },
+  "button_proceedToBulkImport": {
+    "message": "Mit Massenimport fortfahren",
+    "description": "Proceed to bulk import button"
+  },
+  "button_reAuthenticating": {
+    "message": "Neu authentifizieren...",
+    "description": "Button state while re-authenticating"
+  },
+  "button_search": {
+    "message": "Suchen",
+    "description": "Search button"
+  },
+  "button_searchingForIcons": {
+    "message": "Suche nach Symbolen...",
+    "description": "Button state while searching for icons"
+  },
+  "button_selectAll": {
+    "message": "Alle auswählen",
+    "description": "Button to select all items"
+  },
+  "button_selectFolder": {
+    "message": "Ordner auswählen",
+    "description": "Button to select folder for bulk import"
+  },
+  "button_selectNone": {
+    "message": "Keine auswählen",
+    "description": "Button to deselect all items"
+  },
+  "button_selectTracksWithoutIcons": {
+    "message": "Titel ohne Icons auswählen",
+    "description": "Button to select only tracks without icons"
+  },
+  "button_selectZipFile": {
+    "message": "ZIP-Datei auswählen",
+    "description": "Button to select ZIP for bulk import"
+  },
+  "button_signingOut": {
+    "message": "Abmeldung läuft...",
+    "description": "Button state during sign out"
+  },
+  "button_start": {
+    "message": "Starten",
+    "description": "Generic start button"
+  },
+  "button_startBulkImport": {
+    "message": "Massenimport starten",
+    "description": "Start bulk import button"
+  },
+  "button_startImport": {
+    "message": "Import starten",
+    "description": "Button to start importing"
+  },
+  "button_trackTitle": {
+    "message": "Titeltitel",
+    "description": "Button label for track title"
+  },
+  "button_tryAgain": {
+    "message": "Erneut versuchen",
+    "description": "Try again button"
+  },
+  "button_updatePlaylist": {
+    "message": "Wiedergabeliste aktualisieren",
+    "description": "Button to update an existing playlist"
+  },
+  "button_uploadFailed": {
+    "message": "Upload fehlgeschlagen",
+    "description": "Button state when upload fails"
+  },
+  "button_uploaded": {
+    "message": "Hochgeladen!",
+    "description": "Button state after successful upload"
+  },
+  "button_uploading": {
+    "message": "Hochladen...",
+    "description": "Button state during upload"
+  },
+  "button_verifyingAccess": {
+    "message": "Zugriff wird überprüft...",
+    "description": "Button state while verifying access"
+  },
+  "button_visualTimer": {
+    "message": "Visueller Timer",
+    "description": "Button to create a visual timer"
   },
   "category_animals": {
     "message": "Tiere",
@@ -79,191 +263,163 @@
     "message": "Wetter",
     "description": "Category name for weather"
   },
-  "button_importPlaylist": {
-    "message": "Wiedergabeliste importieren",
-    "description": "Button to import a playlist"
+  "confirm_clearCache": {
+    "message": "Dadurch werden alle zwischengespeicherten Icons gelöscht. Sind Sie sicher?",
+    "description": "Confirmation to clear cache"
   },
-  "button_importPodcast": {
-    "message": "Podcast importieren",
-    "description": "Button to import a podcast"
+  "confirm_disconnectAccount": {
+    "message": "Möchten Sie Ihr Yoto-Konto wirklich trennen?",
+    "description": "Confirmation to disconnect account"
   },
-  "button_updatePlaylist": {
-    "message": "Wiedergabeliste aktualisieren",
-    "description": "Button to update an existing playlist"
+  "confirm_resetSettings": {
+    "message": "Dadurch werden alle Einstellungen auf die Standardwerte zurückgesetzt. Sind Sie sicher?",
+    "description": "Confirmation to reset settings"
   },
-  "button_cancel": {
-    "message": "Abbrechen",
-    "description": "Cancel button"
+  "createIcon_actualSize": {
+    "message": "Tatsächliche Größe: 16x16 Pixel",
+    "description": "Info about icon size"
   },
-  "button_search": {
-    "message": "Suchen",
-    "description": "Search button"
+  "createIcon_chooseHowToCreate": {
+    "message": "Wählen Sie aus, wie Sie Ihr individuelles Yoto-Symbol erstellen möchten.",
+    "description": "Description text for Create Icon modal"
   },
-  "button_close": {
-    "message": "Schließen",
-    "description": "Close button"
+  "createIcon_chooseImage": {
+    "message": "Bild auswählen",
+    "description": "Button to choose an image file"
   },
-  "button_authenticate": {
-    "message": "Jetzt authentifizieren",
-    "description": "Button to authenticate"
+  "createIcon_convertToPixelArt": {
+    "message": "In Pixelkunst konvertieren",
+    "description": "Button to convert image to pixel art"
   },
-  "button_tryAgain": {
-    "message": "Erneut versuchen",
-    "description": "Try again button"
+  "createIcon_customColor": {
+    "message": "Benutzerdefinierte Farbe",
+    "description": "Label for custom color picker"
   },
-  "button_import": {
-    "message": "Episoden importieren",
-    "description": "Button to import podcast episodes"
+  "createIcon_disableEraser": {
+    "message": "Radiergummi deaktivieren",
+    "description": "Button label when eraser is active"
   },
-  "button_loadMore": {
-    "message": "Mehr Episoden laden",
-    "description": "Button to load more episodes"
+  "createIcon_eraser": {
+    "message": "Radiergummi",
+    "description": "Eraser mode button label"
   },
-  "modal_categoryIconMatch": {
-    "message": "Kategorie-Icon-Zuordnung",
-    "description": "Title for category icon match modal"
+  "createIcon_format": {
+    "message": "Format: PNG",
+    "description": "Info about icon format"
   },
-  "modal_categoryDescription": {
-    "message": "Wählen Sie eine Kategorie, um Icons für Ihre $COUNT$ Titel zu finden",
-    "description": "Description for category selection",
+  "createIcon_iconPreview": {
+    "message": "Symbolvorschau",
+    "description": "Section title for icon preview"
+  },
+  "createIcon_original": {
+    "message": "Original",
+    "description": "Label for original image reference"
+  },
+  "createIcon_paint": {
+    "message": "Malen",
+    "description": "Paint mode button label"
+  },
+  "createIcon_positionAndScale": {
+    "message": "Positionieren und skalieren Sie Ihr Bild und klicken Sie dann auf \"In Pixelkunst konvertieren\"",
+    "description": "Instructions for positioning image"
+  },
+  "createIcon_previewIcon": {
+    "message": "Symbolvorschau",
+    "description": "Button to preview the icon"
+  },
+  "createIcon_reset": {
+    "message": "Zurücksetzen",
+    "description": "Button to reset changes"
+  },
+  "createIcon_resetGrid": {
+    "message": "Raster zurücksetzen",
+    "description": "Button to reset the grid"
+  },
+  "createIcon_scale": {
+    "message": "Skalierung:",
+    "description": "Label for scale slider"
+  },
+  "createIcon_touchUpPixelArt": {
+    "message": "Pixelkunst nachbearbeiten",
+    "description": "Instructions for editing pixel art"
+  },
+  "createIcon_undo": {
+    "message": "Rückgängig",
+    "description": "Undo button label"
+  },
+  "createIcon_uploadIconToYoto": {
+    "message": "Symbol zu Yoto hochladen",
+    "description": "Button to upload created icon to Yoto"
+  },
+  "device_otherDevices": {
+    "message": "Andere Geräte",
+    "description": "Label for unknown device family"
+  },
+  "device_unknownDevice": {
+    "message": "Unbekanntes Gerät",
+    "description": "Fallback name for unknown device"
+  },
+  "device_yotoMini": {
+    "message": "Yoto Mini",
+    "description": "Device family name for Yoto Mini"
+  },
+  "device_yotoPlayerV2": {
+    "message": "Yoto Player (V2)",
+    "description": "Device family name for Yoto Player V2"
+  },
+  "device_yotoPlayerV3": {
+    "message": "Yoto Player (V3)",
+    "description": "Device family name for Yoto Player V3"
+  },
+  "error_apiError": {
+    "message": "API-Fehler: $MESSAGE$",
+    "description": "API error with message",
     "placeholders": {
-      "count": {
+      "message": {
         "content": "$1",
-        "example": "5"
-      },
-      "plural": {
-        "content": "$2",
-        "example": "s"
+        "example": "500 Internal Server Error"
       }
     }
   },
-  "modal_chooseCategory": {
-    "message": "Wählen Sie eine Kategorie:",
-    "description": "Label for category dropdown"
+  "error_authRequiredRefresh": {
+    "message": "Authentifizierung erforderlich. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.",
+    "description": "Error when authentication is needed"
   },
-  "modal_selectCategory": {
-    "message": "Kategorie auswählen...",
-    "description": "Placeholder for category dropdown"
+  "error_closeModalAndRetry": {
+    "message": "Bitte schließen Sie dieses Modal und versuchen Sie erneut zu importieren.",
+    "description": "Instruction to retry after permission"
   },
-  "modal_customCategory": {
-    "message": "Oder geben Sie eine benutzerdefinierte Kategorie ein:",
-    "description": "Label for custom category input"
+  "error_couldNotIdentifyCardId": {
+    "message": "Karten-ID konnte nicht identifiziert werden.",
+    "description": "Could not identify card ID"
   },
-  "modal_customCategoryPlaceholder": {
-    "message": "z.B. Dinosaurier, Roboter, Märchen",
-    "description": "Placeholder for custom category input"
-  },
-  "modal_importPodcast": {
-    "message": "Podcast importieren",
-    "description": "Title for import podcast modal"
-  },
-  "modal_importPodcastPermission": {
-    "message": "Podcast importieren - Berechtigung erforderlich",
-    "description": "Title when permission is required"
-  },
-  "status_authenticating": {
-    "message": "Authentifizierung läuft...",
-    "description": "Status message during authentication"
-  },
-  "status_loading": {
-    "message": "Laden...",
-    "description": "Generic loading message"
-  },
-  "status_loadingZip": {
-    "message": "ZIP-Datei wird geladen...",
-    "description": "Status when loading ZIP file"
-  },
-  "status_analyzingFolder": {
-    "message": "Ordnerstruktur wird analysiert...",
-    "description": "Status when analyzing folder"
-  },
-  "status_extractingPlaylists": {
-    "message": "Wiedergabelisten werden extrahiert...",
-    "description": "Status when extracting playlists"
-  },
-  "status_uploadingTracks": {
-    "message": "Titel werden hochgeladen...",
-    "description": "Status when uploading tracks"
-  },
-  "status_uploadingIcons": {
-    "message": "Lade Symbole $CURRENT$/$TOTAL$ hoch...",
-    "description": "Status message showing bulk icon upload progress",
-    "placeholders": {
-      "current": {
-        "content": "$1",
-        "example": "5"
-      },
-      "total": {
-        "content": "$2",
-        "example": "20"
-      }
-    }
-  },
-  "status_uploadingCover": {
-    "message": "Cover wird hochgeladen...",
-    "description": "Status when uploading cover"
-  },
-  "status_creatingCard": {
-    "message": "Timer-Karte wird erstellt...",
-    "description": "Status when creating card"
-  },
-  "status_importing": {
-    "message": "Importieren...",
-    "description": "Status during import"
-  },
-  "status_completed": {
-    "message": "Abgeschlossen",
-    "description": "Status when completed"
-  },
-  "status_processing": {
-    "message": "Verarbeitung läuft...",
-    "description": "Generic processing message"
-  },
-  "popup_signIn": {
-    "message": "Mit Yoto anmelden",
-    "description": "Sign in button in popup"
-  },
-  "popup_goToYoto": {
-    "message": "Zu Yoto-Wiedergabelisten",
-    "description": "Button to go to Yoto playlists page"
-  },
-  "popup_batteryStatus": {
-    "message": "Gerätebatteriestatus",
-    "description": "Button to view battery status"
-  },
-  "popup_manageExtension": {
-    "message": "Erweiterung verwalten",
-    "description": "Button to manage extension"
-  },
-  "popup_signOut": {
-    "message": "Abmelden",
-    "description": "Button to sign out"
-  },
-  "popup_checkingAuth": {
-    "message": "Authentifizierung wird überprüft...",
-    "description": "Status when checking authentication"
-  },
-  "popup_visitYoto": {
-    "message": "Besuchen Sie die Yoto-Wiedergabelisten-Seite, um die Funktionen zu nutzen.",
-    "description": "Footer note in popup"
-  },
-  "popup_loadingDeviceInfo": {
-    "message": "Geräteinformationen werden geladen...",
-    "description": "Loading message for device info"
-  },
-  "error_noPodcastsFound": {
-    "message": "Keine Podcasts gefunden für \"$QUERY$\"",
-    "description": "Error when no podcasts found",
-    "placeholders": {
-      "query": {
-        "content": "$1",
-        "example": "example podcast"
-      }
-    }
+  "error_couldNotIdentifyCardIdFromUrl": {
+    "message": "Karten-ID konnte nicht aus der URL identifiziert werden.",
+    "description": "Could not identify card ID from URL"
   },
   "error_failedSearch": {
     "message": "Podcast-Suche fehlgeschlagen. Bitte versuchen Sie es erneut.",
     "description": "Error when search fails"
+  },
+  "error_failedToApplyIcons": {
+    "message": "Icons konnten nicht angewendet werden: $MESSAGE$",
+    "description": "Error when icon application fails",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "error_fileTooLarge40MB": {
+    "message": "$FILENAME$ ist zu groß (max. 40MB aufgrund von Browser-Einschränkungen)",
+    "description": "Error for individual file over 40MB",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "large-file.mp3"
+      }
+    }
   },
   "error_generic": {
     "message": "Fehler: $MESSAGE$",
@@ -275,69 +431,97 @@
       }
     }
   },
-  "label_selectedCount": {
-    "message": "($COUNT$ ausgewählt)",
-    "description": "Label showing selected count",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "5"
-      },
-      "plural": {
-        "content": "$2",
-        "example": ""
-      }
-    }
+  "error_importTakingTooLong": {
+    "message": "Der Import dauert länger als erwartet. Bitte aktualisieren Sie die Seite.",
+    "description": "Error when import times out"
   },
-  "label_cancelImport": {
-    "message": "Import abbrechen",
-    "description": "Label for cancel import button"
+  "error_invalidDuration": {
+    "message": "Bitte geben Sie eine gültige Dauer zwischen 1 und 120 Minuten ein",
+    "description": "Error for invalid timer duration"
   },
-  "label_downloadingEpisodes": {
-    "message": "Episoden werden heruntergeladen und verarbeitet...",
-    "description": "Label when downloading episodes"
+  "error_loadingCards": {
+    "message": "Fehler beim Laden der Karten. Bitte versuchen Sie es erneut.",
+    "description": "Error loading cards list"
   },
-  "label_successfullyImported": {
-    "message": "Erfolgreich importiert:",
-    "description": "Success message after import",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "5"
-      },
-      "plural": {
-        "content": "$2",
-        "example": "n"
-      }
-    }
-  },
-  "label_file": {
-    "message": "Datei: $FILENAME$",
-    "description": "Label showing filename",
+  "error_networkUploadFailed": {
+    "message": "Netzwerkfehler beim Hochladen von $FILENAME$ ($SIZE$MB). Die Datei ist möglicherweise zu groß oder die Verbindung wurde unterbrochen.",
+    "description": "Network error during upload",
     "placeholders": {
       "filename": {
         "content": "$1",
-        "example": "playlist.zip"
+        "example": "track.mp3"
+      },
+      "size": {
+        "content": "$2",
+        "example": "45"
       }
     }
   },
-  "label_foundItems": {
-    "message": "$COUNT$ Elemente gefunden",
-    "description": "Label showing found items count",
+  "error_noAudioFilesInFolder": {
+    "message": "Keine Audiodateien im Ordner audio_files gefunden",
+    "description": "Error when no audio files are found"
+  },
+  "error_noCardsFound": {
+    "message": "Keine MYO-Karten gefunden. Bitte erstellen Sie zuerst eine Karte.",
+    "description": "Error when user has no cards"
+  },
+  "error_noPodcastsFound": {
+    "message": "Keine Podcasts gefunden für \"$QUERY$\"",
+    "description": "Error when no podcasts found",
     "placeholders": {
-      "count": {
+      "query": {
         "content": "$1",
-        "example": "10"
+        "example": "example podcast"
       }
     }
   },
-  "notification_noValidIcons": {
-    "message": "Keine gültigen Symbole zum Anwenden. Versuchen Sie, nach anderen Begriffen zu suchen oder überprüfen Sie die Symbol-Zuordnung.",
-    "description": "Error when no valid icons to apply"
+  "error_noTracksFound": {
+    "message": "Keine Titel auf dieser Karte gefunden.",
+    "description": "No tracks found on card"
   },
-  "notification_noIconMatchesFound": {
-    "message": "Keine Symbol-Übereinstimmungen gefunden. Versuchen Sie, beschreibendere Titelnamen hinzuzufügen.",
-    "description": "Error when no icon matches found"
+  "error_permissionRequired": {
+    "message": "Berechtigung zum Zugriff auf Podcast-Audiodateien erforderlich.",
+    "description": "Permission required error"
+  },
+  "error_unknownError": {
+    "message": "Ein unbekannter Fehler ist aufgetreten",
+    "description": "Generic unknown error message"
+  },
+  "error_uploadFailedLargeFiles": {
+    "message": "Upload fehlgeschlagen. Diese Dateien sind möglicherweise zu groß (max. 40MB empfohlen):",
+    "description": "Header for list of failed large files"
+  },
+  "error_uploadFailedTooLarge": {
+    "message": "Upload von \"$FILENAME$\" fehlgeschlagen. Die Datei ist möglicherweise zu groß. Versuchen Sie, die Seite zu aktualisieren und kleinere Dateigruppen zu importieren.",
+    "description": "Upload failed due to file size",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "episode.mp3"
+      }
+    }
+  },
+  "error_usageLimitReached": {
+    "message": "Nutzungslimit erreicht",
+    "description": "Usage limit error title"
+  },
+  "extensionDescription": {
+    "message": "Verwandeln Sie die Art und Weise, wie Sie Yoto MYO-Karten erstellen, mit intelligenten Importen, automatischer Icon-Zuordnung und weiteren nützlichen Funktionen.",
+    "description": "Description of the extension"
+  },
+  "extensionName": {
+    "message": "Yoto MYO Magic",
+    "description": "Name of the extension"
+  },
+  "iconMatch_iconLabel": {
+    "message": "Symbol: $TITLE$",
+    "description": "Label showing icon title",
+    "placeholders": {
+      "title": {
+        "content": "$1",
+        "example": "Music Note"
+      }
+    }
   },
   "iconMatch_iconsAvailableOf": {
     "message": "$CURRENT$/$TOTAL$ Symbole verfügbar",
@@ -353,153 +537,1085 @@
       }
     }
   },
-  "iconMatch_iconLabel": {
-    "message": "Symbol: $TITLE$",
-    "description": "Label showing icon title",
-    "placeholders": {
-      "title": {
-        "content": "$1",
-        "example": "Music Note"
-      }
-    }
-  },
   "iconMatch_unableToApplyIcons": {
     "message": "Symbole können nicht angewendet werden",
     "description": "Error modal title when icons cannot be applied"
   },
-  "createIcon_chooseHowToCreate": {
-    "message": "Wählen Sie aus, wie Sie Ihr individuelles Yoto-Symbol erstellen möchten.",
-    "description": "Description text for Create Icon modal"
+  "input_customDurationPlaceholder": {
+    "message": "Minuten eingeben (1-120)",
+    "description": "Placeholder for custom duration input"
   },
-  "createIcon_chooseImage": {
-    "message": "Bild auswählen",
-    "description": "Button to choose an image file"
+  "input_podcastSearchPlaceholder": {
+    "message": "z.B. Radiolab für Kinder",
+    "description": "Podcast search input placeholder"
   },
-  "createIcon_positionAndScale": {
-    "message": "Positionieren und skalieren Sie Ihr Bild und klicken Sie dann auf \"In Pixelkunst konvertieren\"",
-    "description": "Instructions for positioning image"
+  "input_searchCards": {
+    "message": "Ihre Karten durchsuchen...",
+    "description": "Card search input placeholder"
   },
-  "createIcon_scale": {
-    "message": "Skalierung:",
-    "description": "Label for scale slider"
+  "input_timerNamePlaceholder": {
+    "message": "z.B. Schlafenszeit-Timer",
+    "description": "Placeholder for timer name input"
   },
-  "createIcon_convertToPixelArt": {
-    "message": "In Pixelkunst konvertieren",
-    "description": "Button to convert image to pixel art"
+  "label_audioFiles": {
+    "message": "$COUNT$ Audiodatei$PLURAL$",
+    "description": "Audio files count in import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "4"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "en"
+      }
+    }
   },
-  "createIcon_original": {
-    "message": "Original",
-    "description": "Label for original image reference"
+  "label_cancelImport": {
+    "message": "Import abbrechen",
+    "description": "Label for cancel import button"
   },
-  "createIcon_resetGrid": {
-    "message": "Raster zurücksetzen",
-    "description": "Button to reset the grid"
+  "label_charging": {
+    "message": "⚡ Wird geladen",
+    "description": "Battery charging status"
   },
-  "createIcon_touchUpPixelArt": {
-    "message": "Pixelkunst nachbearbeiten",
-    "description": "Instructions for editing pixel art"
+  "label_compressFiles": {
+    "message": "Komprimieren Sie die Datei(en) auf eine Größe unter 40 MB",
+    "description": "Suggestion to compress files"
   },
-  "createIcon_customColor": {
-    "message": "Benutzerdefinierte Farbe",
-    "description": "Label for custom color picker"
+  "label_contentWillUploadSinglePlaylist": {
+    "message": "Der Inhalt wird in eine einzelne Wiedergabeliste mit $COUNT$ Titeln hochgeladen:",
+    "description": "Description for merged playlist upload",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "15"
+      }
+    }
   },
-  "createIcon_reset": {
-    "message": "Zurücksetzen",
-    "description": "Button to reset changes"
+  "label_coverImage": {
+    "message": "1 Titelbild",
+    "description": "Cover image count in import"
   },
-  "createIcon_paint": {
-    "message": "Malen",
-    "description": "Paint mode button label"
+  "label_coverNotChanged": {
+    "message": "✓ Titelbild wird nicht geändert",
+    "description": "Info about cover not changing"
   },
-  "createIcon_eraser": {
-    "message": "Radiergummi",
-    "description": "Eraser mode button label"
+  "label_customTimer": {
+    "message": "Benutzerdefinierter Timer",
+    "description": "Custom timer option"
   },
-  "createIcon_disableEraser": {
-    "message": "Radiergummi deaktivieren",
-    "description": "Button label when eraser is active"
+  "label_customTimerDescription": {
+    "message": "Erstellen Sie Ihren eigenen Timer mit benutzerdefinierten Einstellungen",
+    "description": "Description for custom timer"
   },
-  "createIcon_undo": {
-    "message": "Rückgängig",
-    "description": "Undo button label"
+  "label_downloadingEpisodes": {
+    "message": "Episoden werden heruntergeladen und verarbeitet...",
+    "description": "Label when downloading episodes"
   },
-  "createIcon_previewIcon": {
-    "message": "Symbolvorschau",
-    "description": "Button to preview the icon"
+  "label_enterPodcastName": {
+    "message": "Podcast-Namen eingeben:",
+    "description": "Label for podcast search input"
   },
-  "createIcon_iconPreview": {
-    "message": "Symbolvorschau",
-    "description": "Section title for icon preview"
+  "label_existingContentPreserved": {
+    "message": "✓ Vorhandener Inhalt wird beibehalten",
+    "description": "Info about update preserving content"
   },
-  "createIcon_actualSize": {
-    "message": "Tatsächliche Größe: 16x16 Pixel",
-    "description": "Info about icon size"
+  "label_failedToLoadDeviceInfo": {
+    "message": "Fehler beim Laden der Geräteinformationen",
+    "description": "Failed to load device info"
   },
-  "createIcon_format": {
-    "message": "Format: PNG",
-    "description": "Info about icon format"
+  "label_file": {
+    "message": "Datei: $FILENAME$",
+    "description": "Label showing filename",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "playlist.zip"
+      }
+    }
   },
-  "createIcon_uploadIconToYoto": {
-    "message": "Symbol zu Yoto hochladen",
-    "description": "Button to upload created icon to Yoto"
+  "label_filesSkipped": {
+    "message": "Übersprungene Dateien (zu groß):",
+    "description": "Section showing skipped files"
   },
-  "button_authorizing": {
-    "message": "Autorisierung...",
-    "description": "Button state while authorizing"
+  "label_filesSkippedSize": {
+    "message": "Einige Dateien wurden aufgrund von Größenbeschränkungen übersprungen.",
+    "description": "Warning about skipped files"
   },
-  "button_verifyingAccess": {
-    "message": "Zugriff wird überprüft...",
-    "description": "Button state while verifying access"
+  "label_foundItems": {
+    "message": "$COUNT$ Elemente gefunden",
+    "description": "Label showing found items count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "10"
+      }
+    }
   },
-  "button_reAuthenticating": {
-    "message": "Neu authentifizieren...",
-    "description": "Button state while re-authenticating"
+  "label_howToFix": {
+    "message": "So beheben:",
+    "description": "Section title for fix instructions"
   },
-  "button_fetchingContent": {
-    "message": "Inhalt wird abgerufen...",
-    "description": "Button state while fetching content"
+  "label_iconsAppliedByNumber": {
+    "message": "Symbole werden basierend auf Dateinamen-Nummern auf Tracks angewendet",
+    "description": "Info about icon numbering"
   },
-  "button_searchingForIcons": {
-    "message": "Suche nach Symbolen...",
-    "description": "Button state while searching for icons"
+  "label_import": {
+    "message": "Importieren:",
+    "description": "Import label (appears before item title)"
   },
-  "modal_importPlaylistTitle": {
-    "message": "Wiedergabeliste importieren",
-    "description": "Title for import playlist modal"
+  "label_importMode": {
+    "message": "Importmodus:",
+    "description": "Label for import mode selection"
+  },
+  "label_importedPlaylist": {
+    "message": "Importierte Playlist",
+    "description": "Default name for imported playlist"
+  },
+  "label_minute": {
+    "message": "Minute",
+    "description": "Singular form of minute"
+  },
+  "label_minutes": {
+    "message": "Minuten",
+    "description": "Plural form of minutes"
+  },
+  "label_noDevicesFound": {
+    "message": "Keine Geräte gefunden",
+    "description": "No devices found message"
+  },
+  "label_numTracks": {
+    "message": "$COUNT$ Titel",
+    "description": "Number of tracks in playlist",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "15"
+      }
+    }
+  },
+  "label_offline": {
+    "message": "Offline",
+    "description": "Device offline status"
+  },
+  "label_online": {
+    "message": "Online",
+    "description": "Device online status"
+  },
+  "label_overallProgress": {
+    "message": "Gesamtfortschritt:",
+    "description": "Overall progress label in bulk import"
+  },
+  "label_playlistDetails": {
+    "message": "Details der Wiedergabeliste:",
+    "description": "Header for playlist details section"
+  },
+  "label_playlistName": {
+    "message": "Name der Wiedergabeliste",
+    "description": "Label for playlist name input"
+  },
+  "label_playlistNameColon": {
+    "message": "Name der Wiedergabeliste:",
+    "description": "Label for playlist name input with colon"
+  },
+  "label_popularKidsPodcasts": {
+    "message": "Beliebte Kinder-Podcasts:",
+    "description": "Label for popular kids podcasts section"
+  },
+  "label_readyMadeDescription": {
+    "message": "Vorkonfigurierte Timer für gängige Aktivitäten",
+    "description": "Description for ready-made timers"
+  },
+  "label_readyToImport": {
+    "message": "Bereit zum Importieren:",
+    "description": "Header before import details"
+  },
+  "label_refreshPage": {
+    "message": "Seite aktualisieren",
+    "description": "Refresh button text"
+  },
+  "label_selectEpisodesToImport": {
+    "message": "Episoden zum Importieren auswählen:",
+    "description": "Label for episode selection in podcast import"
+  },
+  "label_selectedCount": {
+    "message": "($COUNT$ ausgewählt)",
+    "description": "Label showing selected count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "label_separatePlaylists": {
+    "message": "Separate Wiedergabelisten",
+    "description": "Import mode option"
+  },
+  "label_separatePlaylistsDescription": {
+    "message": "Jeder Unterordner/ZIP wird zu seiner eigenen Wiedergabeliste",
+    "description": "Description for separate playlists mode"
+  },
+  "label_singleMergedPlaylist": {
+    "message": "Einzelne zusammengeführte Wiedergabeliste",
+    "description": "Import mode option"
+  },
+  "label_singlePlaylistDescription": {
+    "message": "Alle Unterordner zu einer Wiedergabeliste kombinieren",
+    "description": "Description for merged playlist mode"
+  },
+  "label_successfullyImported": {
+    "message": "Erfolgreich importiert:",
+    "description": "Success message after import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "n"
+      }
+    }
+  },
+  "label_timerName": {
+    "message": "Timer-Name",
+    "description": "Label for timer name input"
+  },
+  "label_timerOptimized": {
+    "message": "Timer-Segmente sind für einen klaren visuellen Countdown optimiert.",
+    "description": "Info about timer optimization"
+  },
+  "label_timerType": {
+    "message": "Timer-Typ:",
+    "description": "Label for timer type selection"
+  },
+  "label_trackIcons": {
+    "message": "$COUNT$ Titel-Icon$PLURAL$",
+    "description": "Track icons count in import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "0"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "label_unknown": {
+    "message": "Unbekannt",
+    "description": "When update date is unknown"
+  },
+  "label_untitledCard": {
+    "message": "Unbenannte Karte",
+    "description": "Fallback name for cards without title"
+  },
+  "label_update": {
+    "message": "Aktualisieren:",
+    "description": "Label for update modal (appears before card title)"
+  },
+  "label_updated": {
+    "message": "Aktualisiert",
+    "description": "Label before last updated date"
+  },
+  "label_uploadDirectly": {
+    "message": "Laden Sie sie direkt über Yoto hoch; oder",
+    "description": "Suggestion for large files"
+  },
+  "label_visualTimerDefault": {
+    "message": "Visueller Timer",
+    "description": "Default visual timer name"
+  },
+  "label_withCover": {
+    "message": "Mit Cover",
+    "description": "Label indicating item has cover"
+  },
+  "modal_bulkImportSettings": {
+    "message": "Massenimport - Einstellungen",
+    "description": "Title for bulk import settings modal"
+  },
+  "modal_categoryDescription": {
+    "message": "Wählen Sie eine Kategorie aus, um Symbole für Ihre $COUNT$ Titel$PLURAL$ zu finden",
+    "description": "Description for category selection",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
+  },
+  "modal_categoryIconMatch": {
+    "message": "Kategorie-Icon-Zuordnung",
+    "description": "Title for category icon match modal"
+  },
+  "modal_chooseCardDescription": {
+    "message": "Wählen Sie aus, welche MYO-Karte Sie mit neuem Inhalt aktualisieren möchten:",
+    "description": "Card selection description"
+  },
+  "modal_chooseCategory": {
+    "message": "Wählen Sie eine Kategorie:",
+    "description": "Label for category dropdown"
+  },
+  "modal_chooseImportMethod": {
+    "message": "Importmethode wählen",
+    "description": "Title for import method selection modal"
+  },
+  "modal_chooseTracksToSearch": {
+    "message": "Wählen Sie die Titel aus, für die Icons gesucht werden sollen.",
+    "description": "Description for track selection modal"
+  },
+  "modal_collectionDetected": {
+    "message": "Sammlung erkannt!",
+    "description": "Collection detected modal title"
+  },
+  "modal_createIcon": {
+    "message": "Icon erstellen",
+    "description": "Title for create icon modal"
+  },
+  "modal_customCategory": {
+    "message": "Oder geben Sie eine benutzerdefinierte Kategorie ein:",
+    "description": "Label for custom category input"
+  },
+  "modal_customCategoryPlaceholder": {
+    "message": "z.B. Dinosaurier, Roboter, Märchen",
+    "description": "Placeholder for custom category input"
+  },
+  "modal_customVisualTimer": {
+    "message": "Benutzerdefinierter visueller Timer",
+    "description": "Title for custom visual timer modal"
+  },
+  "modal_extractingFiles": {
+    "message": "Dateien werden extrahiert...",
+    "description": "ZIP extraction modal title"
+  },
+  "modal_foundIconsForTracks": {
+    "message": "Mögliche Symbole für $COUNT$ Titel$PLURAL$ gefunden",
+    "description": "Message showing icons found for tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "modal_grantPermissionInPopup": {
+    "message": "Bitte erteilen Sie die Berechtigung im erscheinenden Popup-Fenster.",
+    "description": "Instruction for granting permission"
+  },
+  "modal_iconFound": {
+    "message": "Icon gefunden",
+    "description": "Message when a single icon is found"
+  },
+  "modal_iconMatchesFound": {
+    "message": "Icon-Übereinstimmungen gefunden",
+    "description": "Title when icon matches are found"
+  },
+  "modal_iconsAvailable": {
+    "message": "$CURRENT$ von $TOTAL$ verfügbaren Symbolen",
+    "description": "Label for available icons count"
   },
   "modal_importComplete": {
     "message": "Import abgeschlossen!",
     "description": "Title for import complete modal"
   },
-  "button_startImport": {
-    "message": "Import starten",
-    "description": "Button to start importing"
+  "modal_importMergedPlaylist": {
+    "message": "Zusammengeführte Wiedergabeliste importieren",
+    "description": "Title for merged playlist import modal"
   },
-  "button_importing": {
-    "message": "Importieren...",
-    "description": "Button state while importing"
+  "modal_importPlaylistTitle": {
+    "message": "Wiedergabeliste importieren",
+    "description": "Title for import playlist modal"
   },
-  "status_uploadingCoverImage": {
-    "message": "Cover-Bild wird hochgeladen...",
-    "description": "Status when uploading cover image"
+  "modal_importPodcast": {
+    "message": "Podcast importieren",
+    "description": "Title for import podcast modal"
   },
-  "status_uploadingIconsProgress": {
-    "message": "Symbole $START$-$END$ von $TOTAL$ werden hochgeladen...",
-    "description": "Status when uploading icons with progress",
+  "modal_importPodcastPermission": {
+    "message": "Podcast importieren - Berechtigung erforderlich",
+    "description": "Title when permission is required"
+  },
+  "modal_importPodcastTitle": {
+    "message": "$PODCASTTITLE$ importieren",
+    "description": "Podcast import modal title",
     "placeholders": {
-      "start": {
+      "podcasttitle": {
         "content": "$1",
-        "example": "1"
-      },
-      "end": {
-        "content": "$2",
-        "example": "5"
-      },
-      "total": {
-        "content": "$3",
-        "example": "10"
+        "example": "Radiolab"
       }
     }
+  },
+  "modal_importSuccessful": {
+    "message": "Import erfolgreich!",
+    "description": "Success modal title"
+  },
+  "modal_largeFilesDetected": {
+    "message": "Große Dateien erkannt",
+    "description": "Large files warning modal title"
+  },
+  "modal_noIconsFound": {
+    "message": "Keine Icons gefunden",
+    "description": "Message when no icons are found"
+  },
+  "modal_noPopupInstruction": {
+    "message": "Wenn kein Popup erscheint, überprüfen Sie bitte die Erweiterungseinstellungen Ihres Browsers.",
+    "description": "Fallback instruction if popup blocked"
+  },
+  "modal_permissionDescription": {
+    "message": "Um Podcast-Episoden zu importieren, benötigen wir die Erlaubnis, Audiodateien von verschiedenen Podcast-Hosting-Diensten herunterzuladen.",
+    "description": "Description explaining podcast permission need"
+  },
+  "modal_permissionNote": {
+    "message": "Hinweis: Diese Berechtigung wird nur verwendet, wenn Sie Podcasts importieren. Ihre Browserdaten bleiben privat.",
+    "description": "Privacy note about permission usage"
+  },
+  "modal_permissionReason1": {
+    "message": "Podcasts werden auf vielen verschiedenen Domains gehostet",
+    "description": "Permission reason list item 1"
+  },
+  "modal_permissionReason2": {
+    "message": "Wir müssen Audiodateien für Yoto herunterladen und konvertieren",
+    "description": "Permission reason list item 2"
+  },
+  "modal_permissionReason3": {
+    "message": "Chrome erfordert ausdrückliche Erlaubnis für diesen Zugriff",
+    "description": "Permission reason list item 3"
+  },
+  "modal_permissionTitle": {
+    "message": "Warum ist das nötig?",
+    "description": "Permission modal section title"
+  },
+  "modal_readyMadeTimers": {
+    "message": "Fertige Timer",
+    "description": "Ready-made timers modal title"
+  },
+  "modal_requestingPermission": {
+    "message": "Berechtigung wird angefordert...",
+    "description": "Permission request in progress title"
+  },
+  "modal_selectCardToUpdate": {
+    "message": "Karte zum Aktualisieren auswählen",
+    "description": "Update card selection modal title"
+  },
+  "modal_selectCategory": {
+    "message": "Kategorie auswählen...",
+    "description": "Placeholder for category dropdown"
+  },
+  "modal_selectFilesToAdd": {
+    "message": "Wählen Sie Dateien aus, die dieser Karte hinzugefügt werden sollen.",
+    "description": "Update modal description"
+  },
+  "modal_selectHowToImport": {
+    "message": "Wählen Sie aus, wie Sie Ihre Playlist importieren möchten:",
+    "description": "Description for import method selection"
+  },
+  "modal_selectTimerType": {
+    "message": "Wählen Sie einen Timer-Typ, um zu beginnen.",
+    "description": "Timer selection description"
+  },
+  "modal_selectTracksForIconCategory": {
+    "message": "Titel für Icon-Kategorie auswählen",
+    "description": "Title for track selection modal in Category Icon Match"
+  },
+  "modal_selectTracksForIconMatch": {
+    "message": "Titel für Icon-Übereinstimmung auswählen",
+    "description": "Title for track selection modal in Icon Match"
+  },
+  "modal_selectZipOrFolder": {
+    "message": "Wählen Sie eine ZIP-Datei oder einen Ordner mit Ihren Audiodateien aus.",
+    "description": "Bulk import description"
+  },
+  "modal_untitledIcon": {
+    "message": "Unbenanntes Icon",
+    "description": "Fallback name for icon without title"
+  },
+  "modal_updateCardTitle": {
+    "message": "Aktualisieren: $CARDTITLE$",
+    "description": "Update import modal title with card name",
+    "placeholders": {
+      "cardtitle": {
+        "content": "$1",
+        "example": "My Playlist"
+      }
+    }
+  },
+  "modal_visualTimerSettings": {
+    "message": "Visueller Timer - Einstellungen",
+    "description": "Title for visual timer settings modal"
+  },
+  "notification_appliedIconsToTracks": {
+    "message": "$ICONS$ Symbol$ICONPLURAL$ auf $TRACKS$ Titel$TRACKPLURAL$ angewendet",
+    "description": "Details about applied icons",
+    "placeholders": {
+      "icons": {
+        "content": "$1",
+        "example": "5"
+      },
+      "iconplural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "tracks": {
+        "content": "$3",
+        "example": "10"
+      },
+      "trackplural": {
+        "content": "$4",
+        "example": ""
+      }
+    }
+  },
+  "notification_authError": {
+    "message": "Authentifizierungsfehler. Bitte versuchen Sie es erneut.",
+    "description": "Error notification with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "notification_authFailed": {
+    "message": "Authentifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "description": "Error notification when authentication fails"
+  },
+  "notification_authRequired": {
+    "message": "Authentifizierung erforderlich. Bitte melden Sie sich an, um fortzufahren.",
+    "description": "Notification when auth is required"
+  },
+  "notification_authRequiredForBulkImport": {
+    "message": "Authentifizierung erforderlich für Massenimport.",
+    "description": "Notification when auth is needed for bulk import"
+  },
+  "notification_authRequiredForIconMatch": {
+    "message": "Authentifizierung erforderlich für Icon-Übereinstimmung.",
+    "description": "Notification when auth is needed for icon match"
+  },
+  "notification_authRequiredForImport": {
+    "message": "Authentifizierung erforderlich, um Inhalte zu importieren.",
+    "description": "Notification when auth is needed for import"
+  },
+  "notification_authRequiredForTimer": {
+    "message": "Authentifizierung erforderlich, um Timer zu erstellen.",
+    "description": "Notification when auth is needed for timer"
+  },
+  "notification_authRequiredForUpdate": {
+    "message": "Authentifizierung erforderlich, um Karten zu aktualisieren.",
+    "description": "Notification when auth is needed for update"
+  },
+  "notification_authSuccess": {
+    "message": "Authentifizierung erfolgreich! Sie können jetzt Icon-Zuordnung verwenden.",
+    "description": "Success notification for authentication"
+  },
+  "notification_authSuccessIconMatch": {
+    "message": "✓ Authentifizierung erfolgreich! Sie können jetzt Icon-Übereinstimmung verwenden.",
+    "description": "Success notification for auth with icon match"
+  },
+  "notification_authSuccessImport": {
+    "message": "✓ Authentifizierung erfolgreich! Sie können jetzt Inhalte importieren.",
+    "description": "Success notification for auth with import"
+  },
+  "notification_connectionLost": {
+    "message": "Verbindung verloren. Bitte versuchen Sie es erneut.",
+    "description": "Connection lost notification"
+  },
+  "notification_enterPodcastName": {
+    "message": "Bitte geben Sie einen Podcast-Namen ein.",
+    "description": "Must enter podcast name"
+  },
+  "notification_errorApplyingIcons": {
+    "message": "Fehler beim Anwenden der Icons: $MESSAGE$",
+    "description": "Error applying icons with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "notification_errorMatchingIcons": {
+    "message": "Fehler beim Abgleichen der Symbole. Bitte versuchen Sie es erneut.",
+    "description": "Error matching icons with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "API error"
+      }
+    }
+  },
+  "notification_errorOccurred": {
+    "message": "Fehler aufgetreten. Bitte versuchen Sie es erneut.",
+    "description": "Generic error notification",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Something went wrong"
+      }
+    }
+  },
+  "notification_errorProcessingBulkFolder": {
+    "message": "Fehler beim Verarbeiten des Massenordners: $MESSAGE$",
+    "description": "Error processing bulk folder"
+  },
+  "notification_errorProcessingBulkZip": {
+    "message": "Fehler beim Verarbeiten der ZIP-Datei: $MESSAGE$",
+    "description": "Error processing bulk ZIP"
+  },
+  "notification_errorProcessingFile": {
+    "message": "Fehler beim Verarbeiten der Datei. Bitte überprüfen Sie das Dateiformat.",
+    "description": "Error processing specific file",
+    "placeholders": {
+      "filename": {
+        "content": "$1",
+        "example": "track.mp3"
+      }
+    }
+  },
+  "notification_errorReadingZip": {
+    "message": "Fehler beim Lesen der ZIP-Datei. Bitte versuchen Sie es erneut.",
+    "description": "Error reading ZIP file",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Corrupted file"
+      }
+    }
+  },
+  "notification_errorSearchingIcons": {
+    "message": "Fehler beim Suchen von Icons: $MESSAGE$",
+    "description": "Error searching icons with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "API error"
+      }
+    }
+  },
+  "notification_extractedPlaylists": {
+    "message": "$COUNT$ Wiedergabelisten$PLURAL$ aus $TYPE$$TYPEPLURAL$ erfolgreich extrahiert. Import wird vorbereitet...",
+    "description": "Playlists extracted count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "notification_failedToApplyIcons": {
+    "message": "Anwenden der Symbole fehlgeschlagen: $MESSAGE$",
+    "description": "Failed to apply icons"
+  },
+  "notification_failedToLoadEpisodes": {
+    "message": "Fehler beim Laden der Episoden.",
+    "description": "Failed to load episodes"
+  },
+  "notification_failedToLoadPodcastEpisodes": {
+    "message": "Fehler beim Laden der Podcast-Episoden.",
+    "description": "Failed to load podcast episodes"
+  },
+  "notification_failedToMergePlaylists": {
+    "message": "Fehler beim Zusammenführen der Wiedergabelisten.",
+    "description": "Failed to merge playlists"
+  },
+  "notification_failedToProcessZip": {
+    "message": "Verarbeitung der ZIP-Datei fehlgeschlagen. Fehler: $MESSAGE$",
+    "description": "Failed to process ZIP"
+  },
+  "notification_folderProcessed": {
+    "message": "Ordner verarbeitet: $TRACKS$ Titel, $ICONS$ Symbole$COVER$",
+    "description": "Folder processed successfully"
+  },
+  "notification_foundPlaylists": {
+    "message": "$COUNT$ Wiedergabelisten$PLURAL$ gefunden. Import wird vorbereitet...",
+    "description": "Playlists found count",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "notification_iconUploadedSuccess": {
+    "message": "✓ Icon erfolgreich hochgeladen!",
+    "description": "Icon uploaded successfully"
+  },
+  "notification_iconsAppliedSuccess": {
+    "message": "✓ Icons erfolgreich angewendet!",
+    "description": "Icons applied successfully"
+  },
+  "notification_importAllFailed": {
+    "message": "Import fehlgeschlagen. Alle Elemente konnten nicht importiert werden.",
+    "description": "All items failed to import"
+  },
+  "notification_importFailed": {
+    "message": "Import fehlgeschlagen: $MESSAGE$",
+    "description": "Import failed with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "notification_importPartialSuccess": {
+    "message": "$SUCCESS$ Wiedergabelisten$SUCCESSPLURAL$ importiert, $FAILED$ fehlgeschlagen",
+    "description": "Partial import success"
+  },
+  "notification_importSuccess": {
+    "message": "$COUNT$ Wiedergabelisten$PLURAL$ erfolgreich importiert!",
+    "description": "Import success notification"
+  },
+  "notification_invalidZip": {
+    "message": "Ungültige ZIP-Datei. Bitte wählen Sie eine gültige ZIP-Datei.",
+    "description": "Error when ZIP file is invalid"
+  },
+  "notification_mergedFoldersToPlaylist": {
+    "message": "Ordner zu Wiedergabeliste zusammengeführt.",
+    "description": "Merged folders to playlist"
+  },
+  "notification_mergedToSinglePlaylist": {
+    "message": "Zu einer einzigen Wiedergabeliste zusammengeführt.",
+    "description": "Merged to single playlist"
+  },
+  "notification_noAudioFiles": {
+    "message": "Keine Audiodateien gefunden.",
+    "description": "No audio files found"
+  },
+  "notification_noAudioFilesInAudioFolder": {
+    "message": "Keine Audiodateien im audio_files-Ordner gefunden.",
+    "description": "No audio files in audio folder"
+  },
+  "notification_noAudioFilesZip": {
+    "message": "Keine Audiodateien in der ZIP-Datei gefunden.",
+    "description": "No audio files in ZIP"
+  },
+  "notification_noAudioOrIconFiles": {
+    "message": "Keine Audio- oder Icon-Dateien gefunden.",
+    "description": "No audio or icon files found"
+  },
+  "notification_noEpisodesFound": {
+    "message": "Keine Episoden für diesen Podcast gefunden.",
+    "description": "No episodes found for podcast"
+  },
+  "notification_noFilesToUpdate": {
+    "message": "Keine Dateien zum Aktualisieren.",
+    "description": "No files to update"
+  },
+  "notification_noIconMatchesFound": {
+    "message": "Keine Symbol-Übereinstimmungen gefunden. Versuchen Sie, beschreibendere Titelnamen hinzuzufügen.",
+    "description": "Error when no icon matches found"
+  },
+  "notification_noIconsForCategory": {
+    "message": "Keine Symbole für die Kategorie „$CATEGORY$“ gefunden. Bitte versuchen Sie es mit einer anderen Kategorie.",
+    "description": "No icons found for category"
+  },
+  "notification_noValidFilesAfterFilter": {
+    "message": "Keine gültigen Dateien nach dem Filtern.",
+    "description": "No valid files after filtering"
+  },
+  "notification_noValidIcons": {
+    "message": "Keine gültigen Symbole zum Anwenden. Versuchen Sie, nach anderen Begriffen zu suchen oder überprüfen Sie die Symbol-Zuordnung.",
+    "description": "Error when no valid icons to apply"
+  },
+  "notification_noValidPlaylists": {
+    "message": "Keine gültigen Wiedergabelisten gefunden.",
+    "description": "No valid playlists found"
+  },
+  "notification_noValidPlaylistsFolder": {
+    "message": "Keine gültigen Wiedergabelisten im Ordner gefunden.",
+    "description": "No valid playlists in folder"
+  },
+  "notification_noValidPlaylistsInFolder": {
+    "message": "Keine gültigen Wiedergabelisten in diesem Ordner gefunden.",
+    "description": "No valid playlists in this folder"
+  },
+  "notification_noValidPlaylistsZip": {
+    "message": "Keine gültigen Wiedergabelisten in der ZIP-Datei gefunden.",
+    "description": "No valid playlists in ZIP"
+  },
+  "notification_permissionDenied": {
+    "message": "Berechtigung verweigert. Podcast-Import kann nicht fortgesetzt werden.",
+    "description": "Notification when permission is denied"
+  },
+  "notification_permissionGranted": {
+    "message": "Berechtigung erteilt!",
+    "description": "Notification when permission is granted"
+  },
+  "notification_permissionGrantedClose": {
+    "message": "Berechtigung erteilt! Sie können dieses Modal jetzt schließen.",
+    "description": "Notification to close modal after permission"
+  },
+  "notification_permissionGrantedRetry": {
+    "message": "Berechtigung erteilt! Bitte versuchen Sie es erneut.",
+    "description": "Notification to retry after permission granted"
+  },
+  "notification_playlistCreated": {
+    "message": "Wiedergabeliste erfolgreich erstellt!",
+    "description": "Playlist created successfully"
+  },
+  "notification_pleaseRefreshPage": {
+    "message": "Bitte aktualisieren Sie die Seite, um Ihre Änderungen zu sehen.",
+    "description": "Instruction to refresh page after applying icons"
+  },
+  "notification_possibleSuccess": {
+    "message": "Möglicherweise erfolgreich. Bitte aktualisieren Sie die Seite, um zu überprüfen.",
+    "description": "Possible success notification"
+  },
+  "notification_proceedingWithoutAuth": {
+    "message": "Fortfahren ohne Authentifizierung...",
+    "description": "Notification when proceeding without auth"
+  },
+  "notification_rootLevelAudioFiles": {
+    "message": "Audiodateien auf Root-Ebene gefunden.",
+    "description": "Audio files found at root level"
+  },
+  "notification_selectAtLeastOneEpisode": {
+    "message": "Bitte wählen Sie mindestens eine Episode zum Importieren aus.",
+    "description": "Must select at least one episode"
+  },
+  "notification_selectAtLeastOnePlaylist": {
+    "message": "Bitte wählen Sie mindestens eine Wiedergabeliste zum Importieren aus.",
+    "description": "Must select at least one playlist"
+  },
+  "notification_selectOrEnterCategory": {
+    "message": "Bitte wählen Sie eine Kategorie aus oder geben Sie eine benutzerdefinierte Kategorie ein.",
+    "description": "Must select or enter category"
+  },
+  "notification_updateFailed": {
+    "message": "Aktualisierung fehlgeschlagen: $MESSAGE$",
+    "description": "Update failed with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "notification_zipProcessed": {
+    "message": "ZIP verarbeitet: $TRACKS$ Titel, $ICONS$ Symbole$COVER$",
+    "description": "ZIP processed successfully"
+  },
+  "popup_batteryStatus": {
+    "message": "Gerätebatteriestatus",
+    "description": "Button to view battery status"
+  },
+  "popup_checkingAuth": {
+    "message": "Authentifizierung wird überprüft...",
+    "description": "Status when checking authentication"
+  },
+  "popup_goToYoto": {
+    "message": "Zu Yoto-Wiedergabelisten",
+    "description": "Button to go to Yoto playlists page"
+  },
+  "popup_loadingDeviceInfo": {
+    "message": "Geräteinformationen werden geladen...",
+    "description": "Loading message for device info"
+  },
+  "popup_manageExtension": {
+    "message": "Erweiterung verwalten",
+    "description": "Button to manage extension"
+  },
+  "popup_signIn": {
+    "message": "Mit Yoto anmelden",
+    "description": "Sign in button in popup"
+  },
+  "popup_signOut": {
+    "message": "Abmelden",
+    "description": "Button to sign out"
+  },
+  "popup_visitYoto": {
+    "message": "Besuchen Sie die Yoto-Wiedergabelisten-Seite, um die Funktionen zu nutzen.",
+    "description": "Footer note in popup"
+  },
+  "status_analyzingFolder": {
+    "message": "Ordnerstruktur wird analysiert...",
+    "description": "Status when analyzing folder"
+  },
+  "status_authStatusUnknown": {
+    "message": "Authentifizierungsstatus unbekannt",
+    "description": "Status when auth status is unknown"
+  },
+  "status_authenticated": {
+    "message": "Authentifiziert",
+    "description": "Status when user is authenticated"
+  },
+  "status_authenticating": {
+    "message": "Authentifizierung läuft...",
+    "description": "Status message during authentication"
+  },
+  "status_cancellingImport": {
+    "message": "Import wird abgebrochen...",
+    "description": "Status when cancelling import"
+  },
+  "status_cardUpdatedSuccess": {
+    "message": "Karte erfolgreich aktualisiert!",
+    "description": "Success message for card update"
+  },
+  "status_completed": {
+    "message": "Abgeschlossen",
+    "description": "Status when completed"
+  },
+  "status_creatingCard": {
+    "message": "Timer-Karte wird erstellt...",
+    "description": "Status when creating card"
+  },
+  "status_creatingPlaylist": {
+    "message": "Playlist wird erstellt...",
+    "description": "Status when creating playlist"
+  },
+  "status_extractingPlaylist": {
+    "message": "Extrahiere Playlist $CURRENT$ von $TOTAL$...",
+    "description": "Status for extracting nested playlists",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "2"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
+  "status_extractingPlaylists": {
+    "message": "Wiedergabelisten werden extrahiert...",
+    "description": "Status when extracting playlists"
+  },
+  "status_fetchingCardContent": {
+    "message": "Vorhandener Karteninhalt wird abgerufen...",
+    "description": "Fetching card data for update"
+  },
+  "status_finalizingPlaylist": {
+    "message": "Wiedergabeliste wird finalisiert...",
+    "description": "Final step of playlist creation"
+  },
+  "status_generatingTimerIcons": {
+    "message": "Timer-Symbole werden generiert...",
+    "description": "Status generating icons for timer"
+  },
+  "status_importCancelled": {
+    "message": "Import abgebrochen",
+    "description": "Status when import is cancelled"
+  },
+  "status_importComplete": {
+    "message": "Import abgeschlossen!",
+    "description": "Status when import is complete"
+  },
+  "status_importCompleteDetails": {
+    "message": "Import abgeschlossen: $SUCCESS$ erfolgreich, $FAILED$ fehlgeschlagen",
+    "description": "Final import status with counts",
+    "placeholders": {
+      "success": {
+        "content": "$1",
+        "example": "5"
+      },
+      "failed": {
+        "content": "$2",
+        "example": "1"
+      }
+    }
+  },
+  "status_importing": {
+    "message": "Importieren...",
+    "description": "Status during import"
+  },
+  "status_importingPlaylist": {
+    "message": "Importiere: $NAME$",
+    "description": "Status for importing a playlist",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Playlist"
+      }
+    }
+  },
+  "status_loading": {
+    "message": "Laden...",
+    "description": "Generic loading message"
+  },
+  "status_loadingAudioFiles": {
+    "message": "Audiodateien werden geladen...",
+    "description": "Status loading audio"
+  },
+  "status_loadingCards": {
+    "message": "Ihre Karten werden geladen...",
+    "description": "Loading state for cards list"
+  },
+  "status_loadingEpisodes": {
+    "message": "Episoden werden geladen...",
+    "description": "Loading podcast episodes"
+  },
+  "status_loadingZip": {
+    "message": "ZIP-Datei wird geladen...",
+    "description": "Status when loading ZIP file"
+  },
+  "status_matchingTracks": {
+    "message": "$COUNT$ Titel$PLURAL$ werden abgeglichen...",
+    "description": "Status when matching icons to tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
+      }
+    }
+  },
+  "status_notAuthenticated": {
+    "message": "Nicht authentifiziert",
+    "description": "Status when user is not authenticated"
+  },
+  "status_openingZip": {
+    "message": "ZIP-Archiv wird geöffnet...",
+    "description": "Opening ZIP file"
+  },
+  "status_overallProgress": {
+    "message": "Gesamtfortschritt: $CURRENT$/$TOTAL$ Playlists",
+    "description": "Overall import progress",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "2"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
+  "status_percentComplete": {
+    "message": "$PERCENT$% abgeschlossen",
+    "description": "Import progress percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
+  "status_preparingTimerTracks": {
+    "message": "Timer-Tracks werden vorbereitet...",
+    "description": "Status preparing timer tracks"
+  },
+  "status_preparingToothbrushTimer": {
+    "message": "Zahnputz-Timer-Tracks werden vorbereitet...",
+    "description": "Status when creating toothbrush timer"
+  },
+  "status_processing": {
+    "message": "Verarbeitung läuft...",
+    "description": "Generic processing message"
   },
   "status_processingAudioFiles": {
     "message": "Audiodateien werden verarbeitet...",
@@ -523,759 +1639,43 @@
       }
     }
   },
-  "status_creatingPlaylist": {
-    "message": "Playlist wird erstellt...",
-    "description": "Status when creating playlist"
+  "status_processingBulkFolder": {
+    "message": "Massenordner wird verarbeitet...",
+    "description": "Status when processing bulk folder"
   },
-  "status_importComplete": {
-    "message": "Import abgeschlossen!",
-    "description": "Status when import is complete"
-  },
-  "label_importedPlaylist": {
-    "message": "Importierte Playlist",
-    "description": "Default name for imported playlist"
-  },
-  "modal_chooseImportMethod": {
-    "message": "Importmethode wählen",
-    "description": "Title for import method selection modal"
-  },
-  "modal_selectHowToImport": {
-    "message": "Wählen Sie aus, wie Sie Ihre Playlist importieren möchten:",
-    "description": "Description for import method selection"
-  },
-  "button_importZipFile": {
-    "message": "ZIP-Datei importieren",
-    "description": "Button to import from ZIP file"
-  },
-  "button_importFolder": {
-    "message": "Ordner importieren",
-    "description": "Button to import from folder"
-  },
-  "button_authenticateNow": {
-    "message": "Jetzt authentifizieren",
-    "description": "Auth banner button text after cancelled authentication"
-  },
-  "modal_permissionDescription": {
-    "message": "Um Podcast-Episoden zu importieren, benötigen wir die Erlaubnis, Audiodateien von verschiedenen Podcast-Hosting-Diensten herunterzuladen.",
-    "description": "Description explaining podcast permission need"
-  },
-  "modal_permissionTitle": {
-    "message": "Warum ist das nötig?",
-    "description": "Permission modal section title"
-  },
-  "modal_permissionReason1": {
-    "message": "Podcasts werden auf vielen verschiedenen Domains gehostet",
-    "description": "Permission reason list item 1"
-  },
-  "modal_permissionReason2": {
-    "message": "Wir müssen Audiodateien für Yoto herunterladen und konvertieren",
-    "description": "Permission reason list item 2"
-  },
-  "modal_permissionReason3": {
-    "message": "Chrome erfordert ausdrückliche Erlaubnis für diesen Zugriff",
-    "description": "Permission reason list item 3"
-  },
-  "modal_permissionNote": {
-    "message": "Hinweis: Diese Berechtigung wird nur verwendet, wenn Sie Podcasts importieren. Ihre Browserdaten bleiben privat.",
-    "description": "Privacy note about permission usage"
-  },
-  "button_grantPermission": {
-    "message": "Berechtigung erteilen",
-    "description": "Button to grant podcast permission"
-  },
-  "modal_requestingPermission": {
-    "message": "Berechtigung wird angefordert...",
-    "description": "Permission request in progress title"
-  },
-  "modal_grantPermissionInPopup": {
-    "message": "Bitte erteilen Sie die Berechtigung im erscheinenden Popup-Fenster.",
-    "description": "Instruction for granting permission"
-  },
-  "modal_noPopupInstruction": {
-    "message": "Wenn kein Popup erscheint, überprüfen Sie bitte die Erweiterungseinstellungen Ihres Browsers.",
-    "description": "Fallback instruction if popup blocked"
-  },
-  "modal_selectCardToUpdate": {
-    "message": "Karte zum Aktualisieren auswählen",
-    "description": "Update card selection modal title"
-  },
-  "modal_chooseCardDescription": {
-    "message": "Wählen Sie aus, welche MYO-Karte Sie mit neuem Inhalt aktualisieren möchten:",
-    "description": "Card selection description"
-  },
-  "input_searchCards": {
-    "message": "Ihre Karten durchsuchen...",
-    "description": "Card search input placeholder"
-  },
-  "status_loadingCards": {
-    "message": "Ihre Karten werden geladen...",
-    "description": "Loading state for cards list"
-  },
-  "error_noCardsFound": {
-    "message": "Keine MYO-Karten gefunden. Bitte erstellen Sie zuerst eine Karte.",
-    "description": "Error when user has no cards"
-  },
-  "error_loadingCards": {
-    "message": "Fehler beim Laden der Karten. Bitte versuchen Sie es erneut.",
-    "description": "Error loading cards list"
-  },
-  "label_untitledCard": {
-    "message": "Unbenannte Karte",
-    "description": "Fallback name for cards without title"
-  },
-  "label_updated": {
-    "message": "Aktualisiert",
-    "description": "Label before last updated date"
-  },
-  "label_unknown": {
-    "message": "Unbekannt",
-    "description": "When update date is unknown"
-  },
-  "modal_updateCardTitle": {
-    "message": "Aktualisieren: $CARDTITLE$",
-    "description": "Update import modal title with card name",
+  "status_processingFolder": {
+    "message": "Verarbeite Ordner $CURRENT$ von $TOTAL$...",
+    "description": "Status for processing folders",
     "placeholders": {
-      "cardtitle": {
+      "current": {
         "content": "$1",
-        "example": "My Playlist"
+        "example": "3"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
       }
     }
-  },
-  "modal_selectFilesToAdd": {
-    "message": "Wählen Sie Dateien aus, die dieser Karte hinzugefügt werden sollen.",
-    "description": "Update modal description"
-  },
-  "modal_selectZipOrFolder": {
-    "message": "Wählen Sie eine ZIP-Datei oder einen Ordner mit Ihren Audiodateien aus.",
-    "description": "Bulk import description"
-  },
-  "label_importMode": {
-    "message": "Importmodus:",
-    "description": "Label for import mode selection"
-  },
-  "label_separatePlaylists": {
-    "message": "Separate Wiedergabelisten",
-    "description": "Import mode option"
-  },
-  "label_separatePlaylistsDescription": {
-    "message": "Jeder Unterordner/ZIP wird zu seiner eigenen Wiedergabeliste",
-    "description": "Description for separate playlists mode"
-  },
-  "label_singleMergedPlaylist": {
-    "message": "Einzelne zusammengeführte Wiedergabeliste",
-    "description": "Import mode option"
-  },
-  "label_singlePlaylistDescription": {
-    "message": "Alle Unterordner zu einer Wiedergabeliste kombinieren",
-    "description": "Description for merged playlist mode"
-  },
-  "button_selectZipFile": {
-    "message": "ZIP-Datei auswählen",
-    "description": "Button to select ZIP for bulk import"
-  },
-  "button_selectFolder": {
-    "message": "Ordner auswählen",
-    "description": "Button to select folder for bulk import"
-  },
-  "modal_selectTimerType": {
-    "message": "Wählen Sie einen Timer-Typ, um zu beginnen.",
-    "description": "Timer selection description"
-  },
-  "label_readyMadeDescription": {
-    "message": "Vorkonfigurierte Timer für gängige Aktivitäten",
-    "description": "Description for ready-made timers"
-  },
-  "label_customTimer": {
-    "message": "Benutzerdefinierter Timer",
-    "description": "Custom timer option"
-  },
-  "label_customTimerDescription": {
-    "message": "Erstellen Sie Ihren eigenen Timer mit benutzerdefinierten Einstellungen",
-    "description": "Description for custom timer"
-  },
-  "modal_readyMadeTimers": {
-    "message": "Fertige Timer",
-    "description": "Ready-made timers modal title"
-  },
-  "input_timerNamePlaceholder": {
-    "message": "z.B. Schlafenszeit-Timer",
-    "description": "Placeholder for timer name input"
-  },
-  "input_customDurationPlaceholder": {
-    "message": "Minuten eingeben (1-120)",
-    "description": "Placeholder for custom duration input"
-  },
-  "label_timerOptimized": {
-    "message": "Timer-Segmente sind für einen klaren visuellen Countdown optimiert.",
-    "description": "Info about timer optimization"
-  },
-  "status_preparingToothbrushTimer": {
-    "message": "Zahnputz-Timer-Tracks werden vorbereitet...",
-    "description": "Status when creating toothbrush timer"
-  },
-  "status_loadingAudioFiles": {
-    "message": "Audiodateien werden geladen...",
-    "description": "Status loading audio"
-  },
-  "status_generatingTimerIcons": {
-    "message": "Timer-Symbole werden generiert...",
-    "description": "Status generating icons for timer"
-  },
-  "status_uploadingAudioTracks": {
-    "message": "Audio-Tracks werden hochgeladen...",
-    "description": "Status uploading tracks"
-  },
-  "status_toothbrushTimerSuccess": {
-    "message": "Zahnputz-Timer erfolgreich erstellt! Aktualisierung...",
-    "description": "Success message for toothbrush timer"
-  },
-  "status_preparingTimerTracks": {
-    "message": "Timer-Tracks werden vorbereitet...",
-    "description": "Status preparing timer tracks"
-  },
-  "status_timerCreatedSuccess": {
-    "message": "Timer erfolgreich erstellt! Seite wird aktualisiert...",
-    "description": "Success message for custom timer"
-  },
-  "timer_toothbrushIntro": {
-    "message": "Mach deine Zahnbürste bereit!",
-    "description": "Toothbrush timer intro track title"
-  },
-  "timer_topLeftFront": {
-    "message": "Oben Links Vorne (2:00)",
-    "description": "Toothbrush timer track - top left front teeth"
-  },
-  "timer_topLeftBack": {
-    "message": "Oben Links Hinten (1:45)",
-    "description": "Toothbrush timer track - top left back teeth"
-  },
-  "timer_topRightFront": {
-    "message": "Oben Rechts Vorne (1:30)",
-    "description": "Toothbrush timer track - top right front teeth"
-  },
-  "timer_topRightBack": {
-    "message": "Oben Rechts Hinten (1:15)",
-    "description": "Toothbrush timer track - top right back teeth"
-  },
-  "timer_bottomLeftFront": {
-    "message": "Unten Links Vorne (1:00)",
-    "description": "Toothbrush timer track - bottom left front teeth"
-  },
-  "timer_bottomLeftBack": {
-    "message": "Unten Links Hinten (0:45)",
-    "description": "Toothbrush timer track - bottom left back teeth"
-  },
-  "timer_bottomRightFront": {
-    "message": "Unten Rechts Vorne (0:30)",
-    "description": "Toothbrush timer track - bottom right front teeth"
-  },
-  "timer_bottomRightBack": {
-    "message": "Unten Rechts Hinten (0:15)",
-    "description": "Toothbrush timer track - bottom right back teeth"
-  },
-  "timer_sparklySmile": {
-    "message": "Funkelndes Lächeln!",
-    "description": "Toothbrush timer final track"
-  },
-  "timer_timesUp": {
-    "message": "Zeit ist um!",
-    "description": "Timer completion track title"
-  },
-  "timer_complete": {
-    "message": "Timer abgeschlossen",
-    "description": "Timer completion alternative title"
-  },
-  "modal_importPodcastTitle": {
-    "message": "$PODCASTTITLE$ importieren",
-    "description": "Podcast import modal title",
-    "placeholders": {
-      "podcasttitle": {
-        "content": "$1",
-        "example": "Radiolab"
-      }
-    }
-  },
-  "status_loadingEpisodes": {
-    "message": "Episoden werden geladen...",
-    "description": "Loading podcast episodes"
-  },
-  "error_usageLimitReached": {
-    "message": "Nutzungslimit erreicht",
-    "description": "Usage limit error title"
-  },
-  "error_permissionRequired": {
-    "message": "Berechtigung zum Zugriff auf Podcast-Audiodateien erforderlich.",
-    "description": "Permission required error"
-  },
-  "error_closeModalAndRetry": {
-    "message": "Bitte schließen Sie dieses Modal und versuchen Sie erneut zu importieren.",
-    "description": "Instruction to retry after permission"
-  },
-  "input_podcastSearchPlaceholder": {
-    "message": "z.B. Radiolab für Kinder",
-    "description": "Podcast search input placeholder"
-  },
-  "status_searchingPodcasts": {
-    "message": "Podcasts werden gesucht...",
-    "description": "Searching for podcasts"
-  },
-  "label_popularKidsPodcasts": {
-    "message": "Beliebte Kinder-Podcasts:",
-    "description": "Label for popular kids podcasts section"
-  },
-  "modal_collectionDetected": {
-    "message": "Sammlung erkannt!",
-    "description": "Collection detected modal title"
-  },
-  "modal_extractingFiles": {
-    "message": "Dateien werden extrahiert...",
-    "description": "ZIP extraction modal title"
-  },
-  "status_openingZip": {
-    "message": "ZIP-Archiv wird geöffnet...",
-    "description": "Opening ZIP file"
   },
   "status_processingFolders": {
     "message": "Ordner werden verarbeitet...",
     "description": "Processing folder structure"
   },
-  "label_overallProgress": {
-    "message": "Gesamtfortschritt:",
-    "description": "Overall progress label in bulk import"
-  },
-  "label_existingContentPreserved": {
-    "message": "✓ Vorhandener Inhalt wird beibehalten",
-    "description": "Info about update preserving content"
-  },
-  "label_coverNotChanged": {
-    "message": "✓ Titelbild wird nicht geändert",
-    "description": "Info about cover not changing"
-  },
-  "label_iconsAppliedByNumber": {
-    "message": "Symbole werden basierend auf Dateinamen-Nummern auf Tracks angewendet",
-    "description": "Info about icon numbering"
-  },
-  "status_fetchingCardContent": {
-    "message": "Vorhandener Karteninhalt wird abgerufen...",
-    "description": "Fetching card data for update"
-  },
-  "status_uploadingAudioFiles": {
-    "message": "Lade Audiodateien hoch... $CURRENT$/$TOTAL$",
-    "description": "Status for uploading audio files",
-    "placeholders": {
-      "current": {
-        "content": "$1",
-        "example": "5"
-      },
-      "total": {
-        "content": "$2",
-        "example": "20"
-      }
-    }
-  },
-  "status_uploadingIconFiles": {
-    "message": "Symbol-Dateien werden hochgeladen...",
-    "description": "Uploading icons in update"
-  },
-  "status_updatingCard": {
-    "message": "Karte wird aktualisiert...",
-    "description": "Finalizing card update"
-  },
-  "status_cardUpdatedSuccess": {
-    "message": "Karte erfolgreich aktualisiert!",
-    "description": "Success message for card update"
-  },
-  "status_updateFailed": {
-    "message": "Aktualisierung fehlgeschlagen: $MESSAGE$",
-    "description": "Update failed with error",
-    "placeholders": {
-      "message": {
-        "content": "$1",
-        "example": "Network error"
-      }
-    }
-  },
-  "modal_largeFilesDetected": {
-    "message": "Große Dateien erkannt",
-    "description": "Large files warning modal title"
-  },
-  "label_uploadDirectly": {
-    "message": "Laden Sie sie direkt über Yoto hoch; oder",
-    "description": "Suggestion for large files"
-  },
-  "label_compressFiles": {
-    "message": "Komprimieren Sie die Datei(en) auf eine Größe unter 40 MB",
-    "description": "Suggestion to compress files"
-  },
-  "label_howToFix": {
-    "message": "So beheben:",
-    "description": "Section title for fix instructions"
-  },
-  "label_filesSkippedSize": {
-    "message": "Einige Dateien wurden aufgrund von Größenbeschränkungen übersprungen.",
-    "description": "Warning about skipped files"
-  },
-  "modal_importSuccessful": {
-    "message": "Import erfolgreich!",
-    "description": "Success modal title"
-  },
-  "status_refreshingPage": {
-    "message": "Seite wird aktualisiert, um neue Wiedergabelisten anzuzeigen...",
-    "description": "Refreshing after import"
-  },
-  "label_refreshPage": {
-    "message": "Seite aktualisieren",
-    "description": "Refresh button text"
+  "status_processingZip": {
+    "message": "ZIP-Datei wird verarbeitet...",
+    "description": "Status when processing ZIP file"
   },
   "status_refreshing": {
     "message": "Seite wird aktualisiert...",
     "description": "Page refresh in progress"
   },
-  "label_readyToImport": {
-    "message": "Bereit zum Importieren:",
-    "description": "Header before import details"
-  },
-  "label_coverImage": {
-    "message": "1 Titelbild",
-    "description": "Cover image count in import"
-  },
-  "label_playlistName": {
-    "message": "Name der Wiedergabeliste",
-    "description": "Label for playlist name input"
-  },
-  "button_continue": {
-    "message": "Weiter",
-    "description": "Continue button"
-  },
-  "button_selectAll": {
-    "message": "Alle auswählen",
-    "description": "Button to select all items"
-  },
-  "button_deselectAll": {
-    "message": "Alle abwählen",
-    "description": "Deselect all checkbox button"
-  },
-  "button_proceedToBulkImport": {
-    "message": "Mit Massenimport fortfahren",
-    "description": "Proceed to bulk import button"
-  },
-  "button_startBulkImport": {
-    "message": "Massenimport starten",
-    "description": "Start bulk import button"
-  },
-  "status_startingUpload": {
-    "message": "Upload wird gestartet...",
-    "description": "Starting file upload"
-  },
-  "status_uploadingFiles": {
-    "message": "Dateien werden hochgeladen...",
-    "description": "Files uploading"
-  },
-  "status_finalizingPlaylist": {
-    "message": "Wiedergabeliste wird finalisiert...",
-    "description": "Final step of playlist creation"
-  },
-  "label_filesSkipped": {
-    "message": "Übersprungene Dateien (zu groß):",
-    "description": "Section showing skipped files"
-  },
-  "error_invalidDuration": {
-    "message": "Bitte geben Sie eine gültige Dauer zwischen 1 und 120 Minuten ein",
-    "description": "Error for invalid timer duration"
-  },
-  "status_successfullyImportedEpisodes": {
-    "message": "Episoden erfolgreich importiert: $COUNT$!",
-    "description": "Success message for episode import",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "5"
-      }
-    }
-  },
-  "status_importCancelled": {
-    "message": "Import abgebrochen",
-    "description": "Status when import is cancelled"
-  },
-  "label_timerType": {
-    "message": "Timer-Typ:",
-    "description": "Label for timer type selection"
-  },
-  "label_timerName": {
-    "message": "Timer-Name",
-    "description": "Label for timer name input"
-  },
-  "timer_chooseTimer": {
-    "message": "Wählen Sie einen Timer...",
-    "description": "Placeholder for timer selection dropdown"
-  },
-  "timer_labelSelectTimer": {
-    "message": "Timer auswählen",
-    "description": "Label for timer selection"
-  },
-  "timer_buttonBack": {
-    "message": "Zurück",
-    "description": "Button to go back"
-  },
-  "timer_buttonCreateTimer": {
-    "message": "Timer erstellen",
-    "description": "Button to create timer"
-  },
-  "timer_detailsDuration": {
-    "message": "• Dauer: 2 Minuten 5 Sekunden",
-    "description": "Toothbrush timer duration detail"
-  },
-  "timer_detailsSegments": {
-    "message": "• Segmente: 5 Sekunden Einführung, dann 15 Sekunden Segmente",
-    "description": "Toothbrush timer segments detail"
-  },
-  "timer_detailsPerfectFor": {
-    "message": "• Perfekt für Morgen- und Abendroutinen",
-    "description": "Toothbrush timer use case detail"
-  },
-  "timer_iconStyleBlocks": {
-    "message": "Blöcke",
-    "description": "Timer icon style option - blocks"
-  },
-  "timer_iconStyleCircle": {
-    "message": "Kreis",
-    "description": "Timer icon style option - circle"
-  },
-  "timer_iconStyleDots": {
-    "message": "Punkte",
-    "description": "Timer icon style option - dots"
-  },
-  "timer_iconStylePizza": {
-    "message": "Pizza",
-    "description": "Timer icon style option - pizza"
-  },
-  "timer_iconStyleFlower": {
-    "message": "Blume",
-    "description": "Timer icon style option - flower bloom"
-  },
-  "timer_iconStyleGhost": {
-    "message": "Geist",
-    "description": "Timer icon style option - ghost"
-  },
-  "timer_iconStyleTreeLights": {
-    "message": "Baumlichter",
-    "description": "Timer icon style option - tree lights"
-  },
-  "timer_iconStyleSandTimer": {
-    "message": "Sanduhr",
-    "description": "Timer icon style option - sand timer"
-  },
-  "timer_duration2min": {
-    "message": "2 Minuten",
-    "description": "Timer duration option - 2 minutes"
-  },
-  "timer_duration5min": {
-    "message": "5 Minuten",
-    "description": "Timer duration option - 5 minutes"
-  },
-  "timer_duration10min": {
-    "message": "10 Minuten",
-    "description": "Timer duration option - 10 minutes"
-  },
-  "timer_duration15min": {
-    "message": "15 Minuten",
-    "description": "Timer duration option - 15 minutes"
-  },
-  "timer_duration20min": {
-    "message": "20 Minuten",
-    "description": "Timer duration option - 20 minutes"
-  },
-  "timer_duration30min": {
-    "message": "30 Minuten",
-    "description": "Timer duration option - 30 minutes"
-  },
-  "timer_duration60min": {
-    "message": "60 Minuten",
-    "description": "Timer duration option - 60 minutes"
-  },
-  "timer_customDuration": {
-    "message": "Benutzerdefinierte Dauer (Minuten)",
-    "description": "Label for custom duration option"
-  },
-  "timer_alarmNone": {
-    "message": "Kein Alarm",
-    "description": "Option for no alarm sound"
-  },
-  "timer_alarmFriendlyChime": {
-    "message": "Freundliches Glockenspiel",
-    "description": "Alarm sound option - friendly chime"
-  },
-  "timer_alarmSoftBell": {
-    "message": "Sanfte Glocke",
-    "description": "Alarm sound option - soft bell"
-  },
-  "timer_alarmHappyTune": {
-    "message": "Fröhliche Melodie",
-    "description": "Alarm sound option - happy tune"
-  },
-  "timer_alarmSunshineMelody": {
-    "message": "Sonnenmelodie",
-    "description": "Alarm sound option - sunshine melody"
-  },
-  "timer_alarmCalmBells": {
-    "message": "Ruhige Glocken",
-    "description": "Alarm sound option - calm bells"
-  },
-  "timer_alarmChristmasBells": {
-    "message": "Weihnachtsglocken",
-    "description": "Alarm sound option - christmas bells"
-  },
-  "timer_alarmSpookySound": {
-    "message": "Gruseliger Klang",
-    "description": "Alarm sound option - spooky sound"
-  },
-  "timer_labelIconStyle": {
-    "message": "Icon-Stil",
-    "description": "Label for icon style selection"
-  },
-  "timer_labelEndAlarmSound": {
-    "message": "End-Alarmton",
-    "description": "Label for alarm sound selection"
-  },
-  "timer_labelTimerDetails": {
-    "message": "Timer-Details",
-    "description": "Header for timer details section"
-  },
-  "timer_toothbrushTimer": {
-    "message": "🦷 Zahnputz-Timer (2 Min 5 Sek)",
-    "description": "Ready-made toothbrush timer option"
-  },
-  "modal_selectTracksForIconMatch": {
-    "message": "Titel für Icon-Übereinstimmung auswählen",
-    "description": "Title for track selection modal in Icon Match"
-  },
-  "modal_selectTracksForIconCategory": {
-    "message": "Titel für Icon-Kategorie auswählen",
-    "description": "Title for track selection modal in Category Icon Match"
-  },
-  "modal_chooseTracksToSearch": {
-    "message": "Wählen Sie die Titel aus, für die Icons gesucht werden sollen.",
-    "description": "Description for track selection modal"
-  },
-  "button_selectNone": {
-    "message": "Keine auswählen",
-    "description": "Button to deselect all items"
-  },
-  "button_selectTracksWithoutIcons": {
-    "message": "Titel ohne Icons auswählen",
-    "description": "Button to select only tracks without icons"
-  },
-  "label_enterPodcastName": {
-    "message": "Podcast-Namen eingeben:",
-    "description": "Label for podcast search input"
-  },
-  "notification_pleaseRefreshPage": {
-    "message": "Bitte aktualisieren Sie die Seite, um Ihre Änderungen zu sehen.",
-    "description": "Instruction to refresh page after applying icons"
-  },
-  "notification_appliedIconsToTracks": {
-    "message": "$ICONS$ Icon$ICONPLURAL$ auf $TRACKS$ Titel angewendet",
-    "description": "Details about applied icons",
-    "placeholders": {
-      "icons": {
-        "content": "$1",
-        "example": "5"
-      },
-      "iconplural": {
-        "content": "$2",
-        "example": "s"
-      },
-      "tracks": {
-        "content": "$3",
-        "example": "10"
-      },
-      "trackplural": {
-        "content": "$4",
-        "example": ""
-      }
-    }
-  },
-  "label_audioFiles": {
-    "message": "$COUNT$ Audiodatei$PLURAL$",
-    "description": "Audio files count in import",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "4"
-      },
-      "plural": {
-        "content": "$2",
-        "example": "en"
-      }
-    }
-  },
-  "label_trackIcons": {
-    "message": "$COUNT$ Titel-Icon$PLURAL$",
-    "description": "Track icons count in import",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "0"
-      },
-      "plural": {
-        "content": "$2",
-        "example": "s"
-      }
-    }
-  },
-  "label_playlistNameColon": {
-    "message": "Name der Wiedergabeliste:",
-    "description": "Label for playlist name input with colon"
-  },
-  "status_percentComplete": {
-    "message": "$PERCENT$% abgeschlossen",
-    "description": "Import progress percentage",
-    "placeholders": {
-      "percent": {
-        "content": "$1",
-        "example": "75"
-      }
-    }
-  },
-  "label_update": {
-    "message": "Aktualisieren:",
-    "description": "Label for update modal (appears before card title)"
-  },
-  "modal_importMergedPlaylist": {
-    "message": "Zusammengeführte Wiedergabeliste importieren",
-    "description": "Title for merged playlist import modal"
-  },
-  "label_contentWillUploadSinglePlaylist": {
-    "message": "Der Inhalt wird in eine einzelne Wiedergabeliste mit $COUNT$ Titeln hochgeladen:",
-    "description": "Description for merged playlist upload",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "15"
-      }
-    }
-  },
-  "label_playlistDetails": {
-    "message": "Details der Wiedergabeliste:",
-    "description": "Header for playlist details section"
-  },
-  "label_numTracks": {
-    "message": "$COUNT$ Titel",
-    "description": "Number of tracks in playlist",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "15"
-      }
-    }
-  },
-  "button_start": {
-    "message": "Starten",
-    "description": "Generic start button"
-  },
-  "label_selectEpisodesToImport": {
-    "message": "Episoden zum Importieren auswählen:",
-    "description": "Label for episode selection in podcast import"
+  "status_refreshingPage": {
+    "message": "Seite wird aktualisiert, um neue Wiedergabelisten anzuzeigen...",
+    "description": "Refreshing after import"
+  },
+  "status_searchingPodcasts": {
+    "message": "Podcasts werden gesucht...",
+    "description": "Searching for podcasts"
   },
   "status_startingImport": {
     "message": "Starte Import von $COUNT$ Episode$PLURAL$...",
@@ -1291,17 +1691,227 @@
       }
     }
   },
-  "status_cancellingImport": {
-    "message": "Import wird abgebrochen...",
-    "description": "Status when cancelling import"
+  "status_startingUpload": {
+    "message": "Upload wird gestartet...",
+    "description": "Starting file upload"
   },
-  "error_importTakingTooLong": {
-    "message": "Der Import dauert länger als erwartet. Bitte aktualisieren Sie die Seite.",
-    "description": "Error when import times out"
+  "status_successfullyImportedEpisodes": {
+    "message": "Episoden erfolgreich importiert: $COUNT$!",
+    "description": "Success message for episode import",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
   },
-  "label_import": {
-    "message": "Importieren:",
-    "description": "Import label (appears before item title)"
+  "status_timerCreatedSuccess": {
+    "message": "Timer erfolgreich erstellt! Seite wird aktualisiert...",
+    "description": "Success message for custom timer"
+  },
+  "status_toothbrushTimerSuccess": {
+    "message": "Zahnputz-Timer erfolgreich erstellt! Aktualisierung...",
+    "description": "Success message for toothbrush timer"
+  },
+  "status_updateFailed": {
+    "message": "Aktualisierung fehlgeschlagen: $MESSAGE$",
+    "description": "Update failed with error",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "status_updatingCard": {
+    "message": "Karte wird aktualisiert...",
+    "description": "Finalizing card update"
+  },
+  "status_uploadingAudioFile": {
+    "message": "Lade Audio hoch $CURRENT$/$TOTAL$...",
+    "description": "Status for individual audio upload",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "3"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "status_uploadingAudioFiles": {
+    "message": "Lade Audiodateien hoch... $CURRENT$/$TOTAL$",
+    "description": "Status for uploading audio files",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "5"
+      },
+      "total": {
+        "content": "$2",
+        "example": "20"
+      }
+    }
+  },
+  "status_uploadingAudioTracks": {
+    "message": "Audio-Tracks werden hochgeladen...",
+    "description": "Status uploading tracks"
+  },
+  "status_uploadingCover": {
+    "message": "Cover wird hochgeladen...",
+    "description": "Status when uploading cover"
+  },
+  "status_uploadingCoverImage": {
+    "message": "Cover-Bild wird hochgeladen...",
+    "description": "Status when uploading cover image"
+  },
+  "status_uploadingFiles": {
+    "message": "Dateien werden hochgeladen...",
+    "description": "Files uploading"
+  },
+  "status_uploadingIcon": {
+    "message": "Lade Symbol $CURRENT$ von $TOTAL$ hoch...",
+    "description": "Status message showing icon upload progress",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "2"
+      },
+      "total": {
+        "content": "$2",
+        "example": "9"
+      }
+    }
+  },
+  "status_uploadingIconFiles": {
+    "message": "Symbol-Dateien werden hochgeladen...",
+    "description": "Uploading icons in update"
+  },
+  "status_uploadingIcons": {
+    "message": "Lade Symbole $CURRENT$/$TOTAL$ hoch...",
+    "description": "Status message showing bulk icon upload progress",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "5"
+      },
+      "total": {
+        "content": "$2",
+        "example": "20"
+      }
+    }
+  },
+  "status_uploadingIconsProgress": {
+    "message": "Symbole $START$-$END$ von $TOTAL$ werden hochgeladen...",
+    "description": "Status when uploading icons with progress",
+    "placeholders": {
+      "start": {
+        "content": "$1",
+        "example": "1"
+      },
+      "end": {
+        "content": "$2",
+        "example": "5"
+      },
+      "total": {
+        "content": "$3",
+        "example": "10"
+      }
+    }
+  },
+  "status_uploadingPlaylist": {
+    "message": "Hochladen: $NAME$",
+    "description": "Status for uploading a playlist",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Playlist"
+      }
+    }
+  },
+  "status_uploadingTracks": {
+    "message": "Titel werden hochgeladen...",
+    "description": "Status when uploading tracks"
+  },
+  "status_uploadingTracksPercent": {
+    "message": "Lade Titel hoch... $PERCENT$%",
+    "description": "Status when uploading tracks with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
+  "timer_alarmCalmBells": {
+    "message": "Ruhige Glocken",
+    "description": "Alarm sound option - calm bells"
+  },
+  "timer_alarmChristmasBells": {
+    "message": "Weihnachtsglocken",
+    "description": "Alarm sound option - christmas bells"
+  },
+  "timer_alarmFriendlyChime": {
+    "message": "Freundliches Glockenspiel",
+    "description": "Alarm sound option - friendly chime"
+  },
+  "timer_alarmHappyTune": {
+    "message": "Fröhliche Melodie",
+    "description": "Alarm sound option - happy tune"
+  },
+  "timer_alarmNone": {
+    "message": "Kein Alarm",
+    "description": "Option for no alarm sound"
+  },
+  "timer_alarmSoftBell": {
+    "message": "Sanfte Glocke",
+    "description": "Alarm sound option - soft bell"
+  },
+  "timer_alarmSpookySound": {
+    "message": "Gruseliger Klang",
+    "description": "Alarm sound option - spooky sound"
+  },
+  "timer_alarmSunshineMelody": {
+    "message": "Sonnenmelodie",
+    "description": "Alarm sound option - sunshine melody"
+  },
+  "timer_bottomLeftBack": {
+    "message": "Unten Links Hinten (0:45)",
+    "description": "Toothbrush timer track - bottom left back teeth"
+  },
+  "timer_bottomLeftFront": {
+    "message": "Unten Links Vorne (1:00)",
+    "description": "Toothbrush timer track - bottom left front teeth"
+  },
+  "timer_bottomRightBack": {
+    "message": "Unten Rechts Hinten (0:15)",
+    "description": "Toothbrush timer track - bottom right back teeth"
+  },
+  "timer_bottomRightFront": {
+    "message": "Unten Rechts Vorne (0:30)",
+    "description": "Toothbrush timer track - bottom right front teeth"
+  },
+  "timer_buttonBack": {
+    "message": "Zurück",
+    "description": "Button to go back"
+  },
+  "timer_buttonCreateTimer": {
+    "message": "Timer erstellen",
+    "description": "Button to create timer"
+  },
+  "timer_chooseTimer": {
+    "message": "Wählen Sie einen Timer...",
+    "description": "Placeholder for timer selection dropdown"
+  },
+  "timer_complete": {
+    "message": "Timer abgeschlossen",
+    "description": "Timer completion alternative title"
+  },
+  "timer_customDuration": {
+    "message": "Benutzerdefinierte Dauer (Minuten)",
+    "description": "Label for custom duration option"
   },
   "timer_defaultName": {
     "message": "Visueller Timer - $MINUTES$ $MINUTETEXT$",
@@ -1317,61 +1927,97 @@
       }
     }
   },
-  "label_minute": {
-    "message": "Minute",
-    "description": "Singular form of minute"
+  "timer_detailsDuration": {
+    "message": "• Dauer: 2 Minuten 5 Sekunden",
+    "description": "Toothbrush timer duration detail"
   },
-  "label_minutes": {
-    "message": "Minuten",
-    "description": "Plural form of minutes"
+  "timer_detailsPerfectFor": {
+    "message": "• Perfekt für Morgen- und Abendroutinen",
+    "description": "Toothbrush timer use case detail"
   },
-  "status_uploadingTracksPercent": {
-    "message": "Lade Titel hoch... $PERCENT$%",
-    "description": "Status when uploading tracks with percentage",
-    "placeholders": {
-      "percent": {
-        "content": "$1",
-        "example": "75"
-      }
-    }
+  "timer_detailsSegments": {
+    "message": "• Segmente: 5 Sekunden Einführung, dann 15 Sekunden Segmente",
+    "description": "Toothbrush timer segments detail"
   },
-  "status_matchingTracks": {
-    "message": "Suche nach Übereinstimmungen für $COUNT$ Titel...",
-    "description": "Status when matching icons to tracks",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "5"
-      },
-      "plural": {
-        "content": "$2",
-        "example": ""
-      }
-    }
+  "timer_duration10min": {
+    "message": "10 Minuten",
+    "description": "Timer duration option - 10 minutes"
+  },
+  "timer_duration15min": {
+    "message": "15 Minuten",
+    "description": "Timer duration option - 15 minutes"
+  },
+  "timer_duration20min": {
+    "message": "20 Minuten",
+    "description": "Timer duration option - 20 minutes"
+  },
+  "timer_duration2min": {
+    "message": "2 Minuten",
+    "description": "Timer duration option - 2 minutes"
+  },
+  "timer_duration30min": {
+    "message": "30 Minuten",
+    "description": "Timer duration option - 30 minutes"
+  },
+  "timer_duration5min": {
+    "message": "5 Minuten",
+    "description": "Timer duration option - 5 minutes"
+  },
+  "timer_duration60min": {
+    "message": "60 Minuten",
+    "description": "Timer duration option - 60 minutes"
+  },
+  "timer_iconStyleBlocks": {
+    "message": "Blöcke",
+    "description": "Timer icon style option - blocks"
+  },
+  "timer_iconStyleCircle": {
+    "message": "Kreis",
+    "description": "Timer icon style option - circle"
+  },
+  "timer_iconStyleDots": {
+    "message": "Punkte",
+    "description": "Timer icon style option - dots"
+  },
+  "timer_iconStyleFlower": {
+    "message": "Blume",
+    "description": "Timer icon style option - flower bloom"
+  },
+  "timer_iconStyleGhost": {
+    "message": "Geist",
+    "description": "Timer icon style option - ghost"
+  },
+  "timer_iconStylePizza": {
+    "message": "Pizza",
+    "description": "Timer icon style option - pizza"
+  },
+  "timer_iconStyleSandTimer": {
+    "message": "Sanduhr",
+    "description": "Timer icon style option - sand timer"
+  },
+  "timer_iconStyleTreeLights": {
+    "message": "Baumlichter",
+    "description": "Timer icon style option - tree lights"
+  },
+  "timer_labelEndAlarmSound": {
+    "message": "End-Alarmton",
+    "description": "Label for alarm sound selection"
+  },
+  "timer_labelIconStyle": {
+    "message": "Icon-Stil",
+    "description": "Label for icon style selection"
+  },
+  "timer_labelSelectTimer": {
+    "message": "Timer auswählen",
+    "description": "Label for timer selection"
+  },
+  "timer_labelTimerDetails": {
+    "message": "Timer-Details",
+    "description": "Header for timer details section"
   },
   "timer_minuteLeft": {
     "message": "1 Minute übrig",
     "description": "Timer track title for 1 minute remaining"
-  },
-  "timer_minutesLeft": {
-    "message": "$MINUTES$ Minuten übrig",
-    "description": "Timer track title for multiple minutes remaining",
-    "placeholders": {
-      "minutes": {
-        "content": "$1",
-        "example": "5"
-      }
-    }
-  },
-  "timer_secondsLeft": {
-    "message": "$SECONDS$ Sekunden übrig",
-    "description": "Timer track title for seconds remaining",
-    "placeholders": {
-      "seconds": {
-        "content": "$1",
-        "example": "30"
-      }
-    }
   },
   "timer_minuteSecondsLeft": {
     "message": "1 Minute $SECONDS$ Sekunde$PLURAL$ übrig",
@@ -1384,6 +2030,16 @@
       "plural": {
         "content": "$2",
         "example": "n"
+      }
+    }
+  },
+  "timer_minutesLeft": {
+    "message": "$MINUTES$ Minuten übrig",
+    "description": "Timer track title for multiple minutes remaining",
+    "placeholders": {
+      "minutes": {
+        "content": "$1",
+        "example": "5"
       }
     }
   },
@@ -1405,220 +2061,50 @@
       }
     }
   },
-  "status_uploadingIcon": {
-    "message": "Lade Symbol $CURRENT$ von $TOTAL$ hoch...",
-    "description": "Status message showing icon upload progress",
+  "timer_secondsLeft": {
+    "message": "$SECONDS$ Sekunden übrig",
+    "description": "Timer track title for seconds remaining",
     "placeholders": {
-      "current": {
+      "seconds": {
         "content": "$1",
-        "example": "2"
-      },
-      "total": {
-        "content": "$2",
-        "example": "9"
+        "example": "30"
       }
     }
+  },
+  "timer_sparklySmile": {
+    "message": "Funkelndes Lächeln!",
+    "description": "Toothbrush timer final track"
+  },
+  "timer_timesUp": {
+    "message": "Zeit ist um!",
+    "description": "Timer completion track title"
+  },
+  "timer_toothbrushIntro": {
+    "message": "Mach deine Zahnbürste bereit!",
+    "description": "Toothbrush timer intro track title"
+  },
+  "timer_toothbrushTimer": {
+    "message": "🦷 Zahnputz-Timer (2 Min 5 Sek)",
+    "description": "Ready-made toothbrush timer option"
   },
   "timer_toothbrushTitle": {
     "message": "Zahnputz-Timer",
     "description": "Title for the toothbrush timer playlist"
   },
-  "device_yotoPlayerV2": {
-    "message": "Yoto Player (V2)",
-    "description": "Device family name for Yoto Player V2"
+  "timer_topLeftBack": {
+    "message": "Oben Links Hinten (1:45)",
+    "description": "Toothbrush timer track - top left back teeth"
   },
-  "device_yotoPlayerV3": {
-    "message": "Yoto Player (V3)",
-    "description": "Device family name for Yoto Player V3"
+  "timer_topLeftFront": {
+    "message": "Oben Links Vorne (2:00)",
+    "description": "Toothbrush timer track - top left front teeth"
   },
-  "device_yotoMini": {
-    "message": "Yoto Mini",
-    "description": "Device family name for Yoto Mini"
+  "timer_topRightBack": {
+    "message": "Oben Rechts Hinten (1:15)",
+    "description": "Toothbrush timer track - top right back teeth"
   },
-  "device_otherDevices": {
-    "message": "Andere Geräte",
-    "description": "Label for unknown device family"
-  },
-  "device_unknownDevice": {
-    "message": "Unbekanntes Gerät",
-    "description": "Fallback name for unknown device"
-  },
-  "status_extractingPlaylist": {
-    "message": "Extrahiere Playlist $CURRENT$ von $TOTAL$...",
-    "description": "Status for extracting nested playlists",
-    "placeholders": {
-      "current": {
-        "content": "$1",
-        "example": "2"
-      },
-      "total": {
-        "content": "$2",
-        "example": "5"
-      }
-    }
-  },
-  "status_processingFolder": {
-    "message": "Verarbeite Ordner $CURRENT$ von $TOTAL$...",
-    "description": "Status for processing folders",
-    "placeholders": {
-      "current": {
-        "content": "$1",
-        "example": "3"
-      },
-      "total": {
-        "content": "$2",
-        "example": "10"
-      }
-    }
-  },
-  "status_overallProgress": {
-    "message": "Gesamtfortschritt: $CURRENT$/$TOTAL$ Playlists",
-    "description": "Overall import progress",
-    "placeholders": {
-      "current": {
-        "content": "$1",
-        "example": "2"
-      },
-      "total": {
-        "content": "$2",
-        "example": "5"
-      }
-    }
-  },
-  "status_uploadingPlaylist": {
-    "message": "Hochladen: $NAME$",
-    "description": "Status for uploading a playlist",
-    "placeholders": {
-      "name": {
-        "content": "$1",
-        "example": "My Playlist"
-      }
-    }
-  },
-  "status_importingPlaylist": {
-    "message": "Importiere: $NAME$",
-    "description": "Status for importing a playlist",
-    "placeholders": {
-      "name": {
-        "content": "$1",
-        "example": "My Playlist"
-      }
-    }
-  },
-  "status_importCompleteDetails": {
-    "message": "Import abgeschlossen: $SUCCESS$ erfolgreich, $FAILED$ fehlgeschlagen",
-    "description": "Final import status with counts",
-    "placeholders": {
-      "success": {
-        "content": "$1",
-        "example": "5"
-      },
-      "failed": {
-        "content": "$2",
-        "example": "1"
-      }
-    }
-  },
-  "status_uploadingAudioFile": {
-    "message": "Lade Audio hoch $CURRENT$/$TOTAL$...",
-    "description": "Status for individual audio upload",
-    "placeholders": {
-      "current": {
-        "content": "$1",
-        "example": "3"
-      },
-      "total": {
-        "content": "$2",
-        "example": "10"
-      }
-    }
-  },
-  "button_disablePaint": {
-    "message": "Malen deaktivieren",
-    "description": "Button to disable paint mode"
-  },
-  "button_paint": {
-    "message": "Malen",
-    "description": "Button to enable paint mode"
-  },
-  "button_uploading": {
-    "message": "Hochladen...",
-    "description": "Button state during upload"
-  },
-  "button_uploaded": {
-    "message": "Hochgeladen!",
-    "description": "Button state after successful upload"
-  },
-  "error_unknownError": {
-    "message": "Ein unbekannter Fehler ist aufgetreten",
-    "description": "Generic unknown error message"
-  },
-  "error_failedToApplyIcons": {
-    "message": "Icons konnten nicht angewendet werden: $MESSAGE$",
-    "description": "Error when icon application fails",
-    "placeholders": {
-      "message": {
-        "content": "$1",
-        "example": "Network error"
-      }
-    }
-  },
-  "error_authRequiredRefresh": {
-    "message": "Authentifizierung erforderlich. Bitte aktualisieren Sie die Seite und versuchen Sie es erneut.",
-    "description": "Error when authentication is needed"
-  },
-  "error_noAudioFilesInFolder": {
-    "message": "Keine Audiodateien im Ordner audio_files gefunden",
-    "description": "Error when no audio files are found"
-  },
-  "error_networkUploadFailed": {
-    "message": "Netzwerkfehler beim Hochladen von $FILENAME$ ($SIZE$MB). Die Datei ist möglicherweise zu groß oder die Verbindung wurde unterbrochen.",
-    "description": "Network error during upload",
-    "placeholders": {
-      "filename": {
-        "content": "$1",
-        "example": "track.mp3"
-      },
-      "size": {
-        "content": "$2",
-        "example": "45"
-      }
-    }
-  },
-  "error_uploadFailedTooLarge": {
-    "message": "Upload von \"$FILENAME$\" fehlgeschlagen. Die Datei ist möglicherweise zu groß. Versuchen Sie, die Seite zu aktualisieren und kleinere Dateigruppen zu importieren.",
-    "description": "Upload failed due to file size",
-    "placeholders": {
-      "filename": {
-        "content": "$1",
-        "example": "episode.mp3"
-      }
-    }
-  },
-  "error_uploadFailedLargeFiles": {
-    "message": "Upload fehlgeschlagen. Diese Dateien sind möglicherweise zu groß (max. 40MB empfohlen):",
-    "description": "Header for list of failed large files"
-  },
-  "error_fileTooLarge40MB": {
-    "message": "$FILENAME$ ist zu groß (max. 40MB aufgrund von Browser-Einschränkungen)",
-    "description": "Error for individual file over 40MB",
-    "placeholders": {
-      "filename": {
-        "content": "$1",
-        "example": "large-file.mp3"
-      }
-    }
-  },
-  "confirm_disconnectAccount": {
-    "message": "Möchten Sie Ihr Yoto-Konto wirklich trennen?",
-    "description": "Confirmation to disconnect account"
-  },
-  "confirm_clearCache": {
-    "message": "Dadurch werden alle zwischengespeicherten Icons gelöscht. Sind Sie sicher?",
-    "description": "Confirmation to clear cache"
-  },
-  "confirm_resetSettings": {
-    "message": "Dadurch werden alle Einstellungen auf die Standardwerte zurückgesetzt. Sind Sie sicher?",
-    "description": "Confirmation to reset settings"
+  "timer_topRightFront": {
+    "message": "Oben Rechts Vorne (1:30)",
+    "description": "Toothbrush timer track - top right front teeth"
   }
 }
