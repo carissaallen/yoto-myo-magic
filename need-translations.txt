@@ -1,0 +1,65 @@
+# Missing Translations for Yoto MYO Magic v1.13.0
+# These keys exist in English but need translation to: German (de), Spanish (es), French (fr), Italian (it), Slovenian (sl)
+
+## Update Playlist Feature (11 keys)
+
+button_audioIcons
+English: "Audio/Icons"
+Description: Dropdown option for updating audio and icons (legacy)
+Context: Appears in update playlist dropdown menu
+
+button_selectZip
+English: "Select ZIP File"
+Description: Button to select ZIP file for update
+Context: Update playlist modal button
+
+modal_checkBrowserSettings
+English: "Please grant the permission in the popup window that appears."
+Description: Instruction to check browser for permission popup
+Context: Permission request modal
+
+modal_permissionGranted
+English: "Permission Granted"
+Description: Title when permission is granted
+Context: Permission modal title
+
+modal_permissionRequired
+English: "Permission Required"
+Description: Title for permission required modal
+Context: Permission modal title
+
+modal_podcastPermissionExplanation
+English: "To add podcast episodes, Yoto MYO Magic needs permission to access podcast data from external sources."
+Description: Explanation for podcast permission requirement
+Context: Permission modal explanation text
+
+modal_proceedingToPodcastSearch
+English: "Proceeding to podcast search..."
+Description: Message when proceeding to podcast search
+Context: Progress message in modal
+
+modal_selectSourceForUpdate
+English: "Select the source for updating this card"
+Description: Description for update file source modal
+Context: Update playlist modal description
+
+modal_updatePlaylist
+English: "Update Playlist"
+Description: Title for update playlist modal
+Context: Modal title
+
+notification_importFailedMessage
+English: "Import failed: $MESSAGE$"
+Description: Error notification with message
+Context: Error notification (has placeholder for dynamic error message)
+Note: Contains placeholder $MESSAGE$ - ensure this is preserved in translation
+
+status_downloadingEpisodes
+English: "Downloading and processing episodes..."
+Description: Status when downloading podcast episodes
+Context: Progress status message
+
+---
+
+Total: 11 keys need translation across 5 languages (de, es, fr, it, sl)
+Total translations needed: 55 strings
