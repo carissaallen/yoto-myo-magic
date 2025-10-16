@@ -2188,5 +2188,79 @@
   "timer_topRightFront": {
     "message": "Zgornji desni sprednji (1:30)",
     "description": "Toothbrush timer track - top right front teeth"
+  },
+  "button_addContent": {
+    "message": "Dodaj vsebino",
+    "description": "Button to add content to existing playlist"
+  },
+  "button_audioAndIcons": {
+    "message": "Avdio + ikone",
+    "description": "Dropdown option for updating audio and icons"
+  },
+  "button_iconsOnly": {
+    "message": "Samo ikone",
+    "description": "Dropdown option for updating icons only (ignoring audio files)"
+  },
+  "button_podcastEpisodes": {
+    "message": "Podcast epizode",
+    "description": "Dropdown option for adding podcast episodes"
+  },
+  "modal_selectFilesToAdd": {
+    "message": "Izberi datoteke, ki jih želiš dodati tej kartici.",
+    "description": "Update modal description"
+  },
+  "notification_cardNotFound": {
+    "message": "Kartica ni bila najdena v URL-ju",
+    "description": "Error when card ID cannot be found in URL"
+  },
+  "notification_authRequiredForUpdate": {
+    "message": "Za posodobitev je potrebna avtentifikacija",
+    "description": "Info message for update features"
+  },
+  "status_addingEpisodesToCard": {
+    "message": "Dodajanje epizod na kartico...",
+    "description": "Status when adding podcast episodes to existing card"
+  },
+  "status_creatingMyoCardPlaylist": {
+    "message": "Ustvarjanje seznama predvajanja kartice MYO...",
+    "description": "Status when creating MYO card playlist"
+  },
+  "status_successfullyAddedEpisodes": {
+    "message": "Uspešno dodanih $COUNT$ epizod na kartico",
+    "description": "Success message when episodes added to card",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "error_failedToGetCardContent": {
+    "message": "Ni mogoče pridobiti obstoječe vsebine kartice",
+    "description": "Error when unable to fetch card content"
+  },
+  "error_failedToUpdateCardWithEpisodes": {
+    "message": "Ni mogoče posodobiti kartice s podcast epizodami",
+    "description": "Error when unable to update card with podcast episodes"
+  },
+  "error_failedToUpdateCard": {
+    "message": "Ni mogoče posodobiti kartice: $ERROR$",
+    "description": "Error when card update fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "error_failedToCreateMyoCard": {
+    "message": "Ni mogoče ustvariti kartice MYO: $ERROR$",
+    "description": "Error when MYO card creation fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   }
 }

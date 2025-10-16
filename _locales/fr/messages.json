@@ -927,7 +927,17 @@
   },
   "modal_iconsAvailable": {
     "message": "$CURRENT$ des $TOTAL$ icônes disponibles",
-    "description": "Label for available icons count"
+    "description": "Label for available icons count",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "1"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
   },
   "modal_importComplete": {
     "message": "Importation terminée !",
@@ -1169,11 +1179,23 @@
   },
   "notification_errorProcessingBulkFolder": {
     "message": "Erreur lors du traitement du dossier groupé : $MESSAGE$",
-    "description": "Error processing bulk folder"
+    "description": "Error processing bulk folder",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   },
   "notification_errorProcessingBulkZip": {
     "message": "Erreur lors du traitement du fichier ZIP groupé : $MESSAGE$",
-    "description": "Error processing bulk ZIP"
+    "description": "Error processing bulk ZIP",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   },
   "notification_errorProcessingFile": {
     "message": "Erreur lors du traitement du fichier. Veuillez vérifier le format du fichier.",
@@ -1212,12 +1234,30 @@
       "count": {
         "content": "$1",
         "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "type": {
+        "content": "$3",
+        "example": "ZIP file"
+      },
+      "typeplural": {
+        "content": "$4",
+        "example": "s"
       }
     }
   },
   "notification_failedToApplyIcons": {
     "message": "Échec de l'application des icônes : $MESSAGE$",
-    "description": "Failed to apply icons"
+    "description": "Failed to apply icons",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   },
   "notification_failedToLoadEpisodes": {
     "message": "Échec du chargement des épisodes.",
@@ -1233,11 +1273,31 @@
   },
   "notification_failedToProcessZip": {
     "message": "Échec du traitement du fichier ZIP. Erreur : $MESSAGE$",
-    "description": "Failed to process ZIP"
+    "description": "Failed to process ZIP",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Invalid format"
+      }
+    }
   },
   "notification_folderProcessed": {
     "message": "Dossier traité : $TRACKS$ pistes, $ICONS$ icônes$COVER$",
-    "description": "Folder processed successfully"
+    "description": "Folder processed successfully",
+    "placeholders": {
+      "tracks": {
+        "content": "$1",
+        "example": "10"
+      },
+      "icons": {
+        "content": "$2",
+        "example": "5"
+      },
+      "cover": {
+        "content": "$3",
+        "example": ", 1 cover"
+      }
+    }
   },
   "notification_foundPlaylists": {
     "message": "$COUNT$ playlist$PLURAL$ trouvées. Préparation de l'importation...",
@@ -1246,6 +1306,10 @@
       "count": {
         "content": "$1",
         "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
       }
     }
   },
@@ -1273,11 +1337,35 @@
   },
   "notification_importPartialSuccess": {
     "message": "Importation réussie de $SUCCESS$ playlist$SUCCESSPLURAL$, $FAILED$ échouée",
-    "description": "Partial import success"
+    "description": "Partial import success",
+    "placeholders": {
+      "success": {
+        "content": "$1",
+        "example": "2"
+      },
+      "successplural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "failed": {
+        "content": "$3",
+        "example": "1"
+      }
+    }
   },
   "notification_importSuccess": {
     "message": "Importation réussie de $COUNT$ playlist$PLURAL$ !",
-    "description": "Import success notification"
+    "description": "Import success notification",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
   },
   "notification_invalidZip": {
     "message": "Fichier ZIP invalide. Veuillez sélectionner un fichier ZIP valide.",
@@ -1321,7 +1409,13 @@
   },
   "notification_noIconsForCategory": {
     "message": "Aucune icône trouvée pour la catégorie « $CATEGORY$ ». Veuillez essayer une autre catégorie.",
-    "description": "No icons found for category"
+    "description": "No icons found for category",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "dinosaurs"
+      }
+    }
   },
   "notification_noValidFilesAfterFilter": {
     "message": "Aucun fichier valide après le filtrage.",
@@ -1407,7 +1501,21 @@
   },
   "notification_zipProcessed": {
     "message": "ZIP traité : $TRACKS$ pistes, $ICONS$ icônes$COVER$",
-    "description": "ZIP processed successfully"
+    "description": "ZIP processed successfully",
+    "placeholders": {
+      "tracks": {
+        "content": "$1",
+        "example": "10"
+      },
+      "icons": {
+        "content": "$2",
+        "example": "5"
+      },
+      "cover": {
+        "content": "$3",
+        "example": ", 1 cover"
+      }
+    }
   },
   "popup_batteryStatus": {
     "message": "État de la batterie de l'appareil",
@@ -2110,5 +2218,79 @@
   "timer_topRightFront": {
     "message": "Haut Droit Avant (1:30)",
     "description": "Toothbrush timer track - top right front teeth"
+  },
+  "button_addContent": {
+    "message": "Ajouter du contenu",
+    "description": "Button to add content to existing playlist"
+  },
+  "button_audioAndIcons": {
+    "message": "Audio + icônes",
+    "description": "Dropdown option for updating audio and icons"
+  },
+  "button_iconsOnly": {
+    "message": "Icônes uniquement",
+    "description": "Dropdown option for updating icons only (ignoring audio files)"
+  },
+  "button_podcastEpisodes": {
+    "message": "Épisodes de podcast",
+    "description": "Dropdown option for adding podcast episodes"
+  },
+  "modal_selectFilesToAdd": {
+    "message": "Sélectionnez les fichiers à ajouter à cette carte.",
+    "description": "Update modal description"
+  },
+  "notification_cardNotFound": {
+    "message": "Carte introuvable dans l'URL",
+    "description": "Error when card ID cannot be found in URL"
+  },
+  "notification_authRequiredForUpdate": {
+    "message": "Authentification requise pour la mise à jour",
+    "description": "Info message for update features"
+  },
+  "status_addingEpisodesToCard": {
+    "message": "Ajout d'épisodes à la carte...",
+    "description": "Status when adding podcast episodes to existing card"
+  },
+  "status_creatingMyoCardPlaylist": {
+    "message": "Création de la liste de lecture de la carte MYO...",
+    "description": "Status when creating MYO card playlist"
+  },
+  "status_successfullyAddedEpisodes": {
+    "message": "Ajout réussi de $COUNT$ épisodes à la carte",
+    "description": "Success message when episodes added to card",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "error_failedToGetCardContent": {
+    "message": "Échec de l'obtention du contenu existant de la carte",
+    "description": "Error when unable to fetch card content"
+  },
+  "error_failedToUpdateCardWithEpisodes": {
+    "message": "Échec de la mise à jour de la carte avec les épisodes de podcast",
+    "description": "Error when unable to update card with podcast episodes"
+  },
+  "error_failedToUpdateCard": {
+    "message": "Échec de la mise à jour de la carte : $ERROR$",
+    "description": "Error when card update fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "error_failedToCreateMyoCard": {
+    "message": "Échec de la création de la carte MYO : $ERROR$",
+    "description": "Error when MYO card creation fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   }
 }

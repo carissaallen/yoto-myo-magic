@@ -524,7 +524,7 @@
     }
   },
   "iconMatch_iconsAvailableOf": {
-    "message": "$CURRENT$/$TOTAL$ Symbole verfügbar",
+    "message": "$CURRENT$ von $TOTAL$ Symbolen verfügbar",
     "description": "Counter for available icons in Icon Match modal",
     "placeholders": {
       "current": {
@@ -906,6 +906,10 @@
       "count": {
         "content": "$1",
         "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": ""
       }
     }
   },
@@ -923,7 +927,17 @@
   },
   "modal_iconsAvailable": {
     "message": "$CURRENT$ von $TOTAL$ verfügbaren Symbolen",
-    "description": "Label for available icons count"
+    "description": "Label for available icons count",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "1"
+      },
+      "total": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
   },
   "modal_importComplete": {
     "message": "Import abgeschlossen!",
@@ -1165,11 +1179,23 @@
   },
   "notification_errorProcessingBulkFolder": {
     "message": "Fehler beim Verarbeiten des Massenordners: $MESSAGE$",
-    "description": "Error processing bulk folder"
+    "description": "Error processing bulk folder",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Invalid format"
+      }
+    }
   },
   "notification_errorProcessingBulkZip": {
     "message": "Fehler beim Verarbeiten der ZIP-Datei: $MESSAGE$",
-    "description": "Error processing bulk ZIP"
+    "description": "Error processing bulk ZIP",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Invalid format"
+      }
+    }
   },
   "notification_errorProcessingFile": {
     "message": "Fehler beim Verarbeiten der Datei. Bitte überprüfen Sie das Dateiformat.",
@@ -1208,12 +1234,30 @@
       "count": {
         "content": "$1",
         "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "type": {
+        "content": "$3",
+        "example": "ZIP file"
+      },
+      "typeplural": {
+        "content": "$4",
+        "example": "s"
       }
     }
   },
   "notification_failedToApplyIcons": {
     "message": "Anwenden der Symbole fehlgeschlagen: $MESSAGE$",
-    "description": "Failed to apply icons"
+    "description": "Failed to apply icons",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   },
   "notification_failedToLoadEpisodes": {
     "message": "Fehler beim Laden der Episoden.",
@@ -1229,11 +1273,31 @@
   },
   "notification_failedToProcessZip": {
     "message": "Verarbeitung der ZIP-Datei fehlgeschlagen. Fehler: $MESSAGE$",
-    "description": "Failed to process ZIP"
+    "description": "Failed to process ZIP",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Invalid format"
+      }
+    }
   },
   "notification_folderProcessed": {
     "message": "Ordner verarbeitet: $TRACKS$ Titel, $ICONS$ Symbole$COVER$",
-    "description": "Folder processed successfully"
+    "description": "Folder processed successfully",
+    "placeholders": {
+      "tracks": {
+        "content": "$1",
+        "example": "10"
+      },
+      "icons": {
+        "content": "$2",
+        "example": "5"
+      },
+      "cover": {
+        "content": "$3",
+        "example": ", 1 cover"
+      }
+    }
   },
   "notification_foundPlaylists": {
     "message": "$COUNT$ Wiedergabelisten$PLURAL$ gefunden. Import wird vorbereitet...",
@@ -1242,6 +1306,10 @@
       "count": {
         "content": "$1",
         "example": "5"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
       }
     }
   },
@@ -1269,11 +1337,35 @@
   },
   "notification_importPartialSuccess": {
     "message": "$SUCCESS$ Wiedergabelisten$SUCCESSPLURAL$ importiert, $FAILED$ fehlgeschlagen",
-    "description": "Partial import success"
+    "description": "Partial import success",
+    "placeholders": {
+      "success": {
+        "content": "$1",
+        "example": "2"
+      },
+      "successplural": {
+        "content": "$2",
+        "example": "s"
+      },
+      "failed": {
+        "content": "$3",
+        "example": "1"
+      }
+    }
   },
   "notification_importSuccess": {
     "message": "$COUNT$ Wiedergabelisten$PLURAL$ erfolgreich importiert!",
-    "description": "Import success notification"
+    "description": "Import success notification",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      },
+      "plural": {
+        "content": "$2",
+        "example": "s"
+      }
+    }
   },
   "notification_invalidZip": {
     "message": "Ungültige ZIP-Datei. Bitte wählen Sie eine gültige ZIP-Datei.",
@@ -1316,8 +1408,14 @@
     "description": "Error when no icon matches found"
   },
   "notification_noIconsForCategory": {
-    "message": "Keine Symbole für die Kategorie „$CATEGORY$“ gefunden. Bitte versuchen Sie es mit einer anderen Kategorie.",
-    "description": "No icons found for category"
+    "message": "Keine Symbole für die Kategorie \"$CATEGORY$\" gefunden. Bitte versuchen Sie es mit einer anderen Kategorie.",
+    "description": "No icons found for category",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "dinosaurs"
+      }
+    }
   },
   "notification_noValidFilesAfterFilter": {
     "message": "Keine gültigen Dateien nach dem Filtern.",
@@ -1403,7 +1501,21 @@
   },
   "notification_zipProcessed": {
     "message": "ZIP verarbeitet: $TRACKS$ Titel, $ICONS$ Symbole$COVER$",
-    "description": "ZIP processed successfully"
+    "description": "ZIP processed successfully",
+    "placeholders": {
+      "tracks": {
+        "content": "$1",
+        "example": "10"
+      },
+      "icons": {
+        "content": "$2",
+        "example": "5"
+      },
+      "cover": {
+        "content": "$3",
+        "example": ", 1 cover"
+      }
+    }
   },
   "popup_batteryStatus": {
     "message": "Gerätebatteriestatus",
@@ -2106,5 +2218,79 @@
   "timer_topRightFront": {
     "message": "Oben Rechts Vorne (1:30)",
     "description": "Toothbrush timer track - top right front teeth"
+  },
+  "button_addContent": {
+    "message": "Inhalt hinzufügen",
+    "description": "Button to add content to existing playlist"
+  },
+  "button_audioAndIcons": {
+    "message": "Audio + Symbole",
+    "description": "Dropdown option for updating audio and icons"
+  },
+  "button_iconsOnly": {
+    "message": "Nur Symbole",
+    "description": "Dropdown option for updating icons only (ignoring audio files)"
+  },
+  "button_podcastEpisodes": {
+    "message": "Podcast-Episoden",
+    "description": "Dropdown option for adding podcast episodes"
+  },
+  "modal_selectFilesToAdd": {
+    "message": "Wählen Sie Dateien aus, die Sie dieser Karte hinzufügen möchten.",
+    "description": "Update modal description"
+  },
+  "notification_cardNotFound": {
+    "message": "Karte in URL nicht gefunden",
+    "description": "Error when card ID cannot be found in URL"
+  },
+  "notification_authRequiredForUpdate": {
+    "message": "Für Aktualisierung ist eine Authentifizierung erforderlich",
+    "description": "Info message for update features"
+  },
+  "status_addingEpisodesToCard": {
+    "message": "Episoden zur Karte hinzufügen...",
+    "description": "Status when adding podcast episodes to existing card"
+  },
+  "status_creatingMyoCardPlaylist": {
+    "message": "MYO-Karten-Wiedergabeliste erstellen...",
+    "description": "Status when creating MYO card playlist"
+  },
+  "status_successfullyAddedEpisodes": {
+    "message": "$COUNT$ Episoden erfolgreich zur Karte hinzugefügt",
+    "description": "Success message when episodes added to card",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "error_failedToGetCardContent": {
+    "message": "Vorhandener Karteninhalt konnte nicht abgerufen werden",
+    "description": "Error when unable to fetch card content"
+  },
+  "error_failedToUpdateCardWithEpisodes": {
+    "message": "Karte konnte nicht mit Podcast-Episoden aktualisiert werden",
+    "description": "Error when unable to update card with podcast episodes"
+  },
+  "error_failedToUpdateCard": {
+    "message": "Karte konnte nicht aktualisiert werden: $ERROR$",
+    "description": "Error when card update fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "error_failedToCreateMyoCard": {
+    "message": "MYO-Karte konnte nicht erstellt werden: $ERROR$",
+    "description": "Error when MYO card creation fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   }
 }

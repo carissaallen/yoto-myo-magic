@@ -4182,11 +4182,16 @@ async function selectPodcast(podcast) {
       cancelBtn.onclick = cancelHandler;
       
       try {
+        const isUpdateMode = window.yotoUpdateMode && window.yotoUpdateMode.isUpdateMode;
+        const updateCardId = isUpdateMode ? window.yotoUpdateMode.cardId : null;
+
         // Start the import process
         const startResponse = await chrome.runtime.sendMessage({
           action: 'IMPORT_PODCAST_EPISODES',
           podcast: podcast,
-          episodes: selectedEpisodes
+          episodes: selectedEpisodes,
+          updateMode: isUpdateMode,
+          cardId: updateCardId
         });
         
         if (startResponse.error) {
@@ -4269,7 +4274,11 @@ async function selectPodcast(podcast) {
         if (!importComplete) {
           throw new Error(chrome.i18n.getMessage('error_importTakingTooLong'));
         }
-        
+
+        if (window.yotoUpdateMode) {
+          delete window.yotoUpdateMode;
+        }
+
       } catch (error) {
         statusText.textContent = `${chrome.i18n.getMessage("error_generic", [error.message])}`;
         progressBar.style.width = '0%';
@@ -4278,11 +4287,18 @@ async function selectPodcast(podcast) {
         cancelBtn.textContent = chrome.i18n.getMessage('button_close');
         cancelBtn.onclick = () => modal.remove();
         showNotification(`${chrome.i18n.getMessage("notification_importFailedMessage", [error.message])}`, 'error');
+
+        if (window.yotoUpdateMode) {
+          delete window.yotoUpdateMode;
+        }
       }
     });
     
     document.getElementById('episode-cancel').addEventListener('click', () => {
       modal.remove();
+      if (window.yotoUpdateMode) {
+        delete window.yotoUpdateMode;
+      }
     });
     
   } catch (error) {
