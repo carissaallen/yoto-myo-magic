@@ -2174,5 +2174,79 @@
   "timer_topRightFront": {
     "message": "In alto a destra davanti (1:30)",
     "description": "Toothbrush timer track - top right front teeth"
+  },
+  "button_addContent": {
+    "message": "Aggiungi contenuto",
+    "description": "Button to add content to existing playlist"
+  },
+  "button_audioAndIcons": {
+    "message": "Audio + Icone",
+    "description": "Dropdown option for updating audio and icons"
+  },
+  "button_iconsOnly": {
+    "message": "Solo icone",
+    "description": "Dropdown option for updating icons only (ignoring audio files)"
+  },
+  "button_podcastEpisodes": {
+    "message": "Episodi podcast",
+    "description": "Dropdown option for adding podcast episodes"
+  },
+  "modal_selectFilesToAdd": {
+    "message": "Seleziona i file da aggiungere a questa scheda.",
+    "description": "Update modal description"
+  },
+  "notification_cardNotFound": {
+    "message": "Scheda non trovata nell'URL",
+    "description": "Error when card ID cannot be found in URL"
+  },
+  "notification_authRequiredForUpdate": {
+    "message": "Autenticazione richiesta per l'aggiornamento",
+    "description": "Info message for update features"
+  },
+  "status_addingEpisodesToCard": {
+    "message": "Aggiunta di episodi alla scheda...",
+    "description": "Status when adding podcast episodes to existing card"
+  },
+  "status_creatingMyoCardPlaylist": {
+    "message": "Creazione della playlist della scheda MYO...",
+    "description": "Status when creating MYO card playlist"
+  },
+  "status_successfullyAddedEpisodes": {
+    "message": "Aggiunti con successo $COUNT$ episodi alla scheda",
+    "description": "Success message when episodes added to card",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "error_failedToGetCardContent": {
+    "message": "Impossibile ottenere il contenuto della scheda esistente",
+    "description": "Error when unable to fetch card content"
+  },
+  "error_failedToUpdateCardWithEpisodes": {
+    "message": "Impossibile aggiornare la scheda con gli episodi del podcast",
+    "description": "Error when unable to update card with podcast episodes"
+  },
+  "error_failedToUpdateCard": {
+    "message": "Impossibile aggiornare la scheda: $ERROR$",
+    "description": "Error when card update fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "error_failedToCreateMyoCard": {
+    "message": "Impossibile creare la scheda MYO: $ERROR$",
+    "description": "Error when MYO card creation fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   }
 }

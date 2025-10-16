@@ -569,6 +569,210 @@ function createIconArtButton() {
   return button;
 }
 
+function createUpdatePlaylistButton() {
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = `
+    position: relative;
+    display: inline-flex;
+    margin-left: 8px;
+  `;
+
+  const button = document.createElement('button');
+  button.id = 'yoto-update-playlist-btn';
+
+  const updateIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M12 19H5C3.89543 19 3 18.1046 3 17V7C3 5.89543 3.89543 5 5 5H9.58579C9.851 5 10.1054 5.10536 10.2929 5.29289L12 7H19C20.1046 7 21 7.89543 21 9V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M18 14V17M18 20V17M18 17H15M18 17H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  const dropdownIcon = `
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+    </svg>
+  `;
+
+  button.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 6px 0 0 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
+    border-right: none;
+  `;
+
+  const dropdownButton = document.createElement('button');
+  dropdownButton.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+    padding: 8px;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    height: 40px;
+    border-left: 1px solid #e5e7eb;
+  `;
+
+  dropdownButton.innerHTML = dropdownIcon;
+
+  const dropdownMenu = document.createElement('div');
+  dropdownMenu.style.cssText = `
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: none;
+    z-index: 1000;
+    min-width: 180px;
+  `;
+
+  const audioAndIconsOption = document.createElement('button');
+  audioAndIconsOption.style.cssText = `
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+  audioAndIconsOption.textContent = chrome.i18n.getMessage('button_audioAndIcons') || 'Audio + Icons';
+  audioAndIconsOption.onmouseenter = () => audioAndIconsOption.style.backgroundColor = '#f3f4f6';
+  audioAndIconsOption.onmouseleave = () => audioAndIconsOption.style.backgroundColor = 'transparent';
+
+  const iconsOnlyOption = document.createElement('button');
+  iconsOnlyOption.style.cssText = `
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-top: 1px solid #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+  iconsOnlyOption.textContent = chrome.i18n.getMessage('button_iconsOnly') || 'Icons Only';
+  iconsOnlyOption.onmouseenter = () => iconsOnlyOption.style.backgroundColor = '#f3f4f6';
+  iconsOnlyOption.onmouseleave = () => iconsOnlyOption.style.backgroundColor = 'transparent';
+
+  const podcastEpisodesOption = document.createElement('button');
+  podcastEpisodesOption.style.cssText = `
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background: none;
+    border: none;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-top: 1px solid #e5e7eb;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+  podcastEpisodesOption.textContent = chrome.i18n.getMessage('button_podcastEpisodes') || 'Podcast Episodes';
+  podcastEpisodesOption.onmouseenter = () => podcastEpisodesOption.style.backgroundColor = '#f3f4f6';
+  podcastEpisodesOption.onmouseleave = () => podcastEpisodesOption.style.backgroundColor = 'transparent';
+
+  dropdownMenu.appendChild(audioAndIconsOption);
+  dropdownMenu.appendChild(iconsOnlyOption);
+  dropdownMenu.appendChild(podcastEpisodesOption);
+
+  button.innerHTML = `
+    ${updateIcon}
+    <span>${chrome.i18n.getMessage('button_addContent') || 'Add Content'}</span>
+  `;
+
+  button.onmouseenter = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#ffdd00';
+    button.style.borderColor = '#ffdd00';
+    button.style.transform = 'translateY(-1px)';
+  };
+
+  button.onmouseleave = () => {
+    button.style.backgroundColor = '#ffffff';
+    button.style.color = '#3b82f6';
+    button.style.borderColor = '#3b82f6';
+    button.style.transform = 'translateY(0)';
+  };
+
+  dropdownButton.onmouseenter = () => {
+    dropdownButton.style.backgroundColor = '#f3f4f6';
+  };
+
+  dropdownButton.onmouseleave = () => {
+    dropdownButton.style.backgroundColor = '#ffffff';
+  };
+
+  dropdownButton.onclick = (e) => {
+    e.stopPropagation();
+    const isVisible = dropdownMenu.style.display === 'block';
+    dropdownMenu.style.display = isVisible ? 'none' : 'block';
+  };
+
+  document.addEventListener('click', (e) => {
+    if (!buttonContainer.contains(e.target)) {
+      dropdownMenu.style.display = 'none';
+    }
+  });
+
+  audioAndIconsOption.onclick = async () => {
+    dropdownMenu.style.display = 'none';
+    await handleUpdatePlaylistAudioIcons(false); // false = don't ignore audio
+  };
+
+  iconsOnlyOption.onclick = async () => {
+    dropdownMenu.style.display = 'none';
+    await handleUpdatePlaylistAudioIcons(true); // true = ignore audio files
+  };
+
+  podcastEpisodesOption.onclick = async () => {
+    dropdownMenu.style.display = 'none';
+    await handleUpdatePlaylistPodcast();
+  };
+
+  button.onclick = async () => {
+    await handleUpdatePlaylistAudioIcons(false);
+  };
+
+  buttonContainer.appendChild(button);
+  buttonContainer.appendChild(dropdownButton);
+  buttonContainer.appendChild(dropdownMenu);
+
+  return buttonContainer;
+}
+
 function openIconArtModal() {
   const existingModal = document.querySelector('#yoto-icon-art-modal');
   if (existingModal) {
@@ -2916,6 +3120,379 @@ async function handleIconMatch(matchType) {
   }
 }
 
+async function handleUpdatePlaylistAudioIcons(ignoreAudio = false) {
+  // Get the cardId from the URL
+  const urlMatch = window.location.pathname.match(/\/card\/([^\/]+)/);
+  if (!urlMatch) {
+    alert(chrome.i18n.getMessage('notification_cardNotFound') || 'Card not found in URL');
+    return;
+  }
+  const cardId = urlMatch[1];
+
+  // Check authentication
+  try {
+    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+    if (!authResponse || !authResponse.authenticated) {
+      alert(chrome.i18n.getMessage('notification_authRequiredForUpdate') || 'Authentication required for update');
+      return;
+    }
+  } catch (error) {
+    console.error('Auth check failed:', error);
+  }
+
+  // Track event
+  chrome.runtime.sendMessage({
+    action: 'TRACK_EVENT',
+    eventName: 'update_playlist_audio_icons_click',
+    parameters: { source: 'edit_card_page', ignoreAudio: ignoreAudio }
+  });
+
+  // Show the file selection modal (zip or folder)
+  showUpdateFileSelectionModal(cardId, ignoreAudio);
+}
+
+async function showUpdateFileSelectionModal(cardId, ignoreAudio = false) {
+  const existingModal = document.getElementById('yoto-update-file-selection-modal');
+  if (existingModal) existingModal.remove();
+
+  // Fetch the card content to get the title (same way we do for update)
+  let cardTitle = chrome.i18n.getMessage('label_untitledCard') || 'Untitled Card';
+
+  try {
+    const cardContent = await chrome.runtime.sendMessage({
+      action: 'GET_CARD_CONTENT',
+      cardId: cardId
+    });
+
+    if (cardContent && cardContent.card && cardContent.card.title) {
+      cardTitle = cardContent.card.title;
+    }
+  } catch (error) {
+    console.error('Failed to fetch card content for title:', error);
+    // Fallback: try to get from input field
+    const inputTitle = document.querySelector('input[placeholder="Give me a name"]')?.value;
+    if (inputTitle && inputTitle.trim() !== '') {
+      cardTitle = inputTitle;
+    }
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-update-file-selection-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 999999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    background-color: rgba(0, 0, 0, 0.5);
+  `;
+
+  modal.innerHTML = `
+    <div style="
+      background-color: white;
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      margin: 0 16px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    ">
+      <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">${chrome.i18n.getMessage('label_update')} ${cardTitle}</h2>
+      <p style="color: #6b7280; margin-bottom: 24px;">${chrome.i18n.getMessage('modal_selectFilesToAdd')}</p>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="update-zip-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <span>${chrome.i18n.getMessage('button_importZipFile')}</span>
+        </button>
+
+        <button id="update-folder-btn" style="
+          width: 100%;
+          padding: 12px 16px;
+          background-color: #10b981;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+          </svg>
+          <span>${chrome.i18n.getMessage('button_importFolder')}</span>
+        </button>
+      </div>
+
+      <button id="update-cancel-btn" style="
+        width: 100%;
+        margin-top: 16px;
+        padding: 8px 16px;
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 14px;
+        transition: color 0.2s;
+      " onmouseover="this.style.color='#1f2937'" onmouseout="this.style.color='#6b7280'">
+        ${chrome.i18n.getMessage('button_cancel')}
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // These functions are defined in content.js and are globally available
+  document.getElementById('update-zip-btn').addEventListener('click', () => {
+    modal.remove();
+    if (typeof selectZipFileForUpdate !== 'undefined') {
+      selectZipFileForUpdate(cardId, ignoreAudio);
+    }
+  });
+
+  document.getElementById('update-folder-btn').addEventListener('click', () => {
+    modal.remove();
+    if (typeof selectFolderForUpdate !== 'undefined') {
+      selectFolderForUpdate(cardId, ignoreAudio);
+    }
+  });
+
+  document.getElementById('update-cancel-btn').addEventListener('click', () => {
+    modal.remove();
+  });
+}
+
+async function handleUpdatePlaylistPodcast() {
+  // Get the cardId from the URL
+  const urlMatch = window.location.pathname.match(/\/card\/([^\/]+)/);
+  if (!urlMatch) {
+    alert(chrome.i18n.getMessage('notification_cardNotFound') || 'Card not found in URL');
+    return;
+  }
+  const cardId = urlMatch[1];
+
+  // Check authentication
+  try {
+    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+    if (!authResponse || !authResponse.authenticated) {
+      alert(chrome.i18n.getMessage('notification_authRequiredForUpdate') || 'Authentication required for update');
+      return;
+    }
+  } catch (error) {
+    console.error('Auth check failed:', error);
+  }
+
+  // Track event
+  chrome.runtime.sendMessage({
+    action: 'TRACK_EVENT',
+    eventName: 'update_playlist_podcast_click',
+    parameters: { source: 'edit_card_page', cardId: cardId }
+  });
+
+  // Check for all URLs permission (same as Import Podcast)
+  const permissionCheck = await chrome.runtime.sendMessage({
+    action: 'CHECK_ALL_URLS_PERMISSION'
+  });
+
+  if (!permissionCheck.granted) {
+    // Show permission modal first
+    showPodcastPermissionModalForUpdate(cardId);
+  } else {
+    // We have permission, proceed directly to podcast search
+    showPodcastSearchModalForUpdate(cardId);
+  }
+}
+
+function showPodcastPermissionModalForUpdate(cardId) {
+  const existingModal = document.getElementById('podcast-permission-modal');
+  if (existingModal) existingModal.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'podcast-permission-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 20vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    animation: fadeIn 0.3s ease;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s ease;
+  `;
+
+  content.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="vertical-align: middle; margin-right: 8px;">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </svg>
+      ${chrome.i18n.getMessage('modal_importPodcastPermission')}
+    </h2>
+
+    <div style="margin-bottom: 24px; color: #4b5563; line-height: 1.6;">
+      <p style="margin: 0 0 16px 0;">${chrome.i18n.getMessage('modal_permissionDescription')}</p>
+
+      <div style="background: #f3f4f6; border-radius: 8px; padding: 16px; margin: 16px 0;">
+        <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">${chrome.i18n.getMessage('modal_permissionTitle')}</p>
+        <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #6b7280;">
+          <li style="margin: 4px 0;">${chrome.i18n.getMessage('modal_permissionReason1')}</li>
+          <li style="margin: 4px 0;">${chrome.i18n.getMessage('modal_permissionReason2')}</li>
+          <li style="margin: 4px 0;">${chrome.i18n.getMessage('modal_permissionReason3')}</li>
+        </ul>
+      </div>
+
+      <p style="margin: 16px 0 0 0; font-size: 14px; color: #6b7280;">
+        ${chrome.i18n.getMessage('modal_permissionNote')}
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="permission-cancel" style="
+        background: #f3f4f6;
+        color: #374151;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'">
+        ${chrome.i18n.getMessage('button_cancel')}
+      </button>
+      <button id="permission-grant" style="
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+        ${chrome.i18n.getMessage('button_grantPermission')}
+      </button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  document.getElementById('permission-grant').addEventListener('click', async () => {
+    const result = await chrome.runtime.sendMessage({
+      action: 'REQUEST_ALL_URLS_PERMISSION'
+    });
+
+    if (result.granted) {
+      content.innerHTML = `
+        <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">
+          ${chrome.i18n.getMessage('modal_permissionGranted') || 'Permission Granted'}
+        </h2>
+        <p style="color: #6b7280;">
+          ${chrome.i18n.getMessage('modal_proceedingToPodcastSearch') || 'Proceeding to podcast search...'}
+        </p>
+      `;
+
+      setTimeout(() => {
+        modal.remove();
+        showPodcastSearchModalForUpdate(cardId);
+      }, 1000);
+    } else {
+      content.innerHTML = `
+        <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">
+          ${chrome.i18n.getMessage('modal_requestingPermission') || 'Requesting Permission...'}
+        </h2>
+        <p style="color: #6b7280;">
+          ${chrome.i18n.getMessage('modal_checkBrowserSettings') || 'Please grant the permission in the popup window that appears.'}
+        </p>
+      `;
+
+      setTimeout(async () => {
+        const check = await chrome.runtime.sendMessage({
+          action: 'CHECK_ALL_URLS_PERMISSION'
+        });
+
+        if (check.granted) {
+          modal.remove();
+          showPodcastSearchModalForUpdate(cardId);
+        } else {
+          modal.remove();
+        }
+      }, 1000);
+    }
+  });
+
+  document.getElementById('permission-cancel').addEventListener('click', () => {
+    modal.remove();
+  });
+}
+
+function showPodcastSearchModalForUpdate(cardId) {
+  // This will call the existing showPodcastSearchModal but we need to modify it
+  // to handle the cardId and append mode. For now, we'll create a wrapper
+  // that stores the cardId and mode, then calls the original function
+
+  // Store the cardId and mode in a global variable so the existing podcast import code can access it
+  window.yotoUpdateMode = {
+    isUpdateMode: true,
+    cardId: cardId,
+    appendOnly: true  // This tells the podcast import to only append, not replace
+  };
+
+  // Call the existing podcast search modal function from content.js
+  if (typeof showPodcastSearchModal !== 'undefined') {
+    showPodcastSearchModal();
+  } else {
+    alert('Podcast search functionality not available');
+  }
+}
+
 function checkAndInjectButton() {
   if (document.querySelector('#yoto-magic-btn')) {
     return;
@@ -2931,8 +3508,10 @@ function checkAndInjectButton() {
 
     const iconMatchButton = createButton();
     const iconArtButton = createIconArtButton();
+    const updatePlaylistButton = createUpdatePlaylistButton();
     buttonContainer.appendChild(iconMatchButton);
     buttonContainer.appendChild(iconArtButton);
+    buttonContainer.appendChild(updatePlaylistButton);
 
     if (addAudioButton.nextSibling) {
       addAudioButton.parentNode.insertBefore(buttonContainer, addAudioButton.nextSibling);
@@ -2951,8 +3530,10 @@ function checkAndInjectButton() {
 
       const iconMatchButton = createButton();
       const iconArtButton = createIconArtButton();
+      const updatePlaylistButton = createUpdatePlaylistButton();
       buttonContainer.appendChild(iconMatchButton);
       buttonContainer.appendChild(iconArtButton);
+      buttonContainer.appendChild(updatePlaylistButton);
 
       const buttonsParent = addStreamButton.parentNode;
       if (buttonsParent.nextSibling) {

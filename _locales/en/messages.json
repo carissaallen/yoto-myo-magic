@@ -491,6 +491,52 @@
     "message": "Please authenticate to use update features",
     "description": "Info message for update features"
   },
+  "status_addingEpisodesToCard": {
+    "message": "Adding episodes to card...",
+    "description": "Status when adding podcast episodes to existing card"
+  },
+  "status_creatingMyoCardPlaylist": {
+    "message": "Creating MYO card playlist...",
+    "description": "Status when creating MYO card playlist"
+  },
+  "status_successfullyAddedEpisodes": {
+    "message": "Successfully added $COUNT$ episodes to card",
+    "description": "Success message when episodes added to card",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "5"
+      }
+    }
+  },
+  "error_failedToGetCardContent": {
+    "message": "Failed to get existing card content",
+    "description": "Error when unable to fetch card content"
+  },
+  "error_failedToUpdateCardWithEpisodes": {
+    "message": "Failed to update card with podcast episodes",
+    "description": "Error when unable to update card with podcast episodes"
+  },
+  "error_failedToUpdateCard": {
+    "message": "Failed to update card: $ERROR$",
+    "description": "Error when card update fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "error_failedToCreateMyoCard": {
+    "message": "Failed to create MYO card: $ERROR$",
+    "description": "Error when MYO card creation fails with details",
+    "placeholders": {
+      "error": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
   "notification_authRequiredForImport": {
     "message": "Please authenticate to use import features",
     "description": "Info message for import features"
@@ -2174,5 +2220,83 @@
   "confirm_resetSettings": {
     "message": "This will reset all settings to defaults. Are you sure?",
     "description": "Confirmation to reset settings"
+  },
+  "button_addContent": {
+    "message": "Add Content",
+    "description": "Button to add content to existing playlist"
+  },
+  "button_audioAndIcons": {
+    "message": "Audio + Icons",
+    "description": "Dropdown option for updating audio and icons"
+  },
+  "button_iconsOnly": {
+    "message": "Icons Only",
+    "description": "Dropdown option for updating icons only (ignoring audio files)"
+  },
+  "button_audioIcons": {
+    "message": "Audio/Icons",
+    "description": "Dropdown option for updating audio and icons (legacy)"
+  },
+  "button_podcastEpisodes": {
+    "message": "Podcast Episodes",
+    "description": "Dropdown option for adding podcast episodes"
+  },
+  "notification_cardNotFound": {
+    "message": "Card not found in URL",
+    "description": "Error when card ID cannot be found in URL"
+  },
+  "modal_updatePlaylist": {
+    "message": "Update Playlist",
+    "description": "Title for update playlist modal"
+  },
+  "modal_selectSourceForUpdate": {
+    "message": "Select the source for updating this card",
+    "description": "Description for update file source modal"
+  },
+  "button_selectZip": {
+    "message": "Select ZIP File",
+    "description": "Button to select ZIP file for update"
+  },
+  "modal_permissionRequired": {
+    "message": "Permission Required",
+    "description": "Title for permission required modal"
+  },
+  "modal_podcastPermissionExplanation": {
+    "message": "To add podcast episodes, Yoto MYO Magic needs permission to access podcast data from external sources.",
+    "description": "Explanation for podcast permission requirement"
+  },
+  "button_grantPermission": {
+    "message": "Grant Permission",
+    "description": "Button to grant permission"
+  },
+  "modal_permissionGranted": {
+    "message": "Permission Granted",
+    "description": "Title when permission is granted"
+  },
+  "modal_proceedingToPodcastSearch": {
+    "message": "Proceeding to podcast search...",
+    "description": "Message when proceeding to podcast search"
+  },
+  "modal_requestingPermission": {
+    "message": "Requesting Permission...",
+    "description": "Title when requesting permission"
+  },
+  "modal_checkBrowserSettings": {
+    "message": "Please grant the permission in the popup window that appears.",
+    "description": "Instruction to check browser for permission popup"
+  },
+  "notification_importFailedMessage": {
+    "message": "Import failed: $MESSAGE$",
+    "description": "Error notification with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "status_downloadingEpisodes": {
+    "message": "Downloading and processing episodes...",
+    "description": "Status when downloading podcast episodes"
   }
 }
