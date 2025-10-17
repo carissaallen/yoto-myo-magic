@@ -295,7 +295,7 @@ function checkAndInjectImportButton() {
     // English
     'create playlists here',
     // French
-    'créer des playlists ici', 'créez des playlists ici',
+    'créez vos playlists', 'creez vos playlists',
     // German
     'playlists hier erstellen', 'erstellen sie hier playlists',
     // Spanish
@@ -310,7 +310,6 @@ function checkAndInjectImportButton() {
 
   const playlistsHeading = headings.find(el => {
     const text = el.textContent?.trim()?.toLowerCase() || '';
-    // Check if any heading pattern matches and it's not an edit page
     const matchesPattern = headingPatterns.some(pattern => text.includes(pattern));
     const isNotEdit = !text.includes('edit') && !text.includes('modifier') &&
                       !text.includes('bearbeiten') && !text.includes('editar') &&
@@ -319,24 +318,20 @@ function checkAndInjectImportButton() {
   });
 
   if (playlistsHeading) {
-    // Look for the container that holds both the heading and the content below it
     const mainContainer = playlistsHeading.parentNode;
 
     if (mainContainer) {
       let targetElement = playlistsHeading;
       let nextElement = playlistsHeading.nextElementSibling;
 
-      // Look for the descriptive text in the next few siblings
       while (nextElement && targetElement === playlistsHeading) {
         const text = nextElement.textContent?.trim()?.toLowerCase() || '';
-        // Check if any description pattern matches
         if (descriptionPatterns.some(pattern => text.includes(pattern))) {
           targetElement = nextElement;
           break;
         }
         nextElement = nextElement.nextElementSibling;
 
-        // Don't search more than 3 siblings to avoid going too far
         if (!nextElement || nextElement === playlistsHeading.parentNode?.lastElementChild) {
           break;
         }
