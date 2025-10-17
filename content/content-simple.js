@@ -3497,11 +3497,23 @@ function checkAndInjectButton() {
   if (document.querySelector('#yoto-magic-btn')) {
     return;
   }
-  
-  const addAudioButton = Array.from(document.querySelectorAll('button')).find(btn => 
-    btn.textContent?.trim() === 'Add audio'
-  );
-  
+
+  // Multi-language patterns for "Add audio" button
+  const addAudioPatterns = [
+    'add audio',           // English
+    'ajouter audio',       // French
+    'ajouter de l\'audio', // French alternative
+    'audio hinzufügen',    // German
+    'añadir audio',        // Spanish
+    'aggiungi audio',      // Italian
+    'dodaj zvok'           // Slovenian
+  ];
+
+  const addAudioButton = Array.from(document.querySelectorAll('button')).find(btn => {
+    const btnText = btn.textContent?.trim()?.toLowerCase() || '';
+    return addAudioPatterns.some(pattern => btnText === pattern || btnText.includes(pattern));
+  });
+
   if (addAudioButton) {
     const buttonContainer = document.createElement('div');
     buttonContainer.className = 'flex gap-2 mt-2';
@@ -3520,9 +3532,21 @@ function checkAndInjectButton() {
     }
 
   } else {
-    const addStreamButton = Array.from(document.querySelectorAll('button')).find(btn =>
-      btn.textContent?.trim() === 'Add stream'
-    );
+    // Multi-language patterns for "Add stream" button
+    const addStreamPatterns = [
+      'add stream',          // English
+      'ajouter un flux',     // French
+      'ajouter flux',        // French alternative
+      'stream hinzufügen',   // German
+      'añadir stream',       // Spanish
+      'aggiungi stream',     // Italian
+      'dodaj pretok'         // Slovenian
+    ];
+
+    const addStreamButton = Array.from(document.querySelectorAll('button')).find(btn => {
+      const btnText = btn.textContent?.trim()?.toLowerCase() || '';
+      return addStreamPatterns.some(pattern => btnText === pattern || btnText.includes(pattern));
+    });
 
     if (addStreamButton && addStreamButton.parentNode) {
       const buttonContainer = document.createElement('div');
