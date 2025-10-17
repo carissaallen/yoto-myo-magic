@@ -269,37 +269,73 @@ function checkAndInjectImportButton() {
   if (path.includes('/edit') || path.includes('/card/')) {
     return false;
   }
-  
+
   if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
     return true;
   }
-  
+
+  // Multi-language patterns for detecting the playlists page
+  // This fixes the issue where buttons don't appear when Yoto website is in non-English languages
+  const headingPatterns = [
+    // English
+    'my playlist', 'my cards', 'cards',
+    // French
+    'mes playlists', 'mes cartes', 'cartes',
+    // German
+    'meine playlists', 'meine karten', 'karten',
+    // Spanish
+    'mis playlists', 'mis listas', 'mis tarjetas', 'tarjetas',
+    // Italian
+    'le mie playlist', 'le mie carte', 'carte',
+    // Slovenian
+    'moji seznami', 'moje kartice', 'kartice'
+  ];
+
+  const descriptionPatterns = [
+    // English
+    'create playlists here',
+    // French
+    'créer des playlists ici', 'créez des playlists ici',
+    // German
+    'playlists hier erstellen', 'erstellen sie hier playlists',
+    // Spanish
+    'crear listas de reproducción aquí', 'crea listas aquí',
+    // Italian
+    'crea playlist qui', 'crea le playlist qui',
+    // Slovenian
+    'ustvari sezname predvajanja tukaj'
+  ];
+
   const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
-  
+
   const playlistsHeading = headings.find(el => {
     const text = el.textContent?.trim()?.toLowerCase() || '';
-    // Only match main playlists page headings, not edit page headings
-    return (text.includes('my playlist') || text.includes('my cards') || text.includes('cards')) && 
-           !text.includes('edit');
+    // Check if any heading pattern matches and it's not an edit page
+    const matchesPattern = headingPatterns.some(pattern => text.includes(pattern));
+    const isNotEdit = !text.includes('edit') && !text.includes('modifier') &&
+                      !text.includes('bearbeiten') && !text.includes('editar') &&
+                      !text.includes('modifica') && !text.includes('uredi');
+    return matchesPattern && isNotEdit;
   });
-  
+
   if (playlistsHeading) {
     // Look for the container that holds both the heading and the content below it
     const mainContainer = playlistsHeading.parentNode;
-    
+
     if (mainContainer) {
       let targetElement = playlistsHeading;
       let nextElement = playlistsHeading.nextElementSibling;
-      
+
       // Look for the descriptive text in the next few siblings
       while (nextElement && targetElement === playlistsHeading) {
-        const text = nextElement.textContent?.trim() || '';
-        if (text.includes('Create playlists here')) {
+        const text = nextElement.textContent?.trim()?.toLowerCase() || '';
+        // Check if any description pattern matches
+        if (descriptionPatterns.some(pattern => text.includes(pattern))) {
           targetElement = nextElement;
           break;
         }
         nextElement = nextElement.nextElementSibling;
-        
+
         // Don't search more than 3 siblings to avoid going too far
         if (!nextElement || nextElement === playlistsHeading.parentNode?.lastElementChild) {
           break;
