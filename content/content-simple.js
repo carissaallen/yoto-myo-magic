@@ -3535,8 +3535,7 @@ function checkAndInjectButton() {
     // Multi-language patterns for "Add stream" button
     const addStreamPatterns = [
       'add stream',          // English
-      'ajouter un flux',     // French
-      'ajouter flux',        // French alternative
+      'ajouter streaming',   // French
       'stream hinzufügen',   // German
       'añadir stream',       // Spanish
       'aggiungi stream',     // Italian
