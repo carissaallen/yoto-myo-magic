@@ -2248,5 +2248,59 @@
         "example": "Network error"
       }
     }
+  },
+  "button_audioIcons": {
+    "message": "Audio/Icone",
+    "description": "Dropdown option for updating audio and icons (legacy)"
+  },
+  "modal_updatePlaylist": {
+    "message": "Aggiorna playlist",
+    "description": "Title for update playlist modal"
+  },
+  "modal_selectSourceForUpdate": {
+    "message": "Seleziona la fonte per aggiornare questa scheda",
+    "description": "Description for update file source modal"
+  },
+  "button_selectZip": {
+    "message": "Seleziona file ZIP",
+    "description": "Button to select ZIP file for update"
+  },
+  "modal_permissionRequired": {
+    "message": "Autorizzazione richiesta",
+    "description": "Title for permission required modal"
+  },
+  "modal_podcastPermissionExplanation": {
+    "message": "Per aggiungere episodi podcast, Yoto MYO Magic necessita dell'autorizzazione per accedere ai dati podcast da fonti esterne.",
+    "description": "Explanation for podcast permission requirement"
+  },
+  "modal_permissionGranted": {
+    "message": "Autorizzazione concessa",
+    "description": "Title when permission is granted"
+  },
+  "modal_proceedingToPodcastSearch": {
+    "message": "Procedere alla ricerca podcast...",
+    "description": "Message when proceeding to podcast search"
+  },
+  "modal_checkBrowserSettings": {
+    "message": "Concedere l'autorizzazione nella finestra pop-up che appare.",
+    "description": "Instruction to check browser for permission popup"
+  },
+  "notification_importFailedMessage": {
+    "message": "Importazione non riuscita: $MESSAGE$",
+    "description": "Error notification with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "status_downloadingEpisodes": {
+    "message": "Download ed elaborazione episodi in corso...",
+    "description": "Status when downloading podcast episodes"
+  },
+  "error_podcastSearchNotAvailable": {
+    "message": "Funzionalità di ricerca podcast non disponibile",
+    "description": "Error when podcast search is not available"
   }
 }

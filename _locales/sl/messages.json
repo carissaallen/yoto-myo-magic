@@ -2262,5 +2262,59 @@
         "example": "Network error"
       }
     }
+  },
+  "button_audioIcons": {
+    "message": "Avdio/Ikone",
+    "description": "Dropdown option for updating audio and icons (legacy)"
+  },
+  "modal_updatePlaylist": {
+    "message": "Posodobi seznam predvajanja",
+    "description": "Title for update playlist modal"
+  },
+  "modal_selectSourceForUpdate": {
+    "message": "Izberi vir za posodobitev te kartice",
+    "description": "Description for update file source modal"
+  },
+  "button_selectZip": {
+    "message": "Izberi ZIP datoteko",
+    "description": "Button to select ZIP file for update"
+  },
+  "modal_permissionRequired": {
+    "message": "Potrebno dovoljenje",
+    "description": "Title for permission required modal"
+  },
+  "modal_podcastPermissionExplanation": {
+    "message": "Za dodajanje epizod podcastov Yoto MYO Magic potrebuje dovoljenje za dostop do podatkov podcastov iz zunanjih virov.",
+    "description": "Explanation for podcast permission requirement"
+  },
+  "modal_permissionGranted": {
+    "message": "Dovoljenje dodeljeno",
+    "description": "Title when permission is granted"
+  },
+  "modal_proceedingToPodcastSearch": {
+    "message": "Nadaljujemo z iskanjem podcastov...",
+    "description": "Message when proceeding to podcast search"
+  },
+  "modal_checkBrowserSettings": {
+    "message": "Prosimo, dodeli dovoljenje v pojavnem oknu, ki se prikaže.",
+    "description": "Instruction to check browser for permission popup"
+  },
+  "notification_importFailedMessage": {
+    "message": "Uvoz ni uspel: $MESSAGE$",
+    "description": "Error notification with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "status_downloadingEpisodes": {
+    "message": "Prenos in obdelava epizod...",
+    "description": "Status when downloading podcast episodes"
+  },
+  "error_podcastSearchNotAvailable": {
+    "message": "Funkcija iskanja podcastov ni na voljo",
+    "description": "Error when podcast search is not available"
   }
 }

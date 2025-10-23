@@ -2292,5 +2292,59 @@
         "example": "Network error"
       }
     }
+  },
+  "button_audioIcons": {
+    "message": "Audio/Symbole",
+    "description": "Dropdown option for updating audio and icons (legacy)"
+  },
+  "modal_updatePlaylist": {
+    "message": "Wiedergabeliste aktualisieren",
+    "description": "Title for update playlist modal"
+  },
+  "modal_selectSourceForUpdate": {
+    "message": "Wählen Sie die Quelle für die Aktualisierung dieser Karte aus",
+    "description": "Description for update file source modal"
+  },
+  "button_selectZip": {
+    "message": "ZIP-Datei auswählen",
+    "description": "Button to select ZIP file for update"
+  },
+  "modal_permissionRequired": {
+    "message": "Berechtigung erforderlich",
+    "description": "Title for permission required modal"
+  },
+  "modal_podcastPermissionExplanation": {
+    "message": "Um Podcast-Episoden hinzuzufügen, benötigt Yoto MYO Magic die Berechtigung, auf Podcast-Daten aus externen Quellen zuzugreifen.",
+    "description": "Explanation for podcast permission requirement"
+  },
+  "modal_permissionGranted": {
+    "message": "Berechtigung erteilt",
+    "description": "Title when permission is granted"
+  },
+  "modal_proceedingToPodcastSearch": {
+    "message": "Weiter zur Podcast-Suche...",
+    "description": "Message when proceeding to podcast search"
+  },
+  "modal_checkBrowserSettings": {
+    "message": "Bitte erteilen Sie die Berechtigung im angezeigten Popup-Fenster.",
+    "description": "Instruction to check browser for permission popup"
+  },
+  "notification_importFailedMessage": {
+    "message": "Import fehlgeschlagen: $MESSAGE$",
+    "description": "Error notification with message",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
+  },
+  "status_downloadingEpisodes": {
+    "message": "Episoden werden heruntergeladen und verarbeitet...",
+    "description": "Status when downloading podcast episodes"
+  },
+  "error_podcastSearchNotAvailable": {
+    "message": "Podcast-Suchfunktion nicht verfügbar",
+    "description": "Error when podcast search is not available"
   }
 }
