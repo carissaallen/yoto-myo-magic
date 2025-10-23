@@ -2298,5 +2298,9 @@
   "status_downloadingEpisodes": {
     "message": "Downloading and processing episodes...",
     "description": "Status when downloading podcast episodes"
+  },
+  "error_podcastSearchNotAvailable": {
+    "message": "Podcast search functionality not available",
+    "description": "Error when podcast search is not available"
   }
 }

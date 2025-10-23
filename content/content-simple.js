@@ -3489,7 +3489,7 @@ function showPodcastSearchModalForUpdate(cardId) {
   if (typeof showPodcastSearchModal !== 'undefined') {
     showPodcastSearchModal();
   } else {
-    alert('Podcast search functionality not available');
+    alert(chrome.i18n.getMessage('error_podcastSearchNotAvailable'));
   }
 }
 
@@ -4385,9 +4385,9 @@ function showCategorySelectionModal(cardId, selectedTracks) {
       action: 'SEARCH_ICONS_BY_CATEGORY',
       category: category
     });
-    
+
     if (searchResponse.error) {
-      alert('Error searching for icons: ' + searchResponse.error);
+      alert(chrome.i18n.getMessage('notification_errorSearchingIcons', [searchResponse.error]));
       searchBtn.innerHTML = originalBtnContent;
       searchBtn.disabled = false;
       modal.remove();
