@@ -344,6 +344,11 @@ function showIconPreview(matches) {
           min-width: 300px;
         `;
         refreshNotice.innerHTML = `
+          <div style="width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
           <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('notification_iconsAppliedSuccessfully')}</div>
           <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_pleaseRefreshPage')}</div>
         `;
@@ -2431,27 +2436,21 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
     let iconUrl = track.iconUrl || null;
 
     if (!hasIcon && contentResponse && contentResponse.card && contentResponse.card.content && contentResponse.card.content.chapters) {
-      contentResponse.card.content.chapters.forEach(chapter => {
-        if (chapter.tracks && Array.isArray(chapter.tracks)) {
-          const apiTrack = chapter.tracks.find(t =>
-            t.title === track.title ||
-            t.key === track.id ||
-            t.key === track.chapterKey
-          );
-          if (apiTrack) {
-            const trackIcon = apiTrack.display?.icon16x16 || apiTrack.icon16x16 || apiTrack.iconAudioId;
-            if (trackIcon) {
-              const isDefaultIcon = trackIcon === 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q' ||
-                                    trackIcon === 'yoto:#public/icon.png' ||
-                                    trackIcon.includes('aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q');
-              if (!isDefaultIcon) {
-                hasIcon = true;
-                iconUrl = trackIcon;
-              }
+      const targetChapter = contentResponse.card.content.chapters.find(ch => ch.key === track.chapterKey);
+      if (targetChapter && targetChapter.tracks && Array.isArray(targetChapter.tracks)) {
+        const apiTrack = targetChapter.tracks.find(t => t.key === track.id);
+        if (apiTrack) {
+          const trackIcon = apiTrack.display?.icon16x16 || apiTrack.icon16x16 || apiTrack.iconAudioId;
+          if (trackIcon) {
+            const isDefaultIcon = trackIcon === 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q' ||
+                                  trackIcon.includes('aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q');
+            if (!isDefaultIcon) {
+              hasIcon = true;
+              iconUrl = trackIcon;
             }
           }
         }
-      });
+      }
     }
 
     // More thorough DOM checking as fallback
@@ -2529,7 +2528,8 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">${chrome.i18n.getMessage('button_selectAll')}</button>
+        transition: background-color 0.2s;
+      " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">${chrome.i18n.getMessage('button_selectAll')}</button>
       <button id="select-none-tracks" style="
         padding: 8px 16px;
         background: #f3f4f6;
@@ -2538,7 +2538,8 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">${chrome.i18n.getMessage('button_selectNone')}</button>
+        transition: background-color 0.2s;
+      " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">${chrome.i18n.getMessage('button_selectNone')}</button>
       <button id="select-without-icons" style="
         padding: 8px 16px;
         background: #3b82f6;
@@ -2547,7 +2548,8 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">${chrome.i18n.getMessage('button_selectTracksWithoutIcons')}</button>
+        transition: background-color 0.2s;
+      " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">${chrome.i18n.getMessage('button_selectTracksWithoutIcons')}</button>
     </div>
 
     <div style="
@@ -2673,7 +2675,8 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-      ">${chrome.i18n.getMessage('button_cancel')}</button>
+        transition: background-color 0.2s;
+      " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">${chrome.i18n.getMessage('button_cancel')}</button>
       <button id="continue-icon-match" style="
         padding: 10px 24px;
         background: #3b82f6;
@@ -2683,7 +2686,8 @@ function showTrackSelectionModal(tracks, callback, matchType, contentResponse = 
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">${chrome.i18n.getMessage('button_continue')}</button>
+        transition: background-color 0.2s;
+      " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">${chrome.i18n.getMessage('button_continue')}</button>
     </div>
   `;
 
@@ -4224,7 +4228,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
     justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   `;
-  
+
   const content = document.createElement('div');
   content.style.cssText = `
     background: white;
@@ -4236,7 +4240,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   `;
-  
+
   // Common categories for icons - value is English (for API), label is localized
   const categories = [
     { value: 'animals', label: chrome.i18n.getMessage('category_animals') },
@@ -4326,16 +4330,16 @@ function showCategorySelectionModal(cardId, selectedTracks) {
   
   modal.appendChild(content);
   document.body.appendChild(modal);
-  
+
   const categorySelect = document.getElementById('category-select');
   const customCategory = document.getElementById('custom-category');
-  
+
   categorySelect.addEventListener('change', () => {
     if (categorySelect.value) {
       customCategory.value = '';
     }
   });
-  
+
   customCategory.addEventListener('input', () => {
     if (customCategory.value) {
       categorySelect.value = '';
@@ -4358,7 +4362,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
 
   document.getElementById('category-search').addEventListener('click', async () => {
     const category = customCategory.value || categorySelect.value;
-    
+
     if (!category) {
       alert(chrome.i18n.getMessage('notification_selectOrEnterCategory'));
       return;
@@ -4422,7 +4426,7 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
     justify-content: center;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   `;
-  
+
   const content = document.createElement('div');
   content.style.cssText = `
     background: white;
@@ -4434,13 +4438,21 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   `;
-  
+
+  const iconsPerPage = 500;
+
   content.innerHTML = `
+    <style>
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
     <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Select Icons for "${category}"</h2>
     <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
       Choose icons to apply to your ${trackCount} tracks. Selected icons will be applied in order and repeated if needed.
     </p>
-    
+
     <div id="icon-grid" style="
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
@@ -4452,7 +4464,7 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
       border: 1px solid #e5e7eb;
       border-radius: 8px;
     "></div>
-    
+
     <div style="margin-bottom: 20px; padding: 10px; background: #f9fafb; border-radius: 6px;">
       <p style="margin: 0; font-size: 13px; color: #6b7280;">
         <strong>Selected:</strong> <span id="selected-count">0</span> icon(s)
@@ -4461,120 +4473,225 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
         Icons will be applied to tracks in the order selected
       </p>
     </div>
-    
-    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-      <button id="icon-cancel" style="
-        padding: 10px 20px;
-        background: #f3f4f6;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
+
+    <div style="display: flex; gap: 12px; justify-content: space-between; align-items: center;">
+      <div id="search-status" style="
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-size: 14px;
+        color: #6b7280;
         font-weight: 500;
-      ">Cancel</button>
-      <button id="icon-apply" style="
-        padding: 10px 20px;
-        background: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-      " disabled>Apply Icons</button>
+      ">
+        <svg id="loading-spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+          <circle cx="12" cy="12" r="10" opacity="0.25"></circle>
+          <path d="M12 2 A10 10 0 0 1 22 12" opacity="1"></path>
+        </svg>
+        <svg id="complete-checkmark" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span id="status-text">${chrome.i18n.getMessage('status_loading')}</span>
+      </div>
+      <div style="display: flex; gap: 12px;">
+        <button id="icon-cancel" style="
+          padding: 10px 20px;
+          background: #f3f4f6;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">Cancel</button>
+        <button id="icon-apply" style="
+          padding: 10px 20px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'" disabled>Apply Icons</button>
+      </div>
     </div>
   `;
-  
+
   modal.appendChild(content);
   document.body.appendChild(modal);
-  
+
   const iconGrid = document.getElementById('icon-grid');
   const selectedIcons = [];
   const selectedIconElements = new Map();
-  
-  icons.forEach((icon, index) => {
-    const iconDiv = document.createElement('div');
-    iconDiv.style.cssText = `
-      position: relative;
-      cursor: pointer;
-      border: 2px solid transparent;
-      border-radius: 6px;
-      padding: 4px;
-      transition: all 0.2s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      background: white;
-    `;
-    
-    const img = document.createElement('img');
-    img.src = icon.url || icon.mediaUrl || `https://api.yotoplay.com/media/${icon.mediaId}`;
-    img.style.cssText = `
-      width: 40px;
-      height: 40px;
-      object-fit: cover;
-      border-radius: 4px;
-    `;
-    
-    const orderBadge = document.createElement('div');
-    orderBadge.style.cssText = `
-      position: absolute;
-      top: 2px;
-      right: 2px;
-      background: #3b82f6;
-      color: white;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      font-weight: bold;
-    `;
-    
-    iconDiv.appendChild(img);
-    iconDiv.appendChild(orderBadge);
-    
-    iconDiv.addEventListener('click', () => {
-      const iconId = icon.mediaId || icon.id;
-      const iconIndex = selectedIcons.findIndex(i => (i.mediaId || i.id) === iconId);
+  let currentlyDisplayed = 0;
+  let allIcons = [...icons];
+  let isSearchComplete = false;
+  let pollInterval = null;
 
-      if (iconIndex >= 0) {
-        selectedIcons.splice(iconIndex, 1);
-        iconDiv.style.borderColor = 'transparent';
-        iconDiv.style.backgroundColor = 'white';
-        orderBadge.style.display = 'none';
-        selectedIconElements.delete(iconId);
+  function renderIcons(startIndex, endIndex) {
+    const iconsToRender = allIcons.slice(startIndex, endIndex);
 
-        updateOrderBadges();
-      } else {
-        selectedIcons.push(icon);
-        iconDiv.style.borderColor = '#3b82f6';
-        iconDiv.style.backgroundColor = '#eff6ff';
-        orderBadge.style.display = 'flex';
-        orderBadge.textContent = selectedIcons.length;
-        selectedIconElements.set(iconId, orderBadge);
-      }
-      
-      document.getElementById('selected-count').textContent = selectedIcons.length;
-      document.getElementById('icon-apply').disabled = selectedIcons.length === 0;
+    iconsToRender.forEach((icon, relativeIndex) => {
+      const index = startIndex + relativeIndex;
+      const iconDiv = document.createElement('div');
+      iconDiv.style.cssText = `
+        position: relative;
+        cursor: pointer;
+        border: 2px solid transparent;
+        border-radius: 6px;
+        padding: 4px;
+        transition: all 0.2s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: white;
+      `;
+
+      const img = document.createElement('img');
+      img.src = icon.url || icon.mediaUrl || `https://api.yotoplay.com/media/${icon.mediaId}`;
+      img.style.cssText = `
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+      `;
+
+      const orderBadge = document.createElement('div');
+      orderBadge.style.cssText = `
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background: #3b82f6;
+        color: white;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: bold;
+      `;
+
+      iconDiv.appendChild(img);
+      iconDiv.appendChild(orderBadge);
+
+      iconDiv.addEventListener('click', () => {
+        const iconId = icon.mediaId || icon.id;
+        const iconIndex = selectedIcons.findIndex(i => (i.mediaId || i.id) === iconId);
+
+        if (iconIndex >= 0) {
+          selectedIcons.splice(iconIndex, 1);
+          iconDiv.style.borderColor = 'transparent';
+          iconDiv.style.backgroundColor = 'white';
+          orderBadge.style.display = 'none';
+          selectedIconElements.delete(iconId);
+
+          updateOrderBadges();
+        } else {
+          selectedIcons.push(icon);
+          iconDiv.style.borderColor = '#3b82f6';
+          iconDiv.style.backgroundColor = '#eff6ff';
+          orderBadge.style.display = 'flex';
+          orderBadge.textContent = selectedIcons.length;
+          selectedIconElements.set(iconId, { badge: orderBadge, iconDiv: iconDiv });
+        }
+
+        document.getElementById('selected-count').textContent = selectedIcons.length;
+        document.getElementById('icon-apply').disabled = selectedIcons.length === 0;
+      });
+
+      iconGrid.appendChild(iconDiv);
     });
-    
-    iconGrid.appendChild(iconDiv);
-  });
-  
+
+    currentlyDisplayed = endIndex;
+
+    updateLoadMoreButton();
+  }
+
+  function updateLoadMoreButton() {
+    const spinner = document.getElementById('loading-spinner');
+    const checkmark = document.getElementById('complete-checkmark');
+    const statusText = document.getElementById('status-text');
+
+    if (isSearchComplete) {
+      spinner.style.display = 'none';
+      checkmark.style.display = 'block';
+      statusText.textContent = chrome.i18n.getMessage('status_allIconsLoaded');
+      statusText.style.color = '#10b981';
+    } else {
+      spinner.style.display = 'block';
+      checkmark.style.display = 'none';
+      statusText.textContent = chrome.i18n.getMessage('status_loading');
+      statusText.style.color = '#6b7280';
+    }
+  }
+
   function updateOrderBadges() {
     selectedIcons.forEach((icon, index) => {
       const iconId = icon.mediaId || icon.id;
-      const badge = selectedIconElements.get(iconId);
-      if (badge) {
-        badge.textContent = index + 1;
+      const element = selectedIconElements.get(iconId);
+      if (element && element.badge) {
+        element.badge.textContent = index + 1;
       }
     });
   }
-  
+
+  async function pollForNewIcons() {
+    if (isSearchComplete) {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'SEARCH_ICONS_BY_CATEGORY',
+        category: category,
+        loadMore: true
+      });
+
+      if (response.icons && response.icons.length > allIcons.length) {
+        const previousLength = allIcons.length;
+        allIcons = response.icons;
+        isSearchComplete = response.isComplete || false;
+
+        // Auto-render newly found icons up to the next page
+        const maxToDisplay = Math.min(currentlyDisplayed + iconsPerPage, allIcons.length);
+        if (maxToDisplay > currentlyDisplayed) {
+          renderIcons(currentlyDisplayed, maxToDisplay);
+        }
+
+        updateLoadMoreButton();
+      }
+
+      if (response.isComplete) {
+        isSearchComplete = true;
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+        updateLoadMoreButton();
+      }
+    } catch (error) {
+      console.error('Error polling for icons:', error);
+    }
+  }
+
+  // Render first 500 icons
+  renderIcons(0, Math.min(iconsPerPage, allIcons.length));
+
+  // Start polling for new icons in background (every 2 seconds)
+  pollInterval = setInterval(pollForNewIcons, 2000);
+
   document.getElementById('icon-cancel').addEventListener('click', () => {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
     modal.remove();
   });
   
@@ -4618,11 +4735,20 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
       const trackPlural = trackCount !== 1 ? 's' : '';
 
       successNotice.innerHTML = `
+        <div style="width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
         <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('notification_iconsAppliedSuccessfully')}</div>
         <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_appliedIconsToTracks', [iconsApplied.toString(), iconPlural, trackCount.toString(), trackPlural])}</div>
         <div style="font-size: 14px; opacity: 0.95; margin-top: 10px;">${chrome.i18n.getMessage('notification_pleaseRefreshPage')}</div>
       `;
 
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
       modal.remove();
       document.body.appendChild(successNotice);
 

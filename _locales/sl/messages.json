@@ -888,7 +888,7 @@
     "description": "Label for custom category input"
   },
   "modal_customCategoryPlaceholder": {
-    "message": "npr. dinozavri, roboti, pravljice",
+    "message": "npr. dinozaver, robot, ptica",
     "description": "Placeholder for custom category input"
   },
   "modal_customVisualTimer": {
@@ -2316,5 +2316,13 @@
   "error_podcastSearchNotAvailable": {
     "message": "Funkcija iskanja podcastov ni na voljo",
     "description": "Error when podcast search is not available"
+  },
+  "status_loading": {
+    "message": "Nalaganje...",
+    "description": "Status text shown while searching for icons"
+  },
+  "status_allIconsLoaded": {
+    "message": "Vse ikone naložene",
+    "description": "Status text shown when all icon search is complete"
   }
 }

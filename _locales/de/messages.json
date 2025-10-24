@@ -888,7 +888,7 @@
     "description": "Label for custom category input"
   },
   "modal_customCategoryPlaceholder": {
-    "message": "z.B. Dinosaurier, Roboter, Märchen",
+    "message": "z.B. Dinosaurier, Roboter, Vogel",
     "description": "Placeholder for custom category input"
   },
   "modal_customVisualTimer": {
@@ -2346,5 +2346,13 @@
   "error_podcastSearchNotAvailable": {
     "message": "Podcast-Suchfunktion nicht verfügbar",
     "description": "Error when podcast search is not available"
+  },
+  "status_loading": {
+    "message": "Lädt...",
+    "description": "Status text shown while searching for icons"
+  },
+  "status_allIconsLoaded": {
+    "message": "Alle Icons geladen",
+    "description": "Status text shown when all icon search is complete"
   }
 }

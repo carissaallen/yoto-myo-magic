@@ -150,7 +150,7 @@
     "description": "Label for custom category input"
   },
   "modal_customCategoryPlaceholder": {
-    "message": "e.g., dinosaurs, robots, fairy tales",
+    "message": "e.g., dinosaur, robot, bird",
     "description": "Placeholder for custom category input"
   },
   "modal_importPodcast": {
@@ -2302,5 +2302,13 @@
   "error_podcastSearchNotAvailable": {
     "message": "Podcast search functionality not available",
     "description": "Error when podcast search is not available"
+  },
+  "status_loading": {
+    "message": "Loading...",
+    "description": "Status text shown while searching for icons"
+  },
+  "status_allIconsLoaded": {
+    "message": "All icons loaded",
+    "description": "Status text shown when all icon search is complete"
   }
 }
