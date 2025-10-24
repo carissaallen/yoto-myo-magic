@@ -819,58 +819,110 @@ async function searchIcons(query) {
     }
 }
 
-async function searchIconsByCategory(category) {
+const categorySearchCache = new Map();
+
+async function searchIconsByCategory(category, loadMore = false) {
     try {
         const translatedCategory = await TranslationService.translateToEnglish(category);
-
         const searchQuery = translatedCategory || category;
+        const cacheKey = searchQuery.toLowerCase();
 
-        const searchResult = await searchIcons(searchQuery);
+        if (categorySearchCache.has(cacheKey)) {
+            const cached = categorySearchCache.get(cacheKey);
 
-        if (searchResult.icons && searchResult.icons.length >= 50) {
-            return { icons: searchResult.icons.slice(0, 500) };
-        }
-
-        const relatedTerms = getRelatedTerms(searchQuery);
-        let allIcons = searchResult.icons || [];
-
-        for (const term of relatedTerms) {
-            if (allIcons.length >= 500) break;
-
-            const additionalResults = await searchIcons(term);
-            if (additionalResults.icons) {
-                const existingIds = new Set(allIcons.map(i => i.mediaId || i.id));
-                const newIcons = additionalResults.icons.filter(i => !existingIds.has(i.mediaId || i.id));
-                allIcons = allIcons.concat(newIcons);
+            if (loadMore) {
+                return { icons: cached.allIcons, isComplete: cached.isComplete };
+            } else {
+                return { icons: cached.allIcons, isComplete: cached.isComplete };
             }
         }
 
-        return { icons: allIcons.slice(0, 500) };
+        // Categories to skip in initial search due to fuzzy match issues (e.g. 'art' returns any icons with 'art' in the word)
+        const skipInitialSearch = ['art'];
+        const shouldSkipInitial = skipInitialSearch.includes(searchQuery.toLowerCase());
+
+        let allIcons = [];
+        let searchedTerms = [];
+        let relatedTerms = getRelatedTerms(searchQuery);
+        let remainingTerms = [...relatedTerms];
+
+        if (shouldSkipInitial && relatedTerms.length > 0) {
+            // For categories we skip, search the first related term instead
+            const firstTerm = remainingTerms.shift();
+            const searchResult = await searchIcons(firstTerm);
+            allIcons = searchResult.icons || [];
+            searchedTerms = [firstTerm];
+        } else if (!shouldSkipInitial) {
+            const searchResult = await searchIcons(searchQuery);
+            allIcons = searchResult.icons || [];
+            searchedTerms = [searchQuery];
+        }
+
+        categorySearchCache.set(cacheKey, {
+            allIcons: allIcons,
+            isComplete: false,
+            searchedTerms: searchedTerms
+        });
+
+        searchRelatedTermsInBackground(cacheKey, remainingTerms, allIcons, searchedTerms);
+
+        return { icons: allIcons, isComplete: false };
     } catch (error) {
         return { error: error.message };
     }
 }
 
+async function searchRelatedTermsInBackground(cacheKey, relatedTerms, initialIcons, alreadySearchedTerms) {
+    try {
+        let allIcons = [...initialIcons];
+        const searchedTerms = Array.isArray(alreadySearchedTerms) ? [...alreadySearchedTerms] : [];
+
+        for (const term of relatedTerms) {
+            const additionalResults = await searchIcons(term);
+            if (additionalResults.icons) {
+                const existingIds = new Set(allIcons.map(i => i.mediaId || i.id));
+                const newIcons = additionalResults.icons.filter(i => !existingIds.has(i.mediaId || i.id));
+                allIcons = allIcons.concat(newIcons);
+                searchedTerms.push(term);
+
+                categorySearchCache.set(cacheKey, {
+                    allIcons: allIcons,
+                    isComplete: false,
+                    searchedTerms: searchedTerms
+                });
+            }
+        }
+
+        categorySearchCache.set(cacheKey, {
+            allIcons: allIcons,
+            isComplete: true,
+            searchedTerms: searchedTerms
+        });
+    } catch (error) {
+        console.error('Background search error:', error);
+    }
+}
+
 function getRelatedTerms(category) {
     const categoryMap = {
-        'animals': ['animal', 'pet', 'zoo', 'farm', 'wildlife', 'dog', 'cat', 'bird'],
-        'art': ['paint', 'draw', 'color', 'brush', 'canvas', 'creative', 'craft'],
+        'animals': ['animal', 'pet', 'zoo', 'farm', 'wildlife', 'dog', 'cat', 'bird', 'bear'],
+        'art': ['paint', 'draw', 'color', 'crayon', 'paintbrush', 'palette', 'pencil', 'easel', 'scissors'],
         'buildings': ['house', 'home', 'office', 'city', 'architecture', 'building', 'tower'],
         'chapters': ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'number', 'numbers', 'book'],
-        'emotions': ['happy', 'sad', 'love', 'angry', 'smile', 'heart', 'feeling'],
+        'emotions': ['happy', 'sad', 'love', 'angry', 'smile', 'heart', 'feeling', 'silly', 'laugh'],
         'fantasy': ['magic', 'fairy', 'dragon', 'unicorn', 'wizard', 'castle', 'princess'],
-        'food': ['fruit', 'vegetable', 'meal', 'snack', 'drink', 'cooking', 'kitchen'],
+        'food': ['fruit', 'vegetable', 'meal', 'snack', 'drink', 'cooking', 'kitchen', 'cook', 'bake', 'ice cream'],
         'games': ['play', 'toy', 'puzzle', 'board', 'video', 'fun', 'entertainment'],
-        'holiday': ['christmas', 'easter', 'halloween', 'birthday', 'celebration', 'party'],
+        'holiday': ['christmas', 'easter', 'halloween', 'birthday', 'celebration', 'party', 'santa', 'holly',],
         'music': ['musical', 'instrument', 'song', 'note', 'piano', 'guitar', 'drum'],
-        'nature': ['tree', 'flower', 'plant', 'forest', 'mountain', 'sun', 'cloud'],
+        'nature': ['tree', 'flower', 'plant', 'forest', 'mountain', 'sun', 'cloud', 'ocean'],
         'school': ['education', 'learning', 'book', 'pencil', 'classroom', 'teacher', 'student'],
-        'science': ['experiment', 'chemistry', 'physics', 'biology', 'lab', 'research'],
+        'science': ['experiment', 'chemistry', 'physics', 'biology', 'lab', 'research', 'magnet', 'electricity', 'lab coat', 'evolution'],
         'space': ['star', 'planet', 'moon', 'rocket', 'astronaut', 'galaxy', 'universe'],
-        'sports': ['sport', 'ball', 'game', 'team', 'football', 'basketball', 'soccer'],
+        'sports': ['sport', 'ball', 'game', 'team', 'football', 'basketball', 'soccer', 'baseball', 'volleyball', 'tennis'],
         'tools': ['hammer', 'wrench', 'screwdriver', 'build', 'fix', 'repair', 'construction'],
-        'transportation': ['car', 'train', 'plane', 'boat', 'bike', 'bus', 'vehicle'],
-        'weather': ['rain', 'snow', 'sun', 'cloud', 'storm', 'wind', 'temperature']
+        'transportation': ['car', 'train', 'plane', 'boat', 'bike', 'bus', 'vehicle', 'truck'],
+        'weather': ['rain', 'snow', 'sun', 'cloud', 'storm', 'wind', 'temperature', 'umbrella']
     };
     
     const lowerCategory = category.toLowerCase();
@@ -1031,12 +1083,19 @@ async function matchIcons(tracks) {
         const searchTitle = translatedTitle || track.title;
 
         try {
-            const cleanedTitle = searchTitle.replace(/['']s\b/gi, '');
+            const cleanedTitle = searchTitle
+                .replace(/['']s\b/gi, '') // Remove possessives
+                .replace(/[^\w\s]/g, ' ') // Remove punctuation
+                .split(/\s+/)
+                .filter(word => word.length > 0 && !stopWords.has(word.toLowerCase()))
+                .join(' ')
+                .trim();
+
             const fullResults = await searchIcons(cleanedTitle);
             if (fullResults.icons && fullResults.icons.length > 0) {
                 const validIcons = fullResults.icons.filter(icon => {
                     return !icon.isPlaceholder && icon.url && (icon.url.startsWith('http') || icon.url.startsWith('data:'));
-                }).slice(0, 10);
+                }).slice(0, 15);
 
                 iconOptions = validIcons.map(icon => {
                     let iconUrl = icon.url || icon.mediaUrl || null;
@@ -1061,45 +1120,98 @@ async function matchIcons(tracks) {
             }
         } catch (error) {}
 
-        if (iconOptions.length < 5) {
+        // Always search keywords if we have 0 results, or if we have fewer than 3 results
+        // This ensures phrases like "The Poop Collector" (0 results) get keyword searches,
+        // while still allowing phrases like "Lightning McQueen" to show full phrase results first
+        const MAX_ICONS_PER_TRACK = 15;
+
+        if (iconOptions.length === 0 || iconOptions.length < 3) {
             // Use translated title for keyword extraction
             const keywords = extractKeywords(searchTitle);
 
-            for (const keyword of keywords) {
-                if (iconOptions.length >= 10) break;
-                
-                try {
-                    const results = await searchIcons(keyword);
-                    if (results.icons && results.icons.length > 0) {
-                        const validIcons = results.icons.filter(icon =>
-                            !icon.isPlaceholder && 
-                            !icon.url?.includes('yotoicons.com') &&
+            if (keywords.length > 0) {
+                const remainingSlots = MAX_ICONS_PER_TRACK - iconOptions.length;
+                const iconsPerKeyword = Math.ceil(remainingSlots / keywords.length);
+
+                const keywordResults = new Map(); // Track results per keyword for backfill
+
+                for (const keyword of keywords) {
+                    try {
+                        const results = await searchIcons(keyword);
+                        if (results.icons && results.icons.length > 0) {
+                            const validIcons = results.icons.filter(icon =>
+                                !icon.isPlaceholder &&
+                                !iconOptions.some(opt => opt.iconId === (icon.mediaId || icon.id || icon.displayIconId))
+                            );
+
+                            keywordResults.set(keyword, validIcons);
+
+                            const iconsToTake = Math.min(iconsPerKeyword, validIcons.length);
+                            const selectedIcons = validIcons.slice(0, iconsToTake);
+
+                            const newOptions = selectedIcons.map(icon => {
+                                let iconUrl = icon.url || icon.mediaUrl || null;
+
+                                if (!iconUrl && icon.mediaId) {
+                                    iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
+                                }
+
+                                const isValidUrl = iconUrl &&
+                                                 iconUrl.startsWith('http') &&
+                                                 iconUrl.length < 2000 &&
+                                                 !iconUrl.includes('data:');
+
+                                return {
+                                    url: isValidUrl ? iconUrl : null,
+                                    iconId: icon.mediaId || icon.id || icon.displayIconId,
+                                    title: icon.title || null
+                                };
+                            }).filter(option => option.url !== null);
+
+                            iconOptions = iconOptions.concat(newOptions);
+                        }
+                    } catch (error) {}
+                }
+
+                // Second pass: backfill if we still have slots available
+                if (iconOptions.length < MAX_ICONS_PER_TRACK) {
+                    for (const [, validIcons] of keywordResults) {
+                        if (iconOptions.length >= MAX_ICONS_PER_TRACK) break;
+
+                        // Skip icons we already used
+                        const unusedIcons = validIcons.filter(icon =>
                             !iconOptions.some(opt => opt.iconId === (icon.mediaId || icon.id || icon.displayIconId))
                         );
 
-                        const newOptions = validIcons.slice(0, 10 - iconOptions.length).map(icon => {
-                            let iconUrl = icon.url || icon.mediaUrl || null;
-                            
-                            if (!iconUrl && icon.mediaId) {
-                                iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
-                            }
-                            
-                            const isValidUrl = iconUrl && 
-                                             iconUrl.startsWith('http') && 
-                                             iconUrl.length < 2000 && 
-                                             !iconUrl.includes('data:');
-                            
-                            return {
-                                url: isValidUrl ? iconUrl : null,
-                                iconId: icon.mediaId || icon.id || icon.displayIconId,
-                                title: icon.title || null
-                            };
-                        });
+                        const remainingSlots = MAX_ICONS_PER_TRACK - iconOptions.length;
+                        const iconsToTake = Math.min(remainingSlots, unusedIcons.length);
 
-                        const validNewOptions = newOptions.filter(option => option.url !== null);
-                        iconOptions = iconOptions.concat(validNewOptions);
+                        if (iconsToTake > 0) {
+                            const selectedIcons = unusedIcons.slice(0, iconsToTake);
+
+                            const newOptions = selectedIcons.map(icon => {
+                                let iconUrl = icon.url || icon.mediaUrl || null;
+
+                                if (!iconUrl && icon.mediaId) {
+                                    iconUrl = `https://api.yotoplay.com/media/${icon.mediaId}`;
+                                }
+
+                                const isValidUrl = iconUrl &&
+                                                 iconUrl.startsWith('http') &&
+                                                 iconUrl.length < 2000 &&
+                                                 !iconUrl.includes('data:');
+
+                                return {
+                                    url: isValidUrl ? iconUrl : null,
+                                    iconId: icon.mediaId || icon.id || icon.displayIconId,
+                                    title: icon.title || null
+                                };
+                            }).filter(option => option.url !== null);
+
+                            iconOptions = iconOptions.concat(newOptions);
+                        }
                     }
-                } catch (error) {}
+                }
             }
         }
 
@@ -2565,7 +2677,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                 
                 case 'SEARCH_ICONS_BY_CATEGORY':
-                    const categoryIcons = await searchIconsByCategory(request.category);
+                    const categoryIcons = await searchIconsByCategory(request.category, request.loadMore || false);
                     sendResponse(categoryIcons);
                     break;
                 

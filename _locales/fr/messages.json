@@ -888,7 +888,7 @@
     "description": "Label for custom category input"
   },
   "modal_customCategoryPlaceholder": {
-    "message": "par ex., dinosaures, robots, contes de fées",
+    "message": "par ex., dinosaure, robot, oiseau",
     "description": "Placeholder for custom category input"
   },
   "modal_customVisualTimer": {
@@ -2346,5 +2346,13 @@
   "error_podcastSearchNotAvailable": {
     "message": "Fonctionnalité de recherche de podcast non disponible",
     "description": "Error when podcast search is not available"
+  },
+  "status_loading": {
+    "message": "Chargement...",
+    "description": "Status text shown while searching for icons"
+  },
+  "status_allIconsLoaded": {
+    "message": "Toutes les icônes chargées",
+    "description": "Status text shown when all icon search is complete"
   }
 }
