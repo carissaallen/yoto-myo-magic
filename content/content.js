@@ -6494,6 +6494,14 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
   });
 }
 
+function isZeroBasedIconNumbering(iconFiles) {
+  if (!iconFiles || iconFiles.length === 0) return false;
+  const firstNumberedIcon = iconFiles.find(icon => icon.extractedNumber !== undefined);
+
+  // If the first numbered icon starts with 0, it's 0-based numbering
+  return firstNumberedIcon && firstNumberedIcon.extractedNumber === 0;
+}
+
 async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
   const statusText = document.getElementById('update-status');
   const progressBar = document.getElementById('update-progress-bar');
@@ -6641,6 +6649,9 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
       progressBar.style.width = `${iconProgressStart}%`;
       percentageText.textContent = `${iconProgressStart}%`;
 
+      // Handle icon filename formats that start with 0 or 1
+      const isZeroBased = isZeroBasedIconNumbering(iconFiles);
+
       for (let i = 0; i < iconFiles.length; i++) {
         const icon = iconFiles[i];
         const fileData = icon.file instanceof File ?
@@ -6658,7 +6669,9 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
 
         if (uploadResult.iconId) {
           if (icon.extractedNumber !== undefined) {
-            const iconIndex = icon.extractedNumber - 1;
+            // If icons are 0-based (0.png -> track 1), use extractedNumber directly
+            // If icons are 1-based (1.png -> track 1), subtract 1 to get 0-based index
+            const iconIndex = isZeroBased ? icon.extractedNumber : icon.extractedNumber - 1;
             uploadedIcons[iconIndex] = uploadResult.iconId;
           } else {
             uploadedIcons.push(uploadResult.iconId);
@@ -7291,43 +7304,47 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   
   const uploadedIconIds = [];
   if (trackIcons.length > 0) {
-    
+
+    const isZeroBased = isZeroBasedIconNumbering(trackIcons);
+
     // Icons are usually small, so we can be more aggressive with parallelism
     const iconParallelCount = Math.min(6, trackIcons.length); // Increased to 6 parallel icon uploads
     const iconDelayBetweenBatches = 50; // Reduced delay for faster processing
-    
+
     for (let batchStart = 0; batchStart < trackIcons.length; batchStart += iconParallelCount) {
       const batch = trackIcons.slice(batchStart, Math.min(batchStart + iconParallelCount, trackIcons.length));
       const batchPromises = [];
-      
+
       for (let i = 0; i < batch.length; i++) {
         const file = batch[i];
         const globalIndex = batchStart + i;
         const iconProgress = 40 + (globalIndex / trackIcons.length) * 20; // Progress from 40% to 60%
         progressCallback(Math.round(iconProgress), chrome.i18n.getMessage('status_uploadingIcons', [(globalIndex + 1).toString(), trackIcons.length.toString()]));
-        
+
         const iconPromise = uploadWithRetry(async () => {
           if (!chrome.runtime?.id) {
             throw new Error('Extension context lost during icon upload.');
           }
-          
+
           const base64Data = await convertFileToBase64(file);
-          
+
           const result = await chrome.runtime.sendMessage({
             action: 'UPLOAD_ICON',
             file: base64Data
           });
-          
+
           if (!result) {
             throw new Error('No response from extension during icon upload.');
           }
-          
+
           if (result.error) {
             throw new Error(`Icon upload failed: ${result.error}`);
           }
-          
+
           return {
-            index: file.extractedNumber ? file.extractedNumber - 1 : globalIndex,
+            // If icons are 0-based (0.png -> track 1), use extractedNumber directly
+            // If icons are 1-based (1.png -> track 1), subtract 1 to get 0-based index
+            index: file.extractedNumber ? (isZeroBased ? file.extractedNumber : file.extractedNumber - 1) : globalIndex,
             iconId: result.iconId
           };
         }, 2, 1000, 30000); // 30 second timeout for icons
@@ -7707,6 +7724,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         }
         
         if (trackIcons.length > 0) {
+          const isZeroBased = isZeroBasedIconNumbering(trackIcons);
           const iconResults = await uploadInChunks(
             trackIcons,
             async (iconFile, index) => {
@@ -7725,11 +7743,14 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
               progressBar.style.width = `${totalProgress / totalFiles * 70}%`;
             }
           );
-          
+
           iconResults.forEach((result) => {
             if (result.status === 'fulfilled' && !result.value.response.error) {
               // Use the pre-extracted number (already stored when detecting icons)
-              const iconNumber = (result.value.iconFile.extractedNumber || parseInt(result.value.iconFile.name.match(/\d+/)?.[0] || '1')) - 1;
+              const extractedNum = result.value.iconFile.extractedNumber || parseInt(result.value.iconFile.name.match(/\d+/)?.[0] || '1');
+              // If icons are 0-based (0.png -> track 1), use extractedNumber directly
+              // If icons are 1-based (1.png -> track 1), subtract 1 to get 0-based index
+              const iconNumber = isZeroBased ? extractedNum : extractedNum - 1;
               uploadedIconIds[iconNumber] = result.value.response.iconId;
             }
           });
@@ -7817,13 +7838,14 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
       } else {
         // PARALLEL UPLOAD (Default strategy - fastest for < 20 audio files)
         statusText.textContent = chrome.i18n.getMessage('status_uploadingFiles');
-        
+        const isZeroBased = isZeroBasedIconNumbering(trackIcons);
+
         // Prepare all upload promises
         const uploadPromises = [];
         const uploadTypes = [];
-        
+
         if (coverImage) {
-          const coverPromise = fileToBase64(coverImage).then(base64 => 
+          const coverPromise = fileToBase64(coverImage).then(base64 =>
             chrome.runtime.sendMessage({
               action: 'UPLOAD_COVER',
               file: base64
@@ -7835,7 +7857,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
           uploadPromises.push(coverPromise);
           uploadTypes.push('cover');
         }
-        
+
         const iconBase64Promises = trackIcons.map(file => fileToBase64(file));
         const iconBase64Results = await Promise.all(iconBase64Promises);
 
@@ -7921,10 +7943,13 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
               const { response, iconFile } = value;
               if (!response.error && response.iconId) {
                 // Use the pre-extracted number (already stored when detecting icons)
-                const iconNumber = (iconFile.extractedNumber || parseInt(iconFile.name.match(/\d+/)?.[0] || '1')) - 1;
+                const extractedNum = iconFile.extractedNumber || parseInt(iconFile.name.match(/\d+/)?.[0] || '1');
+                // If icons are 0-based (0.png -> track 1), use extractedNumber directly
+                // If icons are 1-based (1.png -> track 1), subtract 1 to get 0-based index
+                const iconNumber = isZeroBased ? extractedNum : extractedNum - 1;
                 uploadedIconIds[iconNumber] = response.iconId;
               } else {
-                
+
               }
             } else if (type === 'audio') {
               const { response, audioFile, index: audioIndex } = value;
