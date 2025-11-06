@@ -1927,6 +1927,16 @@
       }
     }
   },
+  "status_uploadingIconsPercent": {
+    "message": "Nalaganje ikon... $PERCENT$%",
+    "description": "Status when uploading icons with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
   "timer_alarmCalmBells": {
     "message": "Mirni zvončki",
     "description": "Alarm sound option - calm bells"

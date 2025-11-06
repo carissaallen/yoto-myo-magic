@@ -1949,6 +1949,16 @@
       }
     }
   },
+  "status_uploadingIconsPercent": {
+    "message": "Uploading icons... $PERCENT$%",
+    "description": "Status when uploading icons with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
   "status_matchingTracks": {
     "message": "Matching $COUNT$ track$PLURAL$...",
     "description": "Status when matching icons to tracks",

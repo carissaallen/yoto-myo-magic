@@ -208,21 +208,39 @@ function getTimerSegments(totalMinutes) {
   } else if (totalMinutes === 2) {
     numSegments = 8;
   } else if (totalMinutes === 3) {
-    numSegments = 8;
+    numSegments = 6;
   } else if (totalMinutes === 4) {
     numSegments = 8;
   } else if (totalMinutes >= 5 && totalMinutes <= 10) {
     numSegments = totalMinutes;
   } else if (totalMinutes >= 11 && totalMinutes <= 20) {
-    numSegments = 10;
+    if (totalMinutes % 2 === 0) {
+      numSegments = totalMinutes / 2;
+    } else {
+      numSegments = totalMinutes;
+    }
   } else if (totalMinutes === 25) {
     numSegments = 5;
   } else if (totalMinutes === 30) {
     numSegments = 6;
   } else if (totalMinutes >= 31 && totalMinutes < 50) {
-    numSegments = 8;
+    if (totalMinutes % 5 === 0) {
+      numSegments = totalMinutes / 5;
+    } else if (totalMinutes % 2 === 0) {
+      numSegments = totalMinutes / 2;
+    } else {
+      numSegments = totalMinutes;
+    }
   } else if (totalMinutes >= 50) {
-    numSegments = Math.max(5, Math.ceil(totalMinutes / 10));
+    if (totalMinutes % 10 === 0) {
+      numSegments = totalMinutes / 10;
+    } else if (totalMinutes % 5 === 0) {
+      numSegments = totalMinutes / 5;
+    } else if (totalMinutes % 2 === 0) {
+      numSegments = totalMinutes / 2;
+    } else {
+      numSegments = totalMinutes;
+    }
   } else {
     numSegments = Math.min(10, Math.max(5, totalMinutes));
   }

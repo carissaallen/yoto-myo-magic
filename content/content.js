@@ -2730,13 +2730,9 @@ async function createVisualTimer() {
       segmentDuration = 15;
       silentFiles = ['silent-15s.wav'];
     } else if (duration === 3) {
-      numSegments = 8;
-      segmentDuration = 22.5;
-      silentFiles = [];
-      for (let i = 0; i < numSegments; i++) {
-        silentFiles.push('silent-15s.wav');
-        silentFiles.push('silent-7.5s.wav');
-      }
+      numSegments = 6;
+      segmentDuration = 30;
+      silentFiles = ['silent-30s.wav'];
     } else if (duration === 4) {
       numSegments = 8;
       segmentDuration = 30;
@@ -2746,36 +2742,14 @@ async function createVisualTimer() {
       segmentDuration = 60;
       silentFiles = ['silent-1m.wav'];
     } else if (duration >= 11 && duration <= 20) {
-      numSegments = 10;
-      segmentDuration = (duration * 60) / 10;
-
-      const segmentMinutes = Math.floor(segmentDuration / 60);
-      const segmentSeconds = segmentDuration % 60;
-
-      silentFiles = [];
-      for (let i = 0; i < numSegments; i++) {
-        for (let j = 0; j < segmentMinutes; j++) {
-          silentFiles.push('silent-1m.wav');
-        }
-        if (segmentSeconds === 30) {
-          silentFiles.push('silent-30s.wav');
-        } else if (segmentSeconds === 15) {
-          silentFiles.push('silent-15s.wav');
-        } else if (segmentSeconds > 0) {
-          const whole30s = Math.floor(segmentSeconds / 30);
-          const remainder = segmentSeconds % 30;
-          for (let j = 0; j < whole30s; j++) {
-            silentFiles.push('silent-30s.wav');
-          }
-          if (remainder === 15) {
-            silentFiles.push('silent-15s.wav');
-          } else if (remainder > 0) {
-            const whole15s = Math.floor(remainder / 15);
-            for (let j = 0; j < whole15s; j++) {
-              silentFiles.push('silent-15s.wav');
-            }
-          }
-        }
+      if (duration % 2 === 0) {
+        numSegments = duration / 2;
+        segmentDuration = 120;
+        silentFiles = ['silent-2m.wav'];
+      } else {
+        numSegments = duration;
+        segmentDuration = 60;
+        silentFiles = ['silent-1m.wav'];
       }
     } else if (duration === 25) {
       numSegments = 5;
@@ -2786,59 +2760,38 @@ async function createVisualTimer() {
       segmentDuration = 300;
       silentFiles = ['silent-5m.wav'];
     } else if (duration >= 31 && duration < 50) {
-      numSegments = 8;
-      segmentDuration = (duration * 60) / 8;
-
-      silentFiles = [];
-      const minutesPerSegment = duration / 8;
-      const wholeFives = Math.floor(minutesPerSegment / 5);
-      const remainder = minutesPerSegment - (wholeFives * 5);
-
-      for (let i = 0; i < numSegments; i++) {
-        for (let j = 0; j < wholeFives; j++) {
-          silentFiles.push('silent-5m.wav');
-        }
-        const wholeMinutes = Math.floor(remainder);
-        for (let j = 0; j < wholeMinutes; j++) {
-          silentFiles.push('silent-1m.wav');
-        }
-        const fractionalMinutes = remainder % 1;
-        if (fractionalMinutes >= 0.5) {
-          silentFiles.push('silent-30s.wav');
-        } else if (fractionalMinutes >= 0.25) {
-          silentFiles.push('silent-15s.wav');
-        }
+      // Use largest audio file that divides evenly (priority: 5min > 2min > 1min)
+      if (duration % 5 === 0) {
+        numSegments = duration / 5;
+        segmentDuration = 300;
+        silentFiles = ['silent-5m.wav'];
+      } else if (duration % 2 === 0) {
+        numSegments = duration / 2;
+        segmentDuration = 120;
+        silentFiles = ['silent-2m.wav'];
+      } else {
+        numSegments = duration;
+        segmentDuration = 60;
+        silentFiles = ['silent-1m.wav'];
       }
     } else if (duration >= 50) {
-      numSegments = Math.max(5, Math.ceil(duration / 10));
-      segmentDuration = (duration * 60) / numSegments;
-
-      silentFiles = [];
-      const minutesPerSegment = duration / numSegments;
-      const wholeTens = Math.floor(minutesPerSegment / 10);
-      let remainderMinutes = minutesPerSegment - (wholeTens * 10);
-
-      for (let i = 0; i < numSegments; i++) {
-        for (let j = 0; j < wholeTens; j++) {
-          silentFiles.push('silent-10m.wav');
-        }
-
-        if (remainderMinutes >= 5) {
-          silentFiles.push('silent-5m.wav');
-          remainderMinutes -= 5;
-        }
-
-        const wholeMinutes = Math.floor(remainderMinutes);
-        for (let j = 0; j < wholeMinutes; j++) {
-          silentFiles.push('silent-1m.wav');
-        }
-
-        const fractionalMinutes = remainderMinutes % 1;
-        if (fractionalMinutes >= 0.5) {
-          silentFiles.push('silent-30s.wav');
-        } else if (fractionalMinutes >= 0.25) {
-          silentFiles.push('silent-15s.wav');
-        }
+      // Use largest audio file that divides evenly (priority: 10min > 5min > 2min > 1min)
+      if (duration % 10 === 0) {
+        numSegments = duration / 10;
+        segmentDuration = 600;
+        silentFiles = ['silent-10m.wav'];
+      } else if (duration % 5 === 0) {
+        numSegments = duration / 5;
+        segmentDuration = 300;
+        silentFiles = ['silent-5m.wav'];
+      } else if (duration % 2 === 0) {
+        numSegments = duration / 2;
+        segmentDuration = 120;
+        silentFiles = ['silent-2m.wav'];
+      } else {
+        numSegments = duration;
+        segmentDuration = 60;
+        silentFiles = ['silent-1m.wav'];
       }
     } else {
       numSegments = Math.min(10, Math.max(5, duration));
@@ -2886,12 +2839,11 @@ async function createVisualTimer() {
 
     statusDiv.textContent = chrome.i18n.getMessage('status_generatingTimerIcons');
 
-    // Import the icon generator functions
     const { generateTimerIcon, generateDotsTimerIcon, generateBlocksTimerIcon, generateGhostTimerIcon } = await import(chrome.runtime.getURL('utils/timerIconGenerator.js'));
 
-    const uploadedIcons = [];
+    const iconDataUrls = [];
     for (let i = 0; i < numSegments; i++) {
-      const progress = 1 - (i / numSegments); // 1.0 to 0.0
+      const progress = 1 - (i / numSegments);
 
       let iconDataUrl;
       if (iconStyle === 'tree-lights') {
@@ -2919,7 +2871,6 @@ async function createVisualTimer() {
           reader.readAsDataURL(pngBlob);
         });
       } else if (iconStyle === 'flower') {
-        // Use the flower style from timerIconGenerator
         iconDataUrl = generateTimerIcon(progress, 'flower');
       } else if (iconStyle === 'pizza') {
         iconDataUrl = await generatePizzaTimerIcon(progress, numSegments, i);
@@ -2931,34 +2882,48 @@ async function createVisualTimer() {
         iconDataUrl = generateTimerIcon(progress, iconStyle);
       }
 
-      const iconBase64 = iconDataUrl.split(',')[1];
-
-      // All icons are PNGs now
-      const iconType = 'image/png';
-      const iconExtension = 'png';
-
-      const iconResponse = await chrome.runtime.sendMessage({
-        action: 'UPLOAD_ICON',
-        file: {
-          data: iconBase64,
-          type: iconType,
-          name: `timer-icon-${i}.${iconExtension}`
-        }
-      });
-
-      if (iconResponse.error) {
-        uploadedIcons.push(null); // Use default icon if upload fails
-      } else {
-        uploadedIcons.push(iconResponse.iconId);
-      }
+      iconDataUrls.push(iconDataUrl);
     }
 
-    statusDiv.textContent = chrome.i18n.getMessage('status_uploadingAudioTracks');
+    const BATCH_SIZE = 8;
+    const uploadedIcons = [];
 
-    const uploadedTracks = [];
+    for (let batchStart = 0; batchStart < numSegments; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, numSegments);
+      const batchPromises = [];
+
+      for (let i = batchStart; i < batchEnd; i++) {
+        const iconBase64 = iconDataUrls[i].split(',')[1];
+        const iconType = 'image/png';
+
+        const uploadPromise = chrome.runtime.sendMessage({
+          action: 'UPLOAD_ICON',
+          file: {
+            data: iconBase64,
+            type: iconType,
+            name: `timer-icon-${i}.png`
+          }
+        }).then(response => {
+          if (response.error) {
+            return null;
+          }
+          return response.iconId;
+        }).catch(() => null);
+
+        batchPromises.push(uploadPromise);
+      }
+
+      const batchResults = await Promise.all(batchPromises);
+      uploadedIcons.push(...batchResults);
+
+      const progress = Math.round((batchEnd / numSegments) * 100);
+      statusDiv.textContent = chrome.i18n.getMessage('status_uploadingIconsPercent', [progress.toString()]);
+    }
+
     const totalSeconds = duration * 60;
     const secondsPerSegment = totalSeconds / numSegments;
 
+    const trackDataList = [];
     for (let i = 0; i < numSegments; i++) {
       const currentTime = totalSeconds - (i * secondsPerSegment);
       const audioFileName = silentFiles.length === 1 ? silentFiles[0] : silentFiles[i];
@@ -2966,37 +2931,6 @@ async function createVisualTimer() {
 
       if (!audioData) {
         throw new Error(`Audio file not found in cache: ${audioFileName}`);
-      }
-
-      let trackDuration;
-      if (audioFileName === 'silent-10m.wav') {
-        trackDuration = 600;
-      } else if (audioFileName === 'silent-5m.wav') {
-        trackDuration = 300;
-      } else if (audioFileName === 'silent-2m.wav') {
-        trackDuration = 120;
-      } else if (audioFileName === 'silent-1m.wav') {
-        trackDuration = 60;
-      } else if (audioFileName === 'silent-30s.wav') {
-        trackDuration = 30;
-      } else if (audioFileName === 'silent-22.5s.wav') {
-        trackDuration = 22.5;
-      } else if (audioFileName === 'silent-15s.wav') {
-        trackDuration = 15;
-      } else if (audioFileName === 'silent-12s.wav') {
-        trackDuration = 12;
-      } else if (audioFileName === 'silent-7.5s.wav') {
-        trackDuration = 7.5;
-      } else {
-        // Fallback - try to parse from filename
-        const match = audioFileName.match(/silent-(\d+(?:\.\d+)?)(s|m)\.wav/);
-        if (match) {
-          const value = parseFloat(match[1]);
-          const unit = match[2];
-          trackDuration = unit === 'm' ? value * 60 : value;
-        } else {
-          trackDuration = 60; // Default fallback
-        }
       }
 
       const displayMinutes = Math.floor(currentTime / 60);
@@ -3014,55 +2948,90 @@ async function createVisualTimer() {
           : chrome.i18n.getMessage('timer_minutesSecondsLeft', [displayMinutes.toString(), displaySeconds.toString(), secondPlural]);
       }
 
-      let uploadResponse;
-
-      if (audioData.isLarge) {
-        // For large files, have the service worker load and upload directly
-        uploadResponse = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_TIMER_AUDIO',
-          fileName: audioFileName,
-          trackName: `timer-segment-${i}.wav`
-        });
-      } else {
-        // For smaller files, use the regular upload with base64
-        const audioBase64 = audioData.base64;
-
-        if (!audioBase64 || audioBase64.length === 0) {
-          throw new Error(`Invalid base64 data for track ${i + 1}`);
-        }
-
-        uploadResponse = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_AUDIO',
-          file: {
-            data: audioBase64,
-            type: 'audio/wav',
-            name: `timer-segment-${i}.wav`
-          }
-        });
-      }
-
-      if (!uploadResponse) {
-        throw new Error(`No response when uploading track ${i + 1}`);
-      }
-
-      if (uploadResponse.error) {
-        throw new Error(`Failed to upload track ${i + 1}: ${uploadResponse.error}`);
-      }
-
-      if (!uploadResponse.success || !uploadResponse.transcodedAudio) {
-        throw new Error(`Failed to upload track ${i + 1}: No transcoded audio returned`);
-      }
-
-      uploadedTracks.push({
+      trackDataList.push({
+        index: i,
         title: trackTitle,
-        transcodedAudio: uploadResponse.transcodedAudio
+        audioFileName: audioFileName,
+        audioData: audioData
       });
+    }
 
-      const progress = Math.round(((i + 1) / (numSegments + (alarmSound ? 1 : 0))) * 100);
+    const TRACK_BATCH_SIZE = 6;
+    const uploadedTracks = [];
+
+    console.log(`Starting track upload: ${numSegments} tracks in batches of ${TRACK_BATCH_SIZE}`);
+    statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', ['0']);
+
+    for (let batchStart = 0; batchStart < numSegments; batchStart += TRACK_BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + TRACK_BATCH_SIZE, numSegments);
+      console.log(`Processing batch ${batchStart}-${batchEnd}`);
+      const batchPromises = [];
+
+      for (let i = batchStart; i < batchEnd; i++) {
+        const trackData = trackDataList[i];
+
+        const uploadPromise = (async () => {
+          try {
+            let uploadResponse;
+
+            if (trackData.audioData.isLarge) {
+              uploadResponse = await chrome.runtime.sendMessage({
+                action: 'UPLOAD_TIMER_AUDIO',
+                fileName: trackData.audioFileName,
+                trackName: `timer-segment-${trackData.index}.wav`
+              });
+            } else {
+              const audioBase64 = trackData.audioData.base64;
+
+              if (!audioBase64 || audioBase64.length === 0) {
+                throw new Error(`Invalid base64 data for track ${trackData.index + 1}`);
+              }
+
+              uploadResponse = await chrome.runtime.sendMessage({
+                action: 'UPLOAD_AUDIO',
+                file: {
+                  data: audioBase64,
+                  type: 'audio/wav',
+                  name: `timer-segment-${trackData.index}.wav`
+                }
+              });
+            }
+
+            if (!uploadResponse) {
+              throw new Error(`No response when uploading track ${trackData.index + 1}`);
+            }
+
+            if (uploadResponse.error) {
+              throw new Error(`Failed to upload track ${trackData.index + 1}: ${uploadResponse.error}`);
+            }
+
+            if (!uploadResponse.success || !uploadResponse.transcodedAudio) {
+              throw new Error(`Failed to upload track ${trackData.index + 1}: No transcoded audio returned`);
+            }
+
+            return {
+              title: trackData.title,
+              transcodedAudio: uploadResponse.transcodedAudio
+            };
+          } catch (error) {
+            console.error(`Error uploading track ${trackData.index + 1}:`, error);
+            throw error;
+          }
+        })();
+
+        batchPromises.push(uploadPromise);
+      }
+
+      const batchResults = await Promise.all(batchPromises);
+      console.log(`Batch ${batchStart}-${batchEnd} completed, got ${batchResults.length} results`);
+      uploadedTracks.push(...batchResults);
+
+      const progress = Math.round((batchEnd / (numSegments + (alarmSound ? 1 : 0))) * 100);
       statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', [progress.toString()]);
     }
 
-    // Always add a final track (either alarm or silent)
+    console.log(`All ${uploadedTracks.length} tracks uploaded successfully`);
+
     if (alarmAudioBase64) {
       const alarmResponse = await chrome.runtime.sendMessage({
         action: 'UPLOAD_AUDIO',
@@ -3085,9 +3054,9 @@ async function createVisualTimer() {
         title: chrome.i18n.getMessage('timer_timesUp'),
         transcodedAudio: alarmResponse.transcodedAudio
       });
+
+      statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', ['100']);
     } else {
-      // No alarm selected - add a silent final track
-      // Use the first silent file that was loaded (could be 15s, 1m, 5m, or 10m)
       const silentFileName = silentFiles && silentFiles.length > 0 ? silentFiles[0] : 'silent-1m.wav';
 
       // If the file isn't in cache, try to load it
@@ -3150,9 +3119,11 @@ async function createVisualTimer() {
         }
 
         uploadedTracks.push({
-          title: "Timer Complete",
+          title: chrome.i18n.getMessage('timer_complete'),
           transcodedAudio: silentResponse.transcodedAudio
         });
+
+        statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', ['100']);
       }
     }
 
