@@ -1957,6 +1957,16 @@
       }
     }
   },
+  "status_uploadingIconsPercent": {
+    "message": "Téléchargement des icônes... $PERCENT$%",
+    "description": "Status when uploading icons with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
   "timer_alarmCalmBells": {
     "message": "Cloches calmes",
     "description": "Alarm sound option - calm bells"

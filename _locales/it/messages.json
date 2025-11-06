@@ -1913,6 +1913,16 @@
       }
     }
   },
+  "status_uploadingIconsPercent": {
+    "message": "Caricamento delle icone... $PERCENT$%",
+    "description": "Status when uploading icons with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "75"
+      }
+    }
+  },
   "timer_alarmCalmBells": {
     "message": "Campane tranquille",
     "description": "Alarm sound option - calm bells"
