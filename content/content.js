@@ -4313,7 +4313,7 @@ async function selectPodcast(podcast) {
       progressBar.style.width = '5%';
       
       let importCancelled = false;
-      
+
       const cancelHandler = async () => {
         importCancelled = true;
         statusText.textContent = chrome.i18n.getMessage('status_cancellingImport');
@@ -4368,7 +4368,7 @@ async function selectPodcast(podcast) {
         
         while (!importComplete && !importCancelled && pollAttempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-          
+
           if (importCancelled) {
             break;
           }
@@ -6238,16 +6238,8 @@ function showBulkImportModal(playlists, importMode = 'separate') {
     </div>
     
     <div id="bulk-import-progress" style="display: none; margin: 20px 0;">
-      ${importMode === 'merged' ? '' : `
       <div style="margin-bottom: 12px;">
-        <p id="overall-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">Overall Progress:</p>
-        <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
-          <div id="overall-progress-bar" style="background: #10b981; height: 100%; width: 0%; transition: width 0.3s;"></div>
-        </div>
-      </div>
-      `}
-      <div style="${importMode === 'merged' ? '' : 'margin-top: 16px;'}">
-        <p id="current-playlist-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">${importMode === 'merged' ? 'Upload Progress:' : 'Current Playlist:'}</p>
+        <p id="current-playlist-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">${importMode === 'merged' ? 'Upload Progress:' : 'Overall Progress:'}</p>
         <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
           <div id="current-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
@@ -7088,9 +7080,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   }
   
   const progressDiv = document.querySelector('#bulk-import-progress');
-  const overallProgressBar = document.querySelector('#overall-progress-bar');
   const currentProgressBar = document.querySelector('#current-progress-bar');
-  const overallStatus = document.querySelector('#overall-status');
   const currentStatus = document.querySelector('#current-playlist-status');
   const importLog = document.querySelector('#import-log');
   const startButton = document.querySelector('#start-bulk-import');
@@ -7110,13 +7100,28 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   startButton.disabled = true;
   startButton.style.opacity = '0.5';
   startButton.style.cursor = 'not-allowed';
-  cancelButton.textContent = chrome.i18n.getMessage('button_close');
-  
+
   const totalPlaylists = playlists.length;
   let completedPlaylists = 0;
   let successfulImports = 0;
   let failedImports = 0;
   let hasDroppedFiles = false;
+  let isCancelled = false;
+
+  cancelButton.textContent = chrome.i18n.getMessage('button_cancel');
+  cancelButton.onclick = () => {
+    isCancelled = true;
+    addLogEntry('Cancelling import...', 'info');
+    currentStatus.textContent = 'Cancelled';
+
+    setTimeout(() => {
+      if (successfulImports > 0) {
+        window.location.reload();
+      } else {
+        modal.remove();
+      }
+    }, 500);
+  };
   
   function addLogEntry(message, type = 'info') {
     const entry = document.createElement('div');
@@ -7129,86 +7134,141 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   }
   
   addLogEntry(`Starting bulk import of ${totalPlaylists} playlist${totalPlaylists > 1 ? 's' : ''}...`);
-  
-  for (const playlist of playlists) {
-    const playlistNumber = completedPlaylists + 1;
-    if (overallStatus) {
-      overallStatus.textContent = chrome.i18n.getMessage('status_overallProgress', [playlistNumber.toString(), totalPlaylists.toString()]);
+  console.log(`[Bulk Import] Starting import of ${totalPlaylists} playlists:`, playlists.map(p => p.name));
+
+  const CONCURRENT_PLAYLISTS = 3;
+
+  for (let batchStart = 0; batchStart < playlists.length; batchStart += CONCURRENT_PLAYLISTS) {
+    if (isCancelled) {
+      addLogEntry('Import cancelled by user', 'info');
+      break;
     }
-    currentStatus.textContent = importMode === 'merged' ? chrome.i18n.getMessage('status_uploadingPlaylist', [playlist.name]) : chrome.i18n.getMessage('status_importingPlaylist', [playlist.name]);
-    currentProgressBar.style.width = '0%';
-    
-    addLogEntry(`Starting import of "${playlist.name}"...`);
-    
-    try {
-      // Import the playlist using the same logic as single import
-      const result = await importSinglePlaylist(
-        playlist.audioFiles,
-        playlist.trackIcons,
-        playlist.coverImage,
-        playlist.name,
-        (progress, status) => {
-          currentProgressBar.style.width = `${progress}%`;
-          if (status) {
-            currentStatus.textContent = `${playlist.name}: ${status}`;
+
+    const batch = playlists.slice(batchStart, Math.min(batchStart + CONCURRENT_PLAYLISTS, playlists.length));
+    console.log(`[Bulk Import] Processing batch ${Math.floor(batchStart / CONCURRENT_PLAYLISTS) + 1}: ${batch.length} playlists`);
+
+    if (batch.length > 1) {
+      const playlistNames = batch.map(p => `"${p.name}"`).join(', ');
+      addLogEntry(`Processing ${batch.length} playlists in parallel: ${playlistNames}`);
+    }
+
+    const batchPromises = batch.map((playlist, batchIndex) => {
+      return (async () => {
+        const isFirstInBatch = batchIndex === 0;
+
+        if (batch.length === 1) {
+          addLogEntry(`Starting import of "${playlist.name}"...`);
+        }
+
+        try {
+          const result = await importSinglePlaylist(
+            playlist.audioFiles,
+            playlist.trackIcons,
+            playlist.coverImage,
+            playlist.name,
+            (progress, status) => {
+              if (isFirstInBatch) {
+                currentProgressBar.style.width = `${progress}%`;
+                if (status) {
+                  const batchInfo = batch.length > 1 ? ` (+ ${batch.length - 1} other${batch.length > 2 ? 's' : ''})` : '';
+                  currentStatus.textContent = `${playlist.name}${batchInfo}: ${status}`;
+                }
+              }
+            }
+          );
+
+          if (result.droppedFiles && result.droppedFiles.length > 0) {
+            hasDroppedFiles = true;
+          }
+
+          return { success: true, playlist, result };
+        } catch (error) {
+          return { success: false, playlist, error };
+        }
+      })();
+    });
+
+    const batchResults = await Promise.allSettled(batchPromises);
+
+    let shouldBreak = false;
+
+    for (let i = 0; i < batchResults.length; i++) {
+      const settledResult = batchResults[i];
+      const playlist = batch[i];
+      const playlistNumber = batchStart + i + 1;
+
+      if (settledResult.status === 'fulfilled') {
+        const result = settledResult.value;
+
+        if (result.success) {
+          successfulImports++;
+          addLogEntry(`✓ Successfully imported "${result.playlist.name}"`, 'success');
+          console.log(`[Bulk Import] Success: "${result.playlist.name}"`, result);
+        } else {
+          failedImports++;
+          const errorMessage = result.error.message || 'Unknown error';
+          addLogEntry(`✗ Failed to import "${result.playlist.name}": ${errorMessage}`, 'error');
+          console.error(`[Bulk Import] Failed: "${result.playlist.name}"`, result.error);
+
+          try {
+            if (chrome.runtime?.id) {
+              chrome.runtime.sendMessage({
+                action: 'TRACK_ERROR',
+                error: errorMessage,
+                context: {
+                  action: 'bulk_import_playlist',
+                  playlistName: result.playlist.name,
+                  component: 'content'
+                }
+              });
+            }
+          } catch (trackError) {
+          }
+
+          if (errorMessage.includes('Extension context') || errorMessage.includes('chrome.runtime')) {
+            addLogEntry(chrome.i18n.getMessage('notification_connectionLost'), 'error');
+            shouldBreak = true;
           }
         }
-      );
+      } else {
+        failedImports++;
+        addLogEntry(`✗ Failed to import "${playlist.name}": Promise rejected`, 'error');
+      }
 
-      successfulImports++;
-      addLogEntry(`✓ Successfully imported "${playlist.name}"`, 'success');
-      
-    } catch (error) {
-      failedImports++;
-      const errorMessage = error.message || 'Unknown error';
-      addLogEntry(`✗ Failed to import "${playlist.name}": ${errorMessage}`, 'error');
-      
-      // Track error (wrapped in try-catch in case extension context is lost)
-      try {
-        if (chrome.runtime?.id) {
-          chrome.runtime.sendMessage({
-            action: 'TRACK_ERROR',
-            error: errorMessage,
-            context: {
-              action: 'bulk_import_playlist',
-              playlistName: playlist.name,
-              component: 'content'
-            }
-          });
-        }
-      } catch (trackError) {
-      }
-      
-      // If extension context is lost, stop processing
-      if (errorMessage.includes('Extension context') || errorMessage.includes('chrome.runtime')) {
-        addLogEntry(chrome.i18n.getMessage('notification_connectionLost'), 'error');
-        break;
-      }
+      completedPlaylists++;
     }
-    
-    completedPlaylists++;
-    const overallProgress = (completedPlaylists / totalPlaylists) * 100;
-    if (overallProgressBar) {
-      overallProgressBar.style.width = `${overallProgress}%`;
+
+    if (shouldBreak) {
+      break;
     }
   }
 
-  if (overallStatus) {
-    overallStatus.textContent = chrome.i18n.getMessage('status_importCompleteDetails', [successfulImports.toString(), failedImports.toString()]);
-  }
-  currentStatus.textContent = importMode === 'merged' ? 'Upload Complete' : '';
-  currentProgressBar.style.width = '0%';
-  
-  if (successfulImports > 0 && failedImports === 0) {
-    addLogEntry(`✓ All ${successfulImports} playlist${successfulImports > 1 ? 's' : ''} imported successfully!`, 'success');
-    showNotification(`${chrome.i18n.getMessage("notification_importSuccess", [successfulImports])}`, 'success');
-  } else if (successfulImports > 0) {
-    addLogEntry(`Import completed with ${successfulImports} success${successfulImports > 1 ? 'es' : ''} and ${failedImports} failure${failedImports > 1 ? 's' : ''}`, 'info');
-    showNotification(`${chrome.i18n.getMessage("notification_importPartialSuccess", [successfulImports, failedImports])}`, 'warning');
+  if (isCancelled) {
+    currentStatus.textContent = 'Cancelled';
+    currentProgressBar.style.width = '0%';
+    addLogEntry(`Import cancelled. Completed ${successfulImports} of ${totalPlaylists} playlist${totalPlaylists > 1 ? 's' : ''}`, 'info');
+    if (successfulImports > 0) {
+      showNotification(`Import cancelled. ${successfulImports} playlist${successfulImports > 1 ? 's were' : ' was'} imported successfully.`, 'warning');
+    } else {
+      showNotification('Import cancelled', 'info');
+    }
   } else {
-    addLogEntry(`✗ All imports failed`, 'error');
-    showNotification(chrome.i18n.getMessage("notification_importAllFailed"), 'error');
+    currentStatus.textContent = importMode === 'merged' ? 'Upload Complete' : 'Import Complete';
+    currentProgressBar.style.width = '100%';
+
+    if (successfulImports > 0 && failedImports === 0) {
+      addLogEntry(`✓ All ${successfulImports} playlist${successfulImports > 1 ? 's' : ''} imported successfully!`, 'success');
+      showNotification(`${chrome.i18n.getMessage("notification_importSuccess", [successfulImports])}`, 'success');
+    } else if (successfulImports > 0) {
+      addLogEntry(`Import completed with ${successfulImports} success${successfulImports > 1 ? 'es' : ''} and ${failedImports} failure${failedImports > 1 ? 's' : ''}`, 'info');
+      showNotification(`${chrome.i18n.getMessage("notification_importPartialSuccess", [successfulImports, failedImports])}`, 'warning');
+    } else {
+      addLogEntry(`✗ All imports failed`, 'error');
+      showNotification(chrome.i18n.getMessage("notification_importAllFailed"), 'error');
+    }
   }
+
+  console.log(`[Bulk Import] Summary: ${successfulImports} successful, ${failedImports} failed, cancelled: ${isCancelled}, hasDroppedFiles: ${hasDroppedFiles}`);
   
   // Track bulk import analytics (wrapped in try-catch)
   try {
@@ -7228,7 +7288,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   } catch (error) {
   }
   
-  if (successfulImports > 0) {
+  if (successfulImports > 0 && !isCancelled) {
     const successModal = document.createElement('div');
     successModal.style.cssText = `
       position: fixed;
@@ -7254,61 +7314,39 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
       min-width: 300px;
     `;
 
-    if (hasDroppedFiles) {
-      successContent.innerHTML = `
-        <div style="margin-bottom: 16px;">
-          <svg style="width: 48px; height: 48px; color: #f59e0b; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-        </div>
-        <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">Import Complete</h3>
-        <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 14px;">Some files were skipped due to size limits.</p>
-        <button id="refresh-after-dropped" style="
-          padding: 10px 24px;
-          background: #3b82f6;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-size: 14px;
-          font-weight: 500;
-        ">Refresh Page</button>
-      `;
-    } else {
-      successContent.innerHTML = `
-        <div style="margin-bottom: 16px;">
-          <svg style="width: 48px; height: 48px; color: #10b981; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-        </div>
-        <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">Import Successful!</h3>
-        <p style="margin: 0; color: #6b7280; font-size: 14px;">Refreshing page to show new playlists...</p>
-      `;
-    }
+    const iconColor = (failedImports > 0 || hasDroppedFiles) ? '#f59e0b' : '#10b981';
+    const statusText = failedImports > 0
+      ? chrome.i18n.getMessage('notification_importPartialSuccess', [successfulImports, failedImports])
+      : chrome.i18n.getMessage('notification_importSuccess', [successfulImports]);
+
+    successContent.innerHTML = `
+      <div style="margin-bottom: 16px;">
+        <svg style="width: 48px; height: 48px; color: ${iconColor}; margin: 0 auto;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+      </div>
+      <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #1f2937;">${statusText}</h3>
+      <p style="margin: 0; color: #6b7280; font-size: 14px;">Refreshing page to show new playlists...</p>
+    `;
 
     successModal.appendChild(successContent);
-
     modal.remove();
-
     document.body.appendChild(successModal);
 
-    if (hasDroppedFiles) {
-      const refreshButton = document.getElementById('refresh-after-dropped');
-      if (refreshButton) {
-        refreshButton.onclick = () => {
-          window.location.reload();
-        };
-      }
-    } else {
-      // Auto-refresh only when all files uploaded successfully
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-    }
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
   } else {
+    cancelButton.disabled = false;
     cancelButton.style.opacity = '1';
+    cancelButton.style.cursor = 'pointer';
+    cancelButton.textContent = chrome.i18n.getMessage('button_close');
     cancelButton.onclick = () => {
-      modal.remove();
+      if (isCancelled && successfulImports > 0) {
+        window.location.reload();
+      } else {
+        modal.remove();
+      }
     };
   }
 }
@@ -7330,22 +7368,22 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   
   
   let parallelCount = 1;
-  let delayBetweenBatches = 500;
+  let delayBetweenBatches = 0;
 
-  if (avgFileSize < 5 * 1024 * 1024) { // Average < 5MB (small files)
+  if (avgFileSize < 5 * 1024 * 1024) {
     if (audioFiles.length <= 10) {
-      parallelCount = 4;
-      delayBetweenBatches = 100;
+      parallelCount = 6;
+      delayBetweenBatches = 0;
     } else {
-      parallelCount = 3;
-      delayBetweenBatches = 200;
+      parallelCount = 5;
+      delayBetweenBatches = 50;
     }
-  } else if (avgFileSize < 15 * 1024 * 1024) { // Average < 15MB (med files)
-    parallelCount = 2;
-    delayBetweenBatches = 300;
+  } else if (avgFileSize < 15 * 1024 * 1024) {
+    parallelCount = 3;
+    delayBetweenBatches = 100;
   } else {
-    parallelCount = 1; // Large files
-    delayBetweenBatches = 400;
+    parallelCount = 2;
+    delayBetweenBatches = 200;
   }
   
   
@@ -7437,105 +7475,119 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   }
   
   const audioProgress = 40;
-  progressCallback(audioProgress, chrome.i18n.getMessage('status_uploadingIcons'));
-  
-  const uploadedIconIds = [];
-  if (trackIcons.length > 0) {
 
-    const isZeroBased = isZeroBasedIconNumbering(trackIcons);
+  const hasIcons = trackIcons.length > 0;
+  const hasCover = coverImage !== null && coverImage !== undefined;
 
-    // Icons are usually small, so we can be more aggressive with parallelism
-    const iconParallelCount = Math.min(6, trackIcons.length); // Increased to 6 parallel icon uploads
-    const iconDelayBetweenBatches = 50; // Reduced delay for faster processing
-
-    for (let batchStart = 0; batchStart < trackIcons.length; batchStart += iconParallelCount) {
-      const batch = trackIcons.slice(batchStart, Math.min(batchStart + iconParallelCount, trackIcons.length));
-      const batchPromises = [];
-
-      for (let i = 0; i < batch.length; i++) {
-        const file = batch[i];
-        const globalIndex = batchStart + i;
-        const iconProgress = 40 + (globalIndex / trackIcons.length) * 20; // Progress from 40% to 60%
-        progressCallback(Math.round(iconProgress), chrome.i18n.getMessage('status_uploadingIcons', [(globalIndex + 1).toString(), trackIcons.length.toString()]));
-
-        const iconPromise = uploadWithRetry(async () => {
-          if (!chrome.runtime?.id) {
-            throw new Error('Extension context lost during icon upload.');
-          }
-
-          const base64Data = await convertFileToBase64(file);
-
-          const result = await chrome.runtime.sendMessage({
-            action: 'UPLOAD_ICON',
-            file: base64Data
-          });
-
-          if (!result) {
-            throw new Error('No response from extension during icon upload.');
-          }
-
-          if (result.error) {
-            throw new Error(`Icon upload failed: ${result.error}`);
-          }
-
-          return {
-            // If icons are 0-based (0.png -> track 1), use extractedNumber directly
-            // If icons are 1-based (1.png -> track 1), subtract 1 to get 0-based index
-            index: file.extractedNumber ? (isZeroBased ? file.extractedNumber : file.extractedNumber - 1) : globalIndex,
-            iconId: result.iconId
-          };
-        }, 2, 1000, 30000); // 30 second timeout for icons
-        
-        batchPromises.push(iconPromise);
-      }
-      
-      // Wait for batch to complete
-      const batchResults = await Promise.all(batchPromises);
-      
-      for (const result of batchResults) {
-        if (result.status === 'fulfilled') {
-          uploadedIconIds[result.value.index] = result.value.iconId;
-        } else {
-        }
-      }
-      
-      // Small delay between icon batches
-      if (batchStart + iconParallelCount < trackIcons.length) {
-        await new Promise(resolve => setTimeout(resolve, iconDelayBetweenBatches));
-      }
-    }
-    
+  if (hasIcons && hasCover) {
+    progressCallback(audioProgress, chrome.i18n.getMessage('status_uploadingIcons') + ' & cover image');
+  } else if (hasIcons) {
+    progressCallback(audioProgress, chrome.i18n.getMessage('status_uploadingIcons'));
+  } else if (hasCover) {
+    progressCallback(audioProgress, chrome.i18n.getMessage('status_uploadingCoverImage'));
   }
-  
-  const iconProgress = 70;
-  progressCallback(iconProgress, chrome.i18n.getMessage('status_uploadingCoverImage'));
-  
+
+  const uploadedIconIds = [];
   let uploadedCoverUrl = null;
-  if (coverImage) {
-    try {
-      if (!chrome.runtime?.id) {
-        throw new Error('Extension context lost during cover upload.');
-      }
-      
-      const base64Data = await convertFileToBase64(coverImage);
-      
-      const coverResult = await chrome.runtime.sendMessage({
-        action: 'UPLOAD_COVER',
-        file: base64Data
-      });
-      
-      
-      if (coverResult && !coverResult.error) {
-        uploadedCoverUrl = coverResult.url || coverResult.coverUrl || coverResult.imageUrl;
-        if (uploadedCoverUrl) {
-        } else {
+
+  const uploadPromises = [];
+
+  if (hasIcons) {
+    const iconUploadPromise = (async () => {
+      const isZeroBased = isZeroBasedIconNumbering(trackIcons);
+      const iconParallelCount = Math.min(10, trackIcons.length);
+      const iconDelayBetweenBatches = 0;
+
+      for (let batchStart = 0; batchStart < trackIcons.length; batchStart += iconParallelCount) {
+        const batch = trackIcons.slice(batchStart, Math.min(batchStart + iconParallelCount, trackIcons.length));
+        const batchPromises = [];
+
+        for (let i = 0; i < batch.length; i++) {
+          const file = batch[i];
+          const globalIndex = batchStart + i;
+          const iconProgress = 40 + (globalIndex / trackIcons.length) * 30;
+          progressCallback(Math.round(iconProgress), chrome.i18n.getMessage('status_uploadingIcons', [(globalIndex + 1).toString(), trackIcons.length.toString()]));
+
+          const iconPromise = uploadWithRetry(async () => {
+            if (!chrome.runtime?.id) {
+              throw new Error('Extension context lost during icon upload.');
+            }
+
+            const base64Data = await convertFileToBase64(file);
+
+            const result = await chrome.runtime.sendMessage({
+              action: 'UPLOAD_ICON',
+              file: base64Data
+            });
+
+            if (!result) {
+              throw new Error('No response from extension during icon upload.');
+            }
+
+            if (result.error) {
+              throw new Error(`Icon upload failed: ${result.error}`);
+            }
+
+            return {
+              index: file.extractedNumber ? (isZeroBased ? file.extractedNumber : file.extractedNumber - 1) : globalIndex,
+              iconId: result.iconId
+            };
+          }, 2, 1000, 30000);
+
+          batchPromises.push(iconPromise);
         }
-      } else if (coverResult && coverResult.error) {
+
+        const batchResults = await Promise.all(batchPromises);
+
+        for (const result of batchResults) {
+          if (result.status === 'fulfilled') {
+            uploadedIconIds[result.value.index] = result.value.iconId;
+          }
+        }
+
+        if (batchStart + iconParallelCount < trackIcons.length) {
+          await new Promise(resolve => setTimeout(resolve, iconDelayBetweenBatches));
+        }
       }
-    } catch (error) {
-      // Continue without cover image
+
+      return uploadedIconIds;
+    })();
+
+    uploadPromises.push(iconUploadPromise);
+  }
+
+  if (hasCover) {
+    const coverUploadPromise = (async () => {
+      try {
+        if (!chrome.runtime?.id) {
+          throw new Error('Extension context lost during cover upload.');
+        }
+
+        const base64Data = await convertFileToBase64(coverImage);
+
+        const coverResult = await chrome.runtime.sendMessage({
+          action: 'UPLOAD_COVER',
+          file: base64Data
+        });
+
+        if (coverResult && !coverResult.error) {
+          return coverResult.url || coverResult.coverUrl || coverResult.imageUrl;
+        }
+        return null;
+      } catch (error) {
+        return null;
+      }
+    })();
+
+    uploadPromises.push(coverUploadPromise);
+  }
+
+  if (uploadPromises.length > 0) {
+    const results = await Promise.all(uploadPromises);
+
+    if (hasCover) {
+      uploadedCoverUrl = hasIcons ? results[1] : results[0];
     }
-  } else {
   }
   
   progressCallback(90, chrome.i18n.getMessage('status_creatingPlaylist'));
@@ -7793,7 +7845,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
       const shouldContinue = await showLargeFilesWarningModal(largeFiles, audioFiles.length, playlistName);
 
       if (!shouldContinue) {
-        return; // User canceled
+        return; // User cancelled
       }
 
       const validFiles = audioFiles.filter((_, index) =>

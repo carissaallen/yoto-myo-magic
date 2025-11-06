@@ -3071,7 +3071,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         podcastImportResult: {cancelled: true, message: 'Import cancelled by user'},
                         podcastImportTimestamp: Date.now()
                     });
-                    
+
                     sendResponse({success: true, message: 'Import cancelled'});
                     break;
 
