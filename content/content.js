@@ -50,15 +50,26 @@ function init() {
       }
     });
   }
-  
+
   setupObserver();
   setupNavigationListener();
-  
-  setTimeout(() => {
-    checkForMyoPage();
-  }, 1000);
-  
-  
+
+  // Wait for DOM to be ready before checking for MYO page
+  const checkWhenReady = () => {
+    if (document.readyState === 'loading') {
+      // DOM not ready yet, wait for it
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(checkForMyoPage, 500);
+      });
+    } else {
+      // DOM already ready (interactive or complete)
+      setTimeout(checkForMyoPage, 500);
+    }
+  };
+
+  checkWhenReady();
+
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'AUTH_STATUS') {
       state.authenticated = request.authenticated;
@@ -90,16 +101,16 @@ function init() {
 function checkForMyoPage() {
   const url = window.location.href;
   const path = window.location.pathname;
-  
+
   if (!url.includes('my.yotoplay.com')) {
     return;
   }
-  
-  
+
+  injectMobileStyles();
+
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
-    // Always attempt to inject buttons when detecting playlists page
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
     state.isMyoPage = true;
@@ -108,6 +119,121 @@ function checkForMyoPage() {
     state.isMyoPage = false;
     state.pageType = null;
   }
+}
+
+function injectMobileStyles() {
+  if (document.getElementById('yoto-mobile-styles')) {
+    return;
+  }
+
+  // Wait for head to be available (important when using document_start)
+  if (!document.head) {
+    setTimeout(injectMobileStyles, 10);
+    return;
+  }
+
+  const styleTag = document.createElement('style');
+  styleTag.id = 'yoto-mobile-styles';
+  styleTag.textContent = `
+    #yoto-import-btn,
+    #yoto-update-btn,
+    #yoto-bulk-import-btn,
+    #yoto-podcast-btn,
+    #yoto-timer-btn,
+    #auth-banner-btn {
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: rgba(59, 130, 246, 0.2);
+    }
+
+    #yoto-import-btn:active,
+    #yoto-update-btn:active,
+    #yoto-bulk-import-btn:active,
+    #yoto-podcast-btn:active,
+    #yoto-timer-btn:active,
+    #auth-banner-btn:active {
+      background-color: #eff6ff !important;
+      transform: scale(0.98) !important;
+    }
+
+    @media (max-width: 768px) {
+      #yoto-import-container {
+        flex-direction: column !important;
+        width: 100% !important;
+      }
+
+      #yoto-import-btn,
+      #yoto-update-btn,
+      #yoto-bulk-import-btn,
+      #yoto-podcast-btn,
+      #yoto-visual-timer-btn {
+        width: 100% !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        white-space: normal !important;
+        min-height: 44px !important;
+        padding: 10px 16px !important;
+      }
+
+      #yoto-card-edit-buttons {
+        flex-wrap: wrap !important;
+        gap: 12px !important;
+      }
+
+      #yoto-update-playlist-container {
+        flex-basis: 100% !important;
+        margin-top: 16px !important;
+        margin-left: 8px !important;
+      }
+
+      #yoto-auth-banner {
+        flex-direction: column !important;
+        height: auto !important;
+        padding: 16px 20px !important;
+        gap: 12px !important;
+      }
+
+      #yoto-auth-banner img {
+        height: 42px !important;
+        max-width: 260px !important;
+      }
+
+      #yoto-auth-banner #auth-banner-btn {
+        width: 100% !important;
+        max-width: 280px !important;
+        padding: 10px 20px !important;
+        min-height: 44px !important;
+      }
+
+      #yoto-auth-banner #auth-banner-close {
+        position: absolute !important;
+        top: 8px !important;
+        right: 8px !important;
+        margin-left: 0 !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #yoto-import-btn span,
+      #yoto-update-btn span,
+      #yoto-bulk-import-btn span,
+      #yoto-podcast-btn span,
+      #yoto-visual-timer-btn span {
+        font-size: 13px !important;
+      }
+
+      #yoto-auth-banner img {
+        height: 38px !important;
+        max-width: 220px !important;
+      }
+
+      #yoto-auth-banner {
+        padding: 12px 16px !important;
+        gap: 10px !important;
+      }
+    }
+  `;
+
+  document.head.appendChild(styleTag);
 }
 
 function showAuthBanner() {
@@ -136,7 +262,6 @@ function showAuthBanner() {
     z-index: 10000;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
-    overflow: hidden;
     height: 60px;
   `;
   
@@ -180,8 +305,11 @@ function showAuthBanner() {
   `;
   
   document.body.appendChild(banner);
-  
-  document.body.style.marginTop = '60px';
+
+  const isMobile = window.innerWidth <= 768;
+  const bannerHeight = isMobile ? 'auto' : '60px';
+  const marginTop = isMobile ? '100px' : '60px';
+  document.body.style.marginTop = marginTop;
   
   const authBtn = document.getElementById('auth-banner-btn');
   authBtn.addEventListener('mouseenter', () => {
@@ -243,70 +371,81 @@ function removeAuthBanner() {
   }
 }
 
+// Persistent observer for playlist page buttons
+let playlistPageObserver = null;
+let lastPlaylistInjectionAttempt = 0;
+const PLAYLIST_MIN_INJECTION_INTERVAL = 500;
+
 function waitForMyoElements() {
   const path = window.location.pathname;
-  
+
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
-    if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
-      checkAndInjectImportButton();
-    }
-    
+    // Initial injection attempt
+    checkAndInjectImportButton();
+
+    // Early retry attempts
     const attempts = [500, 1500, 3000];
-    
     attempts.forEach((delay) => {
-      setTimeout(() => {
-        if (!document.querySelector('#yoto-import-btn') && !document.querySelector('#yoto-import-container')) {
-          checkAndInjectImportButton();
-        }
-      }, delay);
+      setTimeout(() => checkAndInjectImportButton(), delay);
     });
+
+    // Set up persistent observer for this page if not already set up
+    if (!playlistPageObserver) {
+      playlistPageObserver = new MutationObserver(() => {
+        const now = Date.now();
+        if (now - lastPlaylistInjectionAttempt >= PLAYLIST_MIN_INJECTION_INTERVAL) {
+          lastPlaylistInjectionAttempt = now;
+          // Check if we're still on the playlist page
+          const currentPath = window.location.pathname;
+          if (currentPath.includes('/my-cards/playlists') || currentPath === '/my-cards' || currentPath === '/my-cards/') {
+            checkAndInjectImportButton();
+          }
+        }
+      });
+
+      if (document.body) {
+        playlistPageObserver.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+      }
+    }
+
     return;
   }
 }
 
 function checkAndInjectImportButton() {
   const path = window.location.pathname;
+
   if (path.includes('/edit') || path.includes('/card/')) {
     return false;
   }
 
-  if (document.querySelector('#yoto-import-btn') || document.querySelector('#yoto-import-container')) {
+  // Simple check - if container exists, don't inject again
+  if (document.querySelector('#yoto-import-container')) {
     return true;
   }
 
-  // Multi-language patterns for detecting the playlists page
-  // This fixes the issue where buttons don't appear when Yoto website is in non-English languages
   const headingPatterns = [
-    // English
     'my playlist', 'my cards', 'cards',
-    // French
     'mes playlists', 'mes cartes', 'cartes',
-    // German
     'meine playlists', 'meine karten', 'karten',
-    // Spanish
     'mis playlists', 'mis listas', 'mis tarjetas', 'tarjetas',
-    // Italian
     'le mie playlist', 'le mie carte', 'carte',
-    // Slovenian
     'moji seznami', 'moje kartice', 'kartice'
   ];
 
   const descriptionPatterns = [
-    // English
     'create playlists here',
-    // French
     'créez vos playlists', 'creez vos playlists',
-    // German
     'playlists hier erstellen', 'erstellen sie hier playlists',
-    // Spanish
     'crear listas de reproducción aquí', 'crea listas aquí',
-    // Italian
     'crea playlist qui', 'crea le playlist qui',
-    // Slovenian
     'ustvari sezname predvajanja tukaj'
   ];
 
-  const headings = Array.from(document.querySelectorAll('h1, h2, h3'));
+  const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5'));
 
   const playlistsHeading = headings.find(el => {
     const text = el.textContent?.trim()?.toLowerCase() || '';
@@ -317,55 +456,75 @@ function checkAndInjectImportButton() {
     return matchesPattern && isNotEdit;
   });
 
-  if (playlistsHeading) {
-    const mainContainer = playlistsHeading.parentNode;
+  if (playlistsHeading && injectButtonsAfterElement(playlistsHeading, descriptionPatterns)) {
+    return true;
+  }
 
-    if (mainContainer) {
-      let targetElement = playlistsHeading;
-      let nextElement = playlistsHeading.nextElementSibling;
-
-      while (nextElement && targetElement === playlistsHeading) {
-        const text = nextElement.textContent?.trim()?.toLowerCase() || '';
-        if (descriptionPatterns.some(pattern => text.includes(pattern))) {
-          targetElement = nextElement;
-          break;
-        }
-        nextElement = nextElement.nextElementSibling;
-
-        if (!nextElement || nextElement === playlistsHeading.parentNode?.lastElementChild) {
-          break;
-        }
+  if (path === '/my-cards' || path === '/my-cards/' || path.includes('/my-cards/playlists')) {
+    const mainContainers = Array.from(document.querySelectorAll('main, [role="main"], .content, .main-content'));
+    for (const container of mainContainers) {
+      const firstHeading = container.querySelector('h1, h2, h3');
+      if (firstHeading && injectButtonsAfterElement(firstHeading, descriptionPatterns)) {
+        return true;
       }
-      
-      const buttonContainer = document.createElement('div');
-      buttonContainer.style.cssText = 'margin: 20px 0 24px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;';
-      buttonContainer.id = 'yoto-import-container';
-      
-      const importButton = createImportButton();
-      const updateButton = createUpdateButton();
-      const bulkImportButton = createBulkImportButton();
-      const podcastButton = createPodcastButton();
-      const visualTimerButton = createVisualTimerButton();
+    }
 
-      buttonContainer.appendChild(importButton);
-      buttonContainer.appendChild(updateButton);
-      buttonContainer.appendChild(bulkImportButton);
-      if (podcastButton) {
-        buttonContainer.appendChild(podcastButton);
-      }
-      buttonContainer.appendChild(visualTimerButton);
-      
-      // Insert after the target element (either heading or descriptive text)
-      if (targetElement.nextSibling) {
-        targetElement.parentNode.insertBefore(buttonContainer, targetElement.nextSibling);
-      } else {
-        targetElement.parentNode.appendChild(buttonContainer);
-      }
+    const firstHeading = document.querySelector('main h1, main h2, h1, h2');
+    if (firstHeading && injectButtonsAfterElement(firstHeading, descriptionPatterns)) {
       return true;
     }
   }
-  
+
   return false;
+}
+
+function injectButtonsAfterElement(targetElement, descriptionPatterns) {
+  if (!targetElement) return false;
+
+  const mainContainer = targetElement.parentNode;
+  if (!mainContainer) return false;
+
+  let injectionPoint = targetElement;
+  let nextElement = targetElement.nextElementSibling;
+
+  while (nextElement && injectionPoint === targetElement) {
+    const text = nextElement.textContent?.trim()?.toLowerCase() || '';
+    if (descriptionPatterns.some(pattern => text.includes(pattern))) {
+      injectionPoint = nextElement;
+      break;
+    }
+    nextElement = nextElement.nextElementSibling;
+
+    if (!nextElement || nextElement === targetElement.parentNode?.lastElementChild) {
+      break;
+    }
+  }
+
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.cssText = 'margin: 20px 0 24px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; width: 100%;';
+  buttonContainer.id = 'yoto-import-container';
+
+  const importButton = createImportButton();
+  const updateButton = createUpdateButton();
+  const bulkImportButton = createBulkImportButton();
+  const podcastButton = createPodcastButton();
+  const visualTimerButton = createVisualTimerButton();
+
+  buttonContainer.appendChild(importButton);
+  buttonContainer.appendChild(updateButton);
+  buttonContainer.appendChild(bulkImportButton);
+  if (podcastButton) {
+    buttonContainer.appendChild(podcastButton);
+  }
+  buttonContainer.appendChild(visualTimerButton);
+
+  if (injectionPoint.nextSibling) {
+    injectionPoint.parentNode.insertBefore(buttonContainer, injectionPoint.nextSibling);
+  } else {
+    injectionPoint.parentNode.appendChild(buttonContainer);
+  }
+
+  return true;
 }
 
 function createImportButton() {
@@ -797,12 +956,14 @@ function createVisualTimerButton() {
     font-weight: 500;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
-    position: relative;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 40px;
   `;
 
   button.innerHTML = `
@@ -815,7 +976,6 @@ function createVisualTimerButton() {
     button.style.color = '#ec4899';
     button.style.borderColor = '#ec4899';
     button.style.transform = 'translateY(-1px)';
-    button.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
   };
 
   button.onmouseleave = () => {
@@ -823,7 +983,6 @@ function createVisualTimerButton() {
     button.style.color = '#3b82f6';
     button.style.borderColor = '#3b82f6';
     button.style.transform = 'translateY(0)';
-    button.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
   };
 
   button.onclick = (e) => {
@@ -2959,12 +3118,10 @@ async function createVisualTimer() {
     const TRACK_BATCH_SIZE = 6;
     const uploadedTracks = [];
 
-    console.log(`Starting track upload: ${numSegments} tracks in batches of ${TRACK_BATCH_SIZE}`);
     statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', ['0']);
 
     for (let batchStart = 0; batchStart < numSegments; batchStart += TRACK_BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + TRACK_BATCH_SIZE, numSegments);
-      console.log(`Processing batch ${batchStart}-${batchEnd}`);
       const batchPromises = [];
 
       for (let i = batchStart; i < batchEnd; i++) {
@@ -3023,14 +3180,11 @@ async function createVisualTimer() {
       }
 
       const batchResults = await Promise.all(batchPromises);
-      console.log(`Batch ${batchStart}-${batchEnd} completed, got ${batchResults.length} results`);
       uploadedTracks.push(...batchResults);
 
       const progress = Math.round((batchEnd / (numSegments + (alarmSound ? 1 : 0))) * 100);
       statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', [progress.toString()]);
     }
-
-    console.log(`All ${uploadedTracks.length} tracks uploaded successfully`);
 
     if (alarmAudioBase64) {
       const alarmResponse = await chrome.runtime.sendMessage({
@@ -5842,18 +5996,24 @@ function setupNavigationListener() {
 
 function setupObserver() {
   if (state.observer) return;
-  
+
+  // Wait for body to be available (important when using document_start)
+  if (!document.body) {
+    setTimeout(setupObserver, 10);
+    return;
+  }
+
   state.observer = new MutationObserver((mutations) => {
     const currentPath = window.location.pathname;
-    if (currentPath.includes('/my-cards/playlists') || 
-        currentPath === '/my-cards' || 
+    if (currentPath.includes('/my-cards/playlists') ||
+        currentPath === '/my-cards' ||
         currentPath === '/my-cards/') {
       checkForMyoPage();
     } else if (currentPath.includes('/card/')) {
       state.isMyoPage = false;
     }
   });
-  
+
   state.observer.observe(document.body, {
     childList: true,
     subtree: true
@@ -5861,6 +6021,12 @@ function setupObserver() {
 }
 
 function injectStyles() {
+  // Wait for head to be available (important when using document_start)
+  if (!document.head) {
+    setTimeout(injectStyles, 10);
+    return;
+  }
+
   const style = document.createElement('style');
   style.textContent = `
     @keyframes slide-up {
@@ -5873,11 +6039,11 @@ function injectStyles() {
         opacity: 1;
       }
     }
-    
+
     .animate-slide-up {
       animation: slide-up 0.3s ease-out;
     }
-    
+
     @keyframes spin {
       from {
         transform: rotate(0deg);
@@ -5886,7 +6052,7 @@ function injectStyles() {
         transform: rotate(360deg);
       }
     }
-    
+
     .animate-spin {
       animation: spin 1s linear infinite;
     }
