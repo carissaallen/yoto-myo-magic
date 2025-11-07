@@ -576,6 +576,7 @@ function createIconArtButton() {
 
 function createUpdatePlaylistButton() {
   const buttonContainer = document.createElement('div');
+  buttonContainer.id = 'yoto-update-playlist-container';
   buttonContainer.style.cssText = `
     position: relative;
     display: inline-flex;
@@ -3498,8 +3499,19 @@ function showPodcastSearchModalForUpdate(cardId) {
 }
 
 function checkAndInjectButton() {
-  if (document.querySelector('#yoto-magic-btn')) {
-    return;
+  // Check if we're on an edit page
+  if (!window.location.pathname.includes('/edit')) {
+    return false;
+  }
+
+  // Check if buttons already exist and are visible
+  const existingContainer = document.querySelector('#yoto-card-edit-buttons');
+  if (existingContainer && document.body.contains(existingContainer)) {
+    // Check if the container is actually visible
+    const rect = existingContainer.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      return true; // Buttons exist and are visible
+    }
   }
 
   // Multi-language patterns for "Add audio" button
@@ -3520,7 +3532,13 @@ function checkAndInjectButton() {
 
   if (addAudioButton) {
     const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'flex gap-2 mt-2';
+    buttonContainer.id = 'yoto-card-edit-buttons';
+    buttonContainer.style.cssText = `
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    `;
 
     const iconMatchButton = createButton();
     const iconArtButton = createIconArtButton();
@@ -3534,6 +3552,8 @@ function checkAndInjectButton() {
     } else {
       addAudioButton.parentNode.appendChild(buttonContainer);
     }
+
+    return true;
 
   } else {
     // Multi-language patterns for "Add stream" button
@@ -3553,7 +3573,13 @@ function checkAndInjectButton() {
 
     if (addStreamButton && addStreamButton.parentNode) {
       const buttonContainer = document.createElement('div');
-      buttonContainer.className = 'flex gap-2 mt-4';
+      buttonContainer.id = 'yoto-card-edit-buttons';
+      buttonContainer.style.cssText = `
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      `;
 
       const iconMatchButton = createButton();
       const iconArtButton = createIconArtButton();
@@ -3568,20 +3594,64 @@ function checkAndInjectButton() {
       } else {
         buttonsParent.parentNode.appendChild(buttonContainer);
       }
+
+      return true;
+    } else {
+      return false;
     }
   }
 }
 
+// Debounce helper to prevent excessive re-injection attempts
+let debounceTimer = null;
+function debounce(func, delay) {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(func, delay);
+}
+
+// Persistent observer that keeps watching for DOM changes
+let persistentObserver = null;
+let lastInjectionAttempt = 0;
+const MIN_INJECTION_INTERVAL = 500; // Minimum 500ms between injection attempts
+
 function initialize() {
-  if (document.querySelector('#yoto-magic-btn')) return;
-  
-  const attempts = [500, 2000, 4000];
-  attempts.forEach((delay) => {
-    setTimeout(() => {
-      if (!document.querySelector('#yoto-magic-btn')) {
-        checkAndInjectButton();
+  // Initial injection attempt
+  checkAndInjectButton();
+
+  // Set up persistent observer that never disconnects
+  if (!persistentObserver) {
+    persistentObserver = new MutationObserver((mutations) => {
+      // Debounce to avoid excessive calls during rapid DOM changes
+      debounce(() => {
+        const now = Date.now();
+        // Rate limit injection attempts to once per 500ms
+        if (now - lastInjectionAttempt >= MIN_INJECTION_INTERVAL) {
+          lastInjectionAttempt = now;
+          checkAndInjectButton();
+        }
+      }, 250); // 250ms debounce delay
+    });
+
+    // Wait for DOM to be ready before observing
+    const startObserver = () => {
+      if (document.body) {
+        persistentObserver.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+      } else {
+        // If body doesn't exist yet, wait a bit
+        setTimeout(startObserver, 10);
       }
-    }, delay);
+    };
+
+    startObserver();
+  }
+
+  // Early retry attempts for initial page load (SPAs often render in stages)
+  const earlyAttempts = [100, 300, 600, 1000, 2000];
+  earlyAttempts.forEach((delay) => {
+    setTimeout(() => checkAndInjectButton(), delay);
   });
 }
 
@@ -3589,48 +3659,49 @@ let currentUrl = location.href;
 const urlCheckInterval = setInterval(() => {
   const newUrl = location.href;
   if (newUrl !== currentUrl) {
+    const wasOnEditPage = currentUrl.includes('/edit');
+    const isOnEditPage = newUrl.includes('/edit');
     currentUrl = newUrl;
-    if (!newUrl.includes('/edit')) {
+
+    if (!isOnEditPage && wasOnEditPage) {
+      // Left edit page - cleanup
       cleanup();
+    } else if (isOnEditPage && !wasOnEditPage) {
+      // Entered edit page - reinitialize
+      initialize();
     }
   }
 }, 500);
 
 function cleanup() {
-  if (urlCheckInterval) {
-    clearInterval(urlCheckInterval);
-  }
-  
   try {
+    // Clean up button containers
+    const buttonContainer = document.querySelector('#yoto-card-edit-buttons');
+    if (buttonContainer) {
+      buttonContainer.remove();
+    }
+
+    // Clean up modals and overlays
     const elements = [
-      '#yoto-magic-btn',
-      '#yoto-icon-art-btn',
       '#yoto-icon-art-modal',
       '#yoto-magic-preview',
       '#yoto-refresh-indicator',
       '#yoto-magic-animation-style',
       '#yoto-magic-spinner-style',
-      '#yoto-refresh-styles'
+      '#yoto-refresh-styles',
+      '#yoto-import-modal',
+      '#track-selection-modal',
+      '#podcast-permission-modal'
     ];
 
     elements.forEach(selector => {
       const element = document.querySelector(selector);
       if (element) {
-        if ((selector === '#yoto-magic-btn' || selector === '#yoto-icon-art-btn') && element.parentElement) {
-          element.parentElement.remove();
-        } else {
-          element.remove();
-        }
+        element.remove();
       }
     });
-
-    // Also clean up the import button
-    const importBtn = document.querySelector('#yoto-import-btn');
-    if (importBtn && importBtn.parentElement) {
-      importBtn.parentElement.remove();
-    }
   } catch (error) {
-    // Ignore cleanup errors
+    console.error('[Yoto MYO Magic] Cleanup error:', error);
   }
 }
 
@@ -4083,9 +4154,25 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
   }
 }
 
-initialize();
-window.addEventListener('beforeunload', cleanup);
-window.addEventListener('pagehide', cleanup);
+// Initialize based on document ready state
+function initializeWhenReady() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(initialize, 100); // Small delay to let the page framework initialize
+    });
+  } else {
+    initialize();
+  }
+}
+
+// Additional check on full page load (for SPAs that lazy-load content)
+window.addEventListener('load', () => {
+  // Trigger a check, the persistent observer will handle re-injection if needed
+  setTimeout(() => checkAndInjectButton(), 500);
+});
+
+// Start initialization
+initializeWhenReady();
 
 function showRefreshIndicator() {
   const indicator = document.createElement('div');
