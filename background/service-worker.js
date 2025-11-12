@@ -1578,7 +1578,6 @@ async function uploadAudioFile(audioFileData) {
     // Warn about very large files
     if (fileSizeMB > 100) {
         console.warn(`[Upload] Large file warning: ${fileName} is ${fileSizeMB.toFixed(2)}MB. Files over 100MB may experience transcoding issues.`);
-        // Continue with upload but user has been warned
     }
 
     try {
@@ -1637,7 +1636,6 @@ async function uploadAudioFile(audioFileData) {
                     return { error: errorMsg };
                 }
 
-                console.log(`[S3 Upload] Rate limited (${uploadResponse.status}), retrying after ${delay}ms (attempt ${uploadAttempts}/${maxUploadAttempts})`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
@@ -1664,18 +1662,14 @@ async function uploadAudioFile(audioFileData) {
         const fileSizeMB = fileSize / 1024 / 1024;
 
         // Adaptive timeout based on file size
-        // Base: 30 attempts for files up to 35MB
-        // Add 1 attempt per 5MB over 35MB, up to max 120 attempts
         const baseAttempts = 30;
         const additionalAttempts = fileSizeMB > 35 ? Math.floor((fileSizeMB - 35) / 5) : 0;
         const maxAttempts = Math.min(baseAttempts + additionalAttempts, 120);
 
-        // Initial polling interval (500ms as per docs)
         let pollInterval = 500;
         const maxPollInterval = 5000; // Max 5 seconds between polls
-        let totalElapsedTime = 0; // Track actual elapsed time
+        let totalElapsedTime = 0;
 
-        console.log(`[Transcoding] Starting transcoding for ${fileName} (${fileSizeMB.toFixed(2)}MB, max ${maxAttempts} attempts)`);
 
         while (attempts < maxAttempts) {
             const transcodeResponse = await makeAuthenticatedRequest(
@@ -1702,34 +1696,20 @@ async function uploadAudioFile(audioFileData) {
                 if (transcodeResponse.error.includes('429') ||
                     transcodeResponse.error.includes('rate limit') ||
                     transcodeResponse.error.includes('too many')) {
-                    console.log(`[Transcoding] Rate limited for ${fileName}, increasing backoff`);
                     pollInterval = Math.min(pollInterval * 2, 10000); // Double the interval, max 10s
-                    // Continue polling, don't return error
-                }
-
-                // Log other errors but continue polling (might be temporary)
-                if (attempts % 5 === 0) {
-                    console.log(`[Transcoding] Temporary error for ${fileName}: ${transcodeResponse.error}`);
                 }
             }
 
             // Check for successful transcoding
             if (!transcodeResponse.error && transcodeResponse.transcode?.transcodedSha256) {
                 transcodedAudio = transcodeResponse.transcode;
-                console.log(`[Transcoding] Success for ${fileName} after ${(totalElapsedTime / 1000).toFixed(1)} seconds (${attempts} attempts)`);
                 break;
             }
 
             // Also check alternate response structure
             if (!transcodeResponse.error && transcodeResponse.transcodedAudio?.transcodedSha256) {
                 transcodedAudio = transcodeResponse.transcodedAudio;
-                console.log(`[Transcoding] Success for ${fileName} after ${(totalElapsedTime / 1000).toFixed(1)} seconds (${attempts} attempts)`);
                 break;
-            }
-
-            // Log progress periodically
-            if (attempts > 0 && attempts % 10 === 0) {
-                console.log(`[Transcoding] Still processing ${fileName}... ${attempts}/${maxAttempts} attempts (${(totalElapsedTime / 1000).toFixed(1)}s elapsed)`);
             }
 
             await new Promise(resolve => setTimeout(resolve, pollInterval));
@@ -2998,17 +2978,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                         // Check for completion by looking for transcodedSha256
                         if (transcodedAudio?.transcodedSha256) {
-                            console.log('[Transcode] Transcoding complete, SHA256:', transcodedAudio.transcodedSha256);
                             sendResponse({
                                 success: true,
                                 transcodedAudio: transcodedAudio,
                                 ready: true
                             });
                         } else {
-                            // Log the actual response structure for debugging
-                            if (request.uploadId && Object.keys(transcodeResponse).length > 0) {
-                                console.log('[Transcode] Status check response structure:', Object.keys(transcodeResponse));
-                            }
                             sendResponse({
                                 success: true,
                                 ready: false
@@ -3021,7 +2996,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'START_CHUNKED_AUDIO_UPLOAD':
-                    console.log(`[Chunked Upload] START_CHUNKED_AUDIO_UPLOAD: ${request.fileName}, ${request.totalChunks} chunks, ${request.fileSize} bytes`);
                     try {
                         const uploadId = `chunk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -3047,7 +3021,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'SEND_AUDIO_CHUNK':
-                    console.log(`[Chunked Upload] SEND_AUDIO_CHUNK received for uploadId: ${request.uploadId}, chunkIndex: ${request.chunkIndex}`);
                     try {
                         const upload = chunkedUploads.get(request.uploadId);
                         if (!upload) {
@@ -3077,19 +3050,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             break;
                         }
 
-                        // Log what we're receiving
-                        console.log(`[Chunked Upload] Receiving chunk ${request.chunkIndex}/${upload.totalChunks - 1}: ${request.chunkData.length} chars, first 20 chars: ${request.chunkData.substring(0, 20)}`);
-
-                        // Check if the chunk data contains 'null'
-                        const nullPos = request.chunkData.indexOf('null');
-                        if (nullPos !== -1) {
-                            console.error(`[Chunked Upload] WARNING: Chunk ${request.chunkIndex} contains 'null' at position ${nullPos}`);
-                            console.error(`[Chunked Upload] Context: ...${request.chunkData.substring(Math.max(0, nullPos - 20), nullPos + 24)}...`);
-                        }
 
                         // Check if this chunk was already received
                         if (upload.chunks[request.chunkIndex] !== null) {
-                            console.warn(`[Chunked Upload] Duplicate chunk ${request.chunkIndex} for ${upload.fileName} - not incrementing count`);
                             // Don't increment receivedChunks for duplicates
                             upload.chunks[request.chunkIndex] = request.chunkData;
                         } else {
@@ -3109,7 +3072,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     try {
                         const upload = chunkedUploads.get(request.uploadId);
                         if (upload) {
-                            console.log(`[Chunked Upload] Cancelling upload ${request.uploadId} for ${upload.fileName}`);
                             chunkedUploads.delete(request.uploadId);
                             sendResponse({ success: true, message: 'Upload cancelled' });
                         } else {
@@ -3122,46 +3084,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'COMPLETE_CHUNKED_AUDIO_UPLOAD':
-                    console.log(`[Chunked Upload] COMPLETE_CHUNKED_AUDIO_UPLOAD for ${request.uploadId}`);
                     try {
                         const upload = chunkedUploads.get(request.uploadId);
                         if (!upload) {
                             console.error(`[Chunked Upload] Invalid upload ID: ${request.uploadId}`);
-                            console.error(`[Chunked Upload] Available upload IDs:`, Array.from(chunkedUploads.keys()));
                             sendResponse({ error: 'Invalid upload ID' });
                             break;
                         }
 
-                        console.log(`[Chunked Upload] Upload status: received ${upload.receivedChunks}/${upload.totalChunks} chunks`);
-                        console.log(`[Chunked Upload] Chunks array status:`, upload.chunks.map((c, i) => {
-                            if (c === null) return `${i}:null`;
-                            if (c === undefined) return `${i}:undefined`;
-                            if (c === 'null') return `${i}:"null"(string)`;
-                            if (typeof c === 'string') return `${i}:string(${c.length} chars)`;
-                            return `${i}:unknown`;
-                        }));
-
                         if (upload.receivedChunks !== upload.totalChunks) {
                             console.error(`[Chunked Upload] Missing chunks for ${upload.fileName}: received ${upload.receivedChunks}/${upload.totalChunks}`);
-
-                            // Log which chunks we have
-                            const receivedIndices = [];
-                            const missingIndices = [];
-                            for (let i = 0; i < upload.totalChunks; i++) {
-                                if (upload.chunks[i] !== null && upload.chunks[i] !== undefined) {
-                                    receivedIndices.push(i);
-                                } else {
-                                    missingIndices.push(i);
-                                }
-                            }
-                            console.error(`[Chunked Upload] Received chunks:`, receivedIndices);
-                            console.error(`[Chunked Upload] Missing chunks:`, missingIndices);
-
                             sendResponse({ error: `Missing chunks: received ${upload.receivedChunks}/${upload.totalChunks}` });
                             break;
                         }
 
-                        // Verify all chunks are present and log their status
+                        // Verify all chunks are present
                         const missingChunks = [];
                         for (let i = 0; i < upload.totalChunks; i++) {
                             if (upload.chunks[i] === undefined || upload.chunks[i] === null) {
@@ -3171,13 +3108,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                         if (missingChunks.length > 0) {
                             console.error(`[Chunked Upload] Missing ${missingChunks.length} chunks for ${upload.fileName}`);
-                            console.error(`[Chunked Upload] Missing chunk indices:`, missingChunks);
-                            console.error(`[Chunked Upload] Received chunks: ${upload.receivedChunks}/${upload.totalChunks}`);
-                            console.error(`[Chunked Upload] Chunks status:`, upload.chunks.map((c, idx) => {
-                                if (c === null) return `${idx}: NULL`;
-                                if (c === undefined) return `${idx}: UNDEFINED`;
-                                return `${idx}: OK (${c.length} chars)`;
-                            }));
                             sendResponse({ error: `Missing chunks: ${missingChunks.join(', ')}` });
                             chunkedUploads.delete(request.uploadId);
                             return;
@@ -3195,85 +3125,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                         if (validChunks.length !== upload.totalChunks) {
                             console.error(`[Chunked Upload] Chunk count mismatch for ${upload.fileName}: expected ${upload.totalChunks}, got ${validChunks.length}`);
-                            console.error(`[Chunked Upload] Invalid chunks:`, upload.chunks.map((c, i) => {
-                                if (c === null) return `${i}: null`;
-                                if (c === undefined) return `${i}: undefined`;
-                                if (c === 'null') return `${i}: "null" (string)`;
-                                if (c === 'undefined') return `${i}: "undefined" (string)`;
-                                if (c === '') return `${i}: empty string`;
-                                return null;
-                            }).filter(x => x !== null));
                             sendResponse({ error: `Chunk count mismatch: expected ${upload.totalChunks}, got ${validChunks.length} valid chunks` });
                             chunkedUploads.delete(request.uploadId);
                             return;
                         }
 
-                        // Use validChunks instead of upload.chunks to avoid null values becoming "null" strings
-                        console.log(`[Chunked Upload] Joining ${validChunks.length} valid chunks for ${upload.fileName}`);
-
-                        // Debug: Check each chunk before joining
-                        for (let i = 0; i < validChunks.length; i++) {
-                            if (validChunks[i] === 'null' || validChunks[i].includes('null')) {
-                                console.error(`[Chunked Upload] Chunk ${i} contains 'null': first 50 chars: ${validChunks[i].substring(0, 50)}`);
-                            }
-                        }
-
                         const fullBase64 = validChunks.join('');
-
-                        // Final check for null in the joined string
-                        const nullIndex = fullBase64.indexOf('null');
-                        if (nullIndex !== -1) {
-                            console.error(`[Chunked Upload] Found 'null' at position ${nullIndex} in joined base64`);
-                            console.error(`[Chunked Upload] Context around null: ...${fullBase64.substring(Math.max(0, nullIndex - 20), nullIndex + 24)}...`);
-
-                            // Find which chunks border this position
-                            let currentPos = 0;
-                            for (let i = 0; i < validChunks.length; i++) {
-                                const chunkLen = validChunks[i].length;
-                                if (nullIndex >= currentPos && nullIndex < currentPos + chunkLen) {
-                                    console.error(`[Chunked Upload] 'null' found in chunk ${i} at position ${nullIndex - currentPos}`);
-                                    console.error(`[Chunked Upload] Chunk ${i} last 50 chars: ${validChunks[i].substring(validChunks[i].length - 50)}`);
-                                    if (i > 0) {
-                                        console.error(`[Chunked Upload] Previous chunk ${i-1} last 50 chars: ${validChunks[i-1].substring(validChunks[i-1].length - 50)}`);
-                                    }
-                                    if (i < validChunks.length - 1) {
-                                        console.error(`[Chunked Upload] Next chunk ${i+1} first 50 chars: ${validChunks[i+1].substring(0, 50)}`);
-                                    }
-                                    break;
-                                }
-                                currentPos += chunkLen;
-                            }
-                        }
 
                         let binaryString;
                         try {
                             binaryString = atob(fullBase64);
                         } catch (decodeError) {
-                            console.error(`[Chunked Upload] Base64 decode error for ${upload.fileName}:`, decodeError.toString());
-                            console.error(`[Chunked Upload] Error message:`, decodeError.message);
-                            console.error(`[Chunked Upload] First 100 chars of base64:`, fullBase64.substring(0, 100));
-                            console.error(`[Chunked Upload] Last 100 chars of base64:`, fullBase64.substring(fullBase64.length - 100));
-
-                            // Check for common issues
-                            const hasDataUrl = fullBase64.includes('data:');
-                            const hasWhitespace = /\s/.test(fullBase64);
-                            const hasInvalidChars = /[^A-Za-z0-9+/=]/.test(fullBase64);
-                            console.error(`[Chunked Upload] Has data URL prefix: ${hasDataUrl}, Has whitespace: ${hasWhitespace}, Has invalid chars: ${hasInvalidChars}`);
-
-                            // Check for null in the joined string
-                            if (fullBase64.includes('null')) {
-                                console.error(`[Chunked Upload] WARNING: Base64 string contains 'null' - chunks may not have been properly received`);
-                                const nullIndices = [];
-                                for (let i = 0; i < upload.chunks.length; i++) {
-                                    if (upload.chunks[i] === null) {
-                                        nullIndices.push(i);
-                                    }
-                                }
-                                if (nullIndices.length > 0) {
-                                    console.error(`[Chunked Upload] Null chunks at indices:`, nullIndices);
-                                }
-                            }
-
+                            console.error(`[Chunked Upload] Base64 decode error for ${upload.fileName}:`, decodeError.message);
                             sendResponse({ error: `Failed to decode base64: ${decodeError.message || decodeError.toString()}` });
                             chunkedUploads.delete(request.uploadId);
                             return;
