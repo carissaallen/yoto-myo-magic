@@ -3044,7 +3044,7 @@ async function createVisualTimer() {
       iconDataUrls.push(iconDataUrl);
     }
 
-    const BATCH_SIZE = 8;
+    const BATCH_SIZE = 20;
     const uploadedIcons = [];
 
     for (let batchStart = 0; batchStart < numSegments; batchStart += BATCH_SIZE) {
@@ -3115,7 +3115,7 @@ async function createVisualTimer() {
       });
     }
 
-    const TRACK_BATCH_SIZE = 6;
+    const TRACK_BATCH_SIZE = 12;
     const uploadedTracks = [];
 
     statusDiv.textContent = chrome.i18n.getMessage('status_uploadingTracksPercent', ['0']);
@@ -3468,17 +3468,31 @@ function readFileAsBase64(file) {
 
 async function extractZipContents(zip) {
   const files = {};
-  const zipEntries = Object.keys(zip.files);
 
-  for (const entryName of zipEntries) {
-    const zipEntry = zip.files[entryName];
-    if (!zipEntry.dir) {
+  // Filter non-directory entries
+  const validEntries = Object.entries(zip.files).filter(([name, entry]) => !entry.dir);
+
+  // Process files in parallel batches
+  const FILE_BATCH_SIZE = 8; // Increased from 5 to 8 for faster file extraction
+  for (let batchStart = 0; batchStart < validEntries.length; batchStart += FILE_BATCH_SIZE) {
+    const batch = validEntries.slice(batchStart, Math.min(batchStart + FILE_BATCH_SIZE, validEntries.length));
+
+    const batchPromises = batch.map(async ([entryName, zipEntry]) => {
       try {
         const content = await zipEntry.async('base64');
-        files[entryName] = content;
+        return { entryName, content };
       } catch (error) {
+        console.error(`Error extracting ${entryName}:`, error);
+        return null;
       }
-    }
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    batchResults.forEach(result => {
+      if (result) {
+        files[result.entryName] = result.content;
+      }
+    });
   }
 
   return files;
@@ -5043,44 +5057,68 @@ async function processZipFile(file) {
     const allAudioFiles = [];
     const allImageFiles = [];
     const filesByPath = {};
-    
-    for (const [path, zipEntry] of Object.entries(contents.files)) {
-      if (zipEntry.dir) continue;
-      
+
+    // Filter valid entries first
+    const validEntries = Object.entries(contents.files).filter(([path, zipEntry]) => {
+      if (zipEntry.dir) return false;
+
       // Skip Mac metadata files
       if (path.includes('__MACOSX/') || path.includes('._')) {
-        continue;
+        return false;
       }
-      
+
       const fileName = path.split('/').pop();
       const ext = fileName.split('.').pop().toLowerCase();
-      
+
       // Skip non-media files (.txt, .DS_Store, etc.)
       if (!audioExtensions.includes(ext) && !imageExtensions.includes(ext)) {
-        continue;
+        return false;
       }
-      
+
       filesByPath[path] = zipEntry;
-      
-      // Collect audio files
-      if (audioExtensions.includes(ext)) {
-        const blob = await zipEntry.async('blob');
-        const fileSize = blob.size;
-        const file = new File([blob], fileName, { type: `audio/${ext}` });
-        file.webkitRelativePath = path;
-        file.fileSize = fileSize;
-        allAudioFiles.push(file);
-      }
-      
-      // Collect image files
-      if (imageExtensions.includes(ext)) {
-        const blob = await zipEntry.async('blob');
-        const fileSize = blob.size;
-        const file = new File([blob], fileName, { type: `image/${ext}` });
-        file.webkitRelativePath = path;
-        file.fileSize = fileSize;
-        allImageFiles.push(file);
-      }
+      return true;
+    });
+
+    // Process files in parallel batches
+    const FILE_BATCH_SIZE = 8; // Increased from 5 to 8 for faster file extraction
+    for (let batchStart = 0; batchStart < validEntries.length; batchStart += FILE_BATCH_SIZE) {
+      const batch = validEntries.slice(batchStart, Math.min(batchStart + FILE_BATCH_SIZE, validEntries.length));
+
+      const batchPromises = batch.map(async ([path, zipEntry]) => {
+        const fileName = path.split('/').pop();
+        const ext = fileName.split('.').pop().toLowerCase();
+
+        try {
+          const blob = await zipEntry.async('blob');
+          const fileSize = blob.size;
+
+          if (audioExtensions.includes(ext)) {
+            const file = new File([blob], fileName, { type: `audio/${ext}` });
+            file.webkitRelativePath = path;
+            file.fileSize = fileSize;
+            return { type: 'audio', file };
+          } else if (imageExtensions.includes(ext)) {
+            const file = new File([blob], fileName, { type: `image/${ext}` });
+            file.webkitRelativePath = path;
+            file.fileSize = fileSize;
+            return { type: 'image', file };
+          }
+        } catch (err) {
+          console.error(`Error processing ${path}:`, err);
+          return null;
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(result => {
+        if (result) {
+          if (result.type === 'audio') {
+            allAudioFiles.push(result.file);
+          } else if (result.type === 'image') {
+            allImageFiles.push(result.file);
+          }
+        }
+      });
     }
     
     let audioFiles = [];
@@ -5362,45 +5400,58 @@ async function processBulkZipFile(file, importMode = 'separate') {
       }
     }
     
-    
+
     if (nestedZips.length > 0) {
       statusElement.textContent = chrome.i18n.getMessage('status_extractingPlaylists');
       detailsElement.textContent = `Found ${nestedZips.length} playlist${nestedZips.length > 1 ? 's' : ''}`;
     }
-    
+
     const failedZips = [];
-    for (let i = 0; i < nestedZips.length; i++) {
-      const { path, zipEntry } = nestedZips[i];
-      
+
+    // Process nested ZIPs in parallel batches
+    const ZIP_BATCH_SIZE = 5; // Increased from 3 to 5 for faster parallel processing
+    for (let batchStart = 0; batchStart < nestedZips.length; batchStart += ZIP_BATCH_SIZE) {
+      const batch = nestedZips.slice(batchStart, Math.min(batchStart + ZIP_BATCH_SIZE, nestedZips.length));
+
       if (statusElement) {
-        statusElement.textContent = chrome.i18n.getMessage('status_extractingPlaylist', [(i + 1).toString(), nestedZips.length.toString()]);
-        const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
-        detailsElement.textContent = playlistName;
+        const currentBatch = Math.floor(batchStart / ZIP_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(nestedZips.length / ZIP_BATCH_SIZE);
+        statusElement.textContent = `Extracting playlists (batch ${currentBatch}/${totalBatches})`;
+        detailsElement.textContent = `Processing ${batch.length} ZIP${batch.length > 1 ? 's' : ''} in parallel`;
       }
-      
-      try {
-        const nestedZipBlob = await zipEntry.async('blob');
-        
-        const nestedZip = new JSZip();
-        const nestedContents = await nestedZip.loadAsync(nestedZipBlob);
 
-        const nestedFileCount = Object.keys(nestedContents.files).length;
+      const batchPromises = batch.map(async ({ path, zipEntry }) => {
+        try {
+          const nestedZipBlob = await zipEntry.async('blob');
 
-        const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
-        
-        const playlist = await extractPlaylistFromZip(nestedContents, playlistName);
-        
-        if (playlist && playlist.audioFiles.length > 0) {
-          playlists.push(playlist);
-        } else {
-          // Log detailed info about what was in the ZIP to help diagnose issues
-          const fileList = Object.keys(nestedContents.files).filter(f => !nestedContents.files[f].dir);
-          failedZips.push({ name: playlistName, reason: 'No audio files found' });
+          const nestedZip = new JSZip();
+          const nestedContents = await nestedZip.loadAsync(nestedZipBlob);
+
+          const nestedFileCount = Object.keys(nestedContents.files).length;
+
+          const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
+
+          const playlist = await extractPlaylistFromZip(nestedContents, playlistName);
+
+          if (playlist && playlist.audioFiles.length > 0) {
+            return playlist;
+          } else {
+            // Log detailed info about what was in the ZIP to help diagnose issues
+            const fileList = Object.keys(nestedContents.files).filter(f => !nestedContents.files[f].dir);
+            failedZips.push({ name: playlistName, reason: 'No audio files found' });
+            return null;
+          }
+        } catch (error) {
+          const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
+          failedZips.push({ name: playlistName, reason: error.message || 'Failed to extract' });
+          return null;
         }
-      } catch (error) {
-        const playlistName = path.replace(/\.zip$/i, '').split('/').pop();
-        failedZips.push({ name: playlistName, reason: error.message || 'Failed to extract' });
-      }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(playlist => {
+        if (playlist) playlists.push(playlist);
+      });
     }
     
     if (failedZips.length > 0) {
@@ -5420,18 +5471,29 @@ async function processBulkZipFile(file, importMode = 'separate') {
       statusElement.textContent = chrome.i18n.getMessage('status_processingFolders');
       detailsElement.textContent = `Found ${folders.size} folder${folders.size > 1 ? 's' : ''}`;
     }
-    
-    let folderIndex = 0;
-    for (const [folderName, files] of folders) {
-      folderIndex++;
+
+    // Process folders in parallel batches
+    const FOLDER_BATCH_SIZE = 5; // Increased from 3 to 5 for faster parallel processing
+    const folderEntries = Array.from(folders.entries());
+    for (let batchStart = 0; batchStart < folderEntries.length; batchStart += FOLDER_BATCH_SIZE) {
+      const batch = folderEntries.slice(batchStart, Math.min(batchStart + FOLDER_BATCH_SIZE, folderEntries.length));
+
       if (statusElement) {
-        statusElement.textContent = chrome.i18n.getMessage('status_processingFolder', [folderIndex.toString(), folders.size.toString()]);
-        detailsElement.textContent = folderName;
+        const currentBatch = Math.floor(batchStart / FOLDER_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(folderEntries.length / FOLDER_BATCH_SIZE);
+        statusElement.textContent = `Processing folders (batch ${currentBatch}/${totalBatches})`;
+        detailsElement.textContent = `Processing ${batch.length} folder${batch.length > 1 ? 's' : ''} in parallel`;
       }
-      const playlist = await extractPlaylistFromFiles(files, folderName, contents);
-      if (playlist && playlist.audioFiles.length > 0) {
-        playlists.push(playlist);
-      }
+
+      const batchPromises = batch.map(async ([folderName, files]) => {
+        const playlist = await extractPlaylistFromFiles(files, folderName, contents);
+        return playlist && playlist.audioFiles.length > 0 ? playlist : null;
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(playlist => {
+        if (playlist) playlists.push(playlist);
+      });
     }
     
     // For bulk import, only create a single playlist if:
@@ -5541,11 +5603,22 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
       }
     }
     
-    for (const [folderName, folderFiles] of folderMap) {
-      const playlist = await extractPlaylistFromFolderFiles(folderFiles, folderName);
-      if (playlist && playlist.audioFiles.length > 0) {
-        playlists.push(playlist);
-      }
+    // Process folders in parallel batches
+    const FOLDER_BATCH_SIZE = 5; // Increased from 3 to 5 for faster parallel processing
+    const folderEntries = Array.from(folderMap.entries());
+
+    for (let batchStart = 0; batchStart < folderEntries.length; batchStart += FOLDER_BATCH_SIZE) {
+      const batch = folderEntries.slice(batchStart, Math.min(batchStart + FOLDER_BATCH_SIZE, folderEntries.length));
+
+      const batchPromises = batch.map(async ([folderName, folderFiles]) => {
+        const playlist = await extractPlaylistFromFolderFiles(folderFiles, folderName);
+        return playlist && playlist.audioFiles.length > 0 ? playlist : null;
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(playlist => {
+        if (playlist) playlists.push(playlist);
+      });
     }
     
     if (playlists.length === 0) {
@@ -5660,50 +5733,69 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
   let skippedFiles = 0;
   let totalFiles = 0;
   
-  // Extract all files first
-  for (const [path, zipEntry] of Object.entries(zipContents.files)) {
-    if (zipEntry.dir) {
-      continue;
-    }
-    
+  // Extract all files in parallel batches
+  const entries = Object.entries(zipContents.files).filter(([path, zipEntry]) => {
+    if (zipEntry.dir) return false;
     totalFiles++;
-    
+
     // Skip Mac metadata files
     if (path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
       skippedFiles++;
-      continue;
+      return false;
     }
-    
+
     const fileName = path.split('/').pop();
     const ext = fileName.split('.').pop().toLowerCase();
-    
+
     // Skip non-media files
     if (!audioExtensions.includes(ext) && !imageExtensions.includes(ext)) {
       skippedFiles++;
-      continue;
+      return false;
     }
-    
-    if (audioExtensions.includes(ext)) {
+
+    return true;
+  });
+
+  // Process files in parallel batches
+  const FILE_BATCH_SIZE = 8; // Increased from 5 to 8 for faster file extraction
+  for (let batchStart = 0; batchStart < entries.length; batchStart += FILE_BATCH_SIZE) {
+    const batch = entries.slice(batchStart, Math.min(batchStart + FILE_BATCH_SIZE, entries.length));
+
+    const batchPromises = batch.map(async ([path, zipEntry]) => {
+      const fileName = path.split('/').pop();
+      const ext = fileName.split('.').pop().toLowerCase();
+
       try {
         const blob = await zipEntry.async('blob');
-        const file = new File([blob], fileName, { type: `audio/${ext}` });
-        file.webkitRelativePath = path;
-        file.fileSize = blob.size;
-        file.size = blob.size; // Ensure both size properties are set
-        allAudioFiles.push(file);
+
+        if (audioExtensions.includes(ext)) {
+          const file = new File([blob], fileName, { type: `audio/${ext}` });
+          file.webkitRelativePath = path;
+          file.fileSize = blob.size;
+          file.size = blob.size; // Ensure both size properties are set
+          return { type: 'audio', file };
+        } else if (imageExtensions.includes(ext)) {
+          const file = new File([blob], fileName, { type: `image/${ext}` });
+          file.webkitRelativePath = path;
+          file.fileSize = blob.size;
+          file.size = blob.size; // Ensure both size properties are set
+          return { type: 'image', file };
+        }
       } catch (err) {
+        return null;
       }
-    } else if (imageExtensions.includes(ext)) {
-      try {
-        const blob = await zipEntry.async('blob');
-        const file = new File([blob], fileName, { type: `image/${ext}` });
-        file.webkitRelativePath = path;
-        file.fileSize = blob.size;
-        file.size = blob.size; // Ensure both size properties are set
-        allImageFiles.push(file);
-      } catch (err) {
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    batchResults.forEach(result => {
+      if (result) {
+        if (result.type === 'audio') {
+          allAudioFiles.push(result.file);
+        } else if (result.type === 'image') {
+          allImageFiles.push(result.file);
+        }
       }
-    }
+    });
   }
   
   // Smart audio folder detection (same as processZipFile)
@@ -5755,24 +5847,42 @@ async function extractPlaylistFromFiles(files, playlistName, zipContents) {
   
   const audioFiles = [];
   const imageFiles = [];
-  
-  for (const { path, zipEntry } of files) {
-    const fileName = path.split('/').pop();
-    const ext = fileName.split('.').pop().toLowerCase();
-    
-    if (audioExtensions.includes(ext)) {
-      const blob = await zipEntry.async('blob');
-      const file = new File([blob], fileName, { type: `audio/${ext}` });
-      file.webkitRelativePath = path;
-      file.fileSize = blob.size;
-      audioFiles.push(file);
-    } else if (imageExtensions.includes(ext)) {
-      const blob = await zipEntry.async('blob');
-      const file = new File([blob], fileName, { type: `image/${ext}` });
-      file.webkitRelativePath = path;
-      file.fileSize = blob.size;
-      imageFiles.push(file);
-    }
+
+  // Process files in parallel batches
+  const FILE_BATCH_SIZE = 8; // Increased from 5 to 8 for faster file extraction
+  for (let batchStart = 0; batchStart < files.length; batchStart += FILE_BATCH_SIZE) {
+    const batch = files.slice(batchStart, Math.min(batchStart + FILE_BATCH_SIZE, files.length));
+
+    const batchPromises = batch.map(async ({ path, zipEntry }) => {
+      const fileName = path.split('/').pop();
+      const ext = fileName.split('.').pop().toLowerCase();
+
+      if (audioExtensions.includes(ext)) {
+        const blob = await zipEntry.async('blob');
+        const file = new File([blob], fileName, { type: `audio/${ext}` });
+        file.webkitRelativePath = path;
+        file.fileSize = blob.size;
+        return { type: 'audio', file };
+      } else if (imageExtensions.includes(ext)) {
+        const blob = await zipEntry.async('blob');
+        const file = new File([blob], fileName, { type: `image/${ext}` });
+        file.webkitRelativePath = path;
+        file.fileSize = blob.size;
+        return { type: 'image', file };
+      }
+      return null;
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    batchResults.forEach(result => {
+      if (result) {
+        if (result.type === 'audio') {
+          audioFiles.push(result.file);
+        } else if (result.type === 'image') {
+          imageFiles.push(result.file);
+        }
+      }
+    });
   }
   
   audioFiles.sort((a, b) => {
@@ -6119,21 +6229,47 @@ async function uploadInChunks(items, uploadFn, chunkSize = 8, onProgress) {
 }
 
 async function uploadWithRetry(uploadFn, maxRetries = 3, retryDelay = 1000, timeoutMs = 60000) {
+  let rateLimitRetries = 0;
+  const maxRateLimitRetries = 3;
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      
+
       // Increased timeout to 60 seconds by default, can be overridden
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error(`Upload timeout after ${timeoutMs/1000} seconds`)), timeoutMs)
       );
-      
+
       const result = await Promise.race([uploadFn(), timeoutPromise]);
       return { status: 'fulfilled', value: result };
     } catch (error) {
+      // Check if it's a rate limit error (from our background service)
+      const errorMsg = error?.message || error?.error || '';
+      const isRateLimited = errorMsg.includes('Rate limited') ||
+                           errorMsg.includes('rate_limited') ||
+                           errorMsg.includes('429') ||
+                           errorMsg.includes('Too many requests');
+
+      if (isRateLimited) {
+        rateLimitRetries++;
+        if (rateLimitRetries > maxRateLimitRetries) {
+          console.error('[Upload] Max rate limit retries exceeded');
+          return { status: 'rejected', reason: new Error('Too many requests. Please wait a moment and try again.') };
+        }
+
+        console.warn(`[Upload] Rate limited (retry ${rateLimitRetries}/${maxRateLimitRetries}):`, errorMsg);
+        // For rate limiting, use a longer delay with exponential backoff
+        const rateLimitDelay = Math.min(5000 * Math.pow(2, rateLimitRetries - 1), 30000); // 5s, 10s, 20s, max 30s
+        await new Promise(resolve => setTimeout(resolve, rateLimitDelay));
+        // Don't count rate limit retries against normal attempt counter
+        attempt--;
+        continue;
+      }
+
       if (attempt === maxRetries - 1) {
         return { status: 'rejected', reason: error };
       }
-      // Exponential backoff
+      // Exponential backoff for other errors
       const delay = retryDelay * Math.pow(2, attempt);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
@@ -6664,7 +6800,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
 
     // Only upload audio files if we have any
     if (audioFiles.length > 0) {
-      statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFiles');
+      statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFilesPercent', ['0']);
       progressBar.style.width = '30%';
       percentageText.textContent = '30%';
 
@@ -6695,7 +6831,8 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
           const progressPercent = 30 + (completed / total) * 40;
           progressBar.style.width = `${progressPercent}%`;
           percentageText.textContent = `${Math.round(progressPercent)}%`;
-          statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFiles', [completed.toString(), total.toString()]);
+          const uploadPercent = Math.round((completed / total) * 100);
+          statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFilesPercent', [uploadPercent.toString()]);
         }
       );
 
@@ -6868,7 +7005,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
 }
 
 function checkAudioFileSizes(audioFiles) {
-  const MAX_FILE_SIZE = 40 * 1024 * 1024; // 40MB limit
+  const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB limit (effectively unlimited)
   const largeFiles = [];
 
   audioFiles.forEach((file, index) => {
@@ -6946,7 +7083,7 @@ async function showLargeFilesWarningModal(largeFiles, totalFiles, playlistName) 
         <div>
           <h2 style="margin: 0 0 4px 0; color: #111827; font-size: 20px;">Large Files Detected</h2>
           <p style="margin: 0; color: #6b7280; font-size: 14px;">
-            ${largeFiles.length} of ${totalFiles} files exceed the 40MB limit
+            ${largeFiles.length} of ${totalFiles} files exceed the 2GB limit
           </p>
         </div>
       </div>
@@ -6984,7 +7121,7 @@ async function showLargeFilesWarningModal(largeFiles, totalFiles, playlistName) 
         <div style="color: #374151; font-size: 14px; line-height: 1.6;">
           <ol style="margin: 8px 0 0 0; padding-left: 20px;">
             <li>Upload them directly through Yoto; or</li>
-            <li>Compress the file(s) to a size under 40MB</li>
+            <li>Compress the file(s) to a smaller size</li>
           </ol>
         </div>
 
@@ -7136,7 +7273,14 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   addLogEntry(`Starting bulk import of ${totalPlaylists} playlist${totalPlaylists > 1 ? 's' : ''}...`);
   console.log(`[Bulk Import] Starting import of ${totalPlaylists} playlists:`, playlists.map(p => p.name));
 
-  const CONCURRENT_PLAYLISTS = 3;
+  const bulkImportStartTime = Date.now();
+  const CONCURRENT_PLAYLISTS = 10;
+
+  window.bulkImportActive = true;
+
+  if (totalPlaylists > 10) {
+    console.warn(`⚠️ Large bulk import detected (${totalPlaylists} playlists). Processing in batches of ${CONCURRENT_PLAYLISTS} to maintain stability.`);
+  }
 
   for (let batchStart = 0; batchStart < playlists.length; batchStart += CONCURRENT_PLAYLISTS) {
     if (isCancelled) {
@@ -7145,11 +7289,29 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
     }
 
     const batch = playlists.slice(batchStart, Math.min(batchStart + CONCURRENT_PLAYLISTS, playlists.length));
-    console.log(`[Bulk Import] Processing batch ${Math.floor(batchStart / CONCURRENT_PLAYLISTS) + 1}: ${batch.length} playlists`);
+    const currentBatch = Math.floor(batchStart / CONCURRENT_PLAYLISTS) + 1;
+    const totalBatches = Math.ceil(playlists.length / CONCURRENT_PLAYLISTS);
+    console.log(`[Bulk Import] Processing batch ${currentBatch}/${totalBatches}: ${batch.length} playlists`);
+
+    const remainingPlaylists = playlists.length - batchStart;
+    const processingRate = completedPlaylists / ((Date.now() - bulkImportStartTime) / 1000) || 0;
+
+    chrome.runtime.sendMessage({
+      action: 'TRACK_ANALYTICS',
+      eventName: 'queue_status',
+      data: {
+        queueType: 'bulk_import_playlists',
+        currentLength: remainingPlaylists,
+        maxLength: playlists.length,
+        processingRate: processingRate
+      }
+    });
 
     if (batch.length > 1) {
       const playlistNames = batch.map(p => `"${p.name}"`).join(', ');
-      addLogEntry(`Processing ${batch.length} playlists in parallel: ${playlistNames}`);
+      addLogEntry(`Processing batch ${currentBatch}/${totalBatches}: ${batch.length} playlists in parallel`);
+    } else if (totalBatches > 1) {
+      addLogEntry(`Processing batch ${currentBatch}/${totalBatches}: "${batch[0].name}"`);
     }
 
     const batchPromises = batch.map((playlist, batchIndex) => {
@@ -7161,6 +7323,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
         }
 
         try {
+          const playlistStartTime = Date.now();
           const result = await importSinglePlaylist(
             playlist.audioFiles,
             playlist.trackIcons,
@@ -7168,20 +7331,24 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
             playlist.name,
             (progress, status) => {
               if (isFirstInBatch) {
-                currentProgressBar.style.width = `${progress}%`;
+                const overallProgress = ((completedPlaylists / totalPlaylists) * 100) + (progress / totalPlaylists);
+                currentProgressBar.style.width = `${Math.min(overallProgress, 99)}%`;
                 if (status) {
-                  const batchInfo = batch.length > 1 ? ` (+ ${batch.length - 1} other${batch.length > 2 ? 's' : ''})` : '';
+                  const batchInfo = totalBatches > 1 ? ` (Batch ${currentBatch}/${totalBatches})` : '';
                   currentStatus.textContent = `${playlist.name}${batchInfo}: ${status}`;
                 }
               }
             }
           );
 
+          const playlistDuration = (Date.now() - playlistStartTime) / 1000;
+          console.log(`[Bulk Import] Successfully imported playlist: "${playlist.name}" in ${playlistDuration.toFixed(2)}s`);
+
           if (result.droppedFiles && result.droppedFiles.length > 0) {
             hasDroppedFiles = true;
           }
 
-          return { success: true, playlist, result };
+          return { success: true, playlist, result, duration: playlistDuration };
         } catch (error) {
           return { success: false, playlist, error };
         }
@@ -7202,7 +7369,8 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
 
         if (result.success) {
           successfulImports++;
-          addLogEntry(`✓ Successfully imported "${result.playlist.name}"`, 'success');
+          const durationText = result.duration ? ` (${result.duration.toFixed(2)}s)` : '';
+          addLogEntry(`✓ Successfully imported "${result.playlist.name}"${durationText}`, 'success');
           console.log(`[Bulk Import] Success: "${result.playlist.name}"`, result);
         } else {
           failedImports++;
@@ -7241,6 +7409,15 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
     if (shouldBreak) {
       break;
     }
+
+    // Update status after batch completes
+    if (currentBatch < totalBatches) {
+      const nextBatchStart = batchStart + CONCURRENT_PLAYLISTS;
+      const remainingCount = playlists.length - nextBatchStart;
+      currentStatus.textContent = `Preparing next batch (${remainingCount} playlist${remainingCount !== 1 ? 's' : ''} remaining)...`;
+      currentProgressBar.style.width = `${(completedPlaylists / totalPlaylists * 100)}%`;
+      addLogEntry(`Batch ${currentBatch} complete. ${remainingCount} playlist${remainingCount !== 1 ? 's' : ''} remaining.`, 'info');
+    }
   }
 
   if (isCancelled) {
@@ -7268,9 +7445,27 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
     }
   }
 
+  const totalDuration = Date.now() - bulkImportStartTime;
+  const totalSeconds = totalDuration / 1000;
+  const avgTimePerPlaylist = successfulImports > 0 ? (totalDuration / successfulImports / 1000).toFixed(2) : 0;
+
+  console.log(`%c🎯 BULK IMPORT PERFORMANCE REPORT`, 'color: #10b981; font-weight: bold; font-size: 16px');
+  console.log(`%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'color: #10b981');
+  console.log(`%c📊 Summary:`, 'color: #3b82f6; font-weight: bold');
+  console.log(`   Total Time: ${totalSeconds.toFixed(2)} seconds (${(totalSeconds/60).toFixed(2)} minutes)`);
+  console.log(`   Playlists Processed: ${totalPlaylists}`);
+  console.log(`   Successful: ${successfulImports}`);
+  console.log(`   Failed: ${failedImports}`);
+  console.log(`%c⚡ Performance:`, 'color: #8b5cf6; font-weight: bold');
+  console.log(`   Average Time per Playlist: ${avgTimePerPlaylist}s`);
+  console.log(`   Parallel Batch Size: ${CONCURRENT_PLAYLISTS} playlists`);
+  console.log(`   Processing Rate: ${(successfulImports / totalSeconds * 60).toFixed(2)} playlists/minute`);
+  console.log(`%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'color: #10b981');
+
   console.log(`[Bulk Import] Summary: ${successfulImports} successful, ${failedImports} failed, cancelled: ${isCancelled}, hasDroppedFiles: ${hasDroppedFiles}`);
-  
-  // Track bulk import analytics (wrapped in try-catch)
+
+  window.bulkImportActive = false;
+
   try {
     if (chrome.runtime?.id) {
       chrome.runtime.sendMessage({
@@ -7282,6 +7477,18 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
           value: successfulImports,
           totalAttempted: totalPlaylists,
           failed: failedImports
+        }
+      });
+
+      chrome.runtime.sendMessage({
+        action: 'TRACK_ANALYTICS',
+        eventName: 'batch_metrics',
+        data: {
+          batchType: 'bulk_import',
+          queueLength: totalPlaylists,
+          processedCount: completedPlaylists,
+          failureCount: failedImports,
+          totalDuration: totalDuration
         }
       });
     }
@@ -7352,8 +7559,8 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
 }
 
 async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlistName, progressCallback) {
-  
-  
+
+
   if (!chrome.runtime?.id) {
     throw new Error('Extension context lost. Please refresh the page and try again.');
   }
@@ -7361,36 +7568,34 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   if (audioFiles.length === 0) {
     throw new Error('No audio files to upload');
   }
-  
+
   const totalSize = audioFiles.reduce((sum, f) => sum + (f.size || f.fileSize || 0), 0);
   const avgFileSize = totalSize / audioFiles.length;
-  const totalSizeMB = totalSize / (1024 * 1024);
-  
-  
-  let parallelCount = 1;
-  let delayBetweenBatches = 0;
+
+  let parallelCount;
+  let delayBetweenBatches;
 
   if (avgFileSize < 5 * 1024 * 1024) {
     if (audioFiles.length <= 10) {
-      parallelCount = 6;
+      parallelCount = 10;  // Increased from 8
       delayBetweenBatches = 0;
     } else {
-      parallelCount = 5;
-      delayBetweenBatches = 50;
+      parallelCount = 8;   // Increased from 6
+      delayBetweenBatches = 0;
     }
   } else if (avgFileSize < 15 * 1024 * 1024) {
-    parallelCount = 3;
-    delayBetweenBatches = 100;
+    parallelCount = 6;     // Increased from 5
+    delayBetweenBatches = 25;  // Reduced from 50
   } else {
-    parallelCount = 2;
-    delayBetweenBatches = 200;
+    parallelCount = 5;     // Increased from 4
+    delayBetweenBatches = 50;  // Reduced from 100
   }
-  
-  
-  progressCallback(10, chrome.i18n.getMessage('status_uploadingAudioFiles'));
-  
+
+  console.log(`[Upload Strategy] "${playlistName}": ${audioFiles.length} files, avg size: ${(avgFileSize/1024/1024).toFixed(2)}MB, parallel: ${parallelCount}, delay: ${delayBetweenBatches}ms`);
+
+  progressCallback(10, chrome.i18n.getMessage('status_uploadingAudioFilesPercent', ['0']));
+
   const uploadedTracks = [];
-  const audioResults = [];
   
   for (let batchStart = 0; batchStart < audioFiles.length; batchStart += parallelCount) {
     const batch = audioFiles.slice(batchStart, Math.min(batchStart + parallelCount, audioFiles.length));
@@ -7400,7 +7605,8 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
       const file = batch[i];
       const globalIndex = batchStart + i;
       const progress = 10 + (globalIndex / audioFiles.length) * 30; // Progress from 10% to 40%
-      progressCallback(Math.round(progress), chrome.i18n.getMessage('status_uploadingAudioFile', [(globalIndex + 1).toString(), audioFiles.length.toString()]));
+      const uploadPercent = Math.round((globalIndex / audioFiles.length) * 100);
+      progressCallback(Math.round(progress), chrome.i18n.getMessage('status_uploadingAudioFilePercent', [uploadPercent.toString()]));
       
       
       const fileSize = file.size || file.fileSize || 0;
@@ -7411,18 +7617,72 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
           throw new Error('Extension context lost during upload.');
         }
         
-        let base64Data;
-        try {
-          base64Data = await convertFileToBase64(file);
-        } catch (convError) {
-          const fileName = file.name || 'unknown';
-          throw new Error(`Failed to convert ${fileName}: ${convError.message}`);
+        let uploadResult;
+        const fileSize = file.size || file.fileSize || 0;
+        const MAX_SINGLE_FILE = 35 * 1024 * 1024;
+
+        if (fileSize > MAX_SINGLE_FILE) {
+          console.log(`[Chunked Upload] Large file detected: ${file.name} (${(fileSize/1024/1024).toFixed(2)}MB)`);
+
+          const CHUNK_SIZE = 10 * 1024 * 1024;
+          const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+          const startResult = await chrome.runtime.sendMessage({
+            action: 'START_CHUNKED_AUDIO_UPLOAD',
+            fileName: file.name,
+            fileType: file.type || 'audio/mpeg',
+            fileSize: fileSize,
+            totalChunks: totalChunks
+          });
+
+          if (startResult.error) {
+            throw new Error(startResult.error);
+          }
+
+          const uploadId = startResult.uploadId;
+
+          for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, fileSize);
+            const chunk = file.slice(start, end);
+
+            const reader = new FileReader();
+            const chunkBase64 = await new Promise((resolve) => {
+              reader.onload = () => resolve(reader.result.split(',')[1]);
+              reader.readAsDataURL(chunk);
+            });
+
+            const chunkResult = await chrome.runtime.sendMessage({
+              action: 'SEND_AUDIO_CHUNK',
+              uploadId: uploadId,
+              chunkIndex: chunkIndex,
+              chunkData: chunkBase64,
+              isLastChunk: chunkIndex === totalChunks - 1
+            });
+
+            if (chunkResult.error) {
+              throw new Error(`Chunk ${chunkIndex + 1}/${totalChunks} failed: ${chunkResult.error}`);
+            }
+          }
+
+          uploadResult = await chrome.runtime.sendMessage({
+            action: 'COMPLETE_CHUNKED_AUDIO_UPLOAD',
+            uploadId: uploadId
+          });
+
+        } else {
+          let base64Data;
+          try {
+            base64Data = await convertFileToBase64(file);
+          } catch (convError) {
+            const fileName = file.name || 'unknown';
+            throw new Error(`Failed to convert ${fileName}: ${convError.message}`);
+          }
+
+          uploadResult = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_AUDIO',
+            file: base64Data
+          });
         }
-        
-        const uploadResult = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_AUDIO',
-          file: base64Data
-        });
 
         if (!uploadResult) {
           throw new Error('No response from extension. Please refresh and try again.');
@@ -7455,7 +7715,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     const batchResults = await Promise.all(batchPromises);
     
     for (const result of batchResults) {
-      audioResults.push(result);
       if (result.status === 'fulfilled') {
         uploadedTracks[result.value.originalIndex] = result.value;
       } else {
@@ -7495,7 +7754,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   if (hasIcons) {
     const iconUploadPromise = (async () => {
       const isZeroBased = isZeroBasedIconNumbering(trackIcons);
-      const iconParallelCount = Math.min(10, trackIcons.length);
+      const iconParallelCount = Math.min(20, trackIcons.length);
       const iconDelayBetweenBatches = 0;
 
       for (let batchStart = 0; batchStart < trackIcons.length; batchStart += iconParallelCount) {
@@ -7683,11 +7942,9 @@ async function convertFileToBase64(file) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const arrayBuffer = reader.result;
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        bytes.forEach(byte => binary += String.fromCharCode(byte));
-        const base64 = btoa(binary);
+        // Get base64 directly from data URL
+        const dataUrl = reader.result;
+        const base64 = dataUrl.split(',')[1];
 
       let mimeType = file.type;
       const fileName = file.name || '';
@@ -7717,7 +7974,7 @@ async function convertFileToBase64(file) {
     reader.onerror = (error) => {
       reject(error);
     };
-    reader.readAsArrayBuffer(file);
+    reader.readAsDataURL(file);
   });
 }
 
@@ -7951,13 +8208,13 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
           async (audioFile, index) => {
             const base64Data = await fileToBase64(audioFile);
 
-            const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
+            const MAX_MESSAGE_SIZE = 35 * 1024 * 1024 * 1.33; // 35MB file after base64 encoding
             const base64Size = base64Data.data.length;
 
-            if (base64Size > MAX_MESSAGE_SIZE) {
-
-              // For very large files, provide helpful instructions
-              throw new Error(`File "${audioFile.name}" is too large (${(audioFile.size / 1024 / 1024).toFixed(1)}MB). Maximum is 40MB. Please compress it using online-audio-converter.com (select Standard Quality, 64 kbps or 128 kbps) or other audio software.`);
+            if (base64Size > MAX_MESSAGE_SIZE && audioFile.size > 35 * 1024 * 1024) {
+              // File is too large for single upload, but should have been chunked
+              // This shouldn't happen with the new chunking implementation
+              console.warn(`[Upload] Large file detected in update path: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)`);
             }
 
             // Retry logic for chunked uploads
@@ -8065,11 +8322,11 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         const audioPromises = audioFiles.map((audioFile, index) =>
           fileToBase64(audioFile).then(async base64 => {
 
-            const MAX_MESSAGE_SIZE = 55 * 1024 * 1024; // 55MB limit to accommodate 40MB files after base64 encoding
+            const MAX_MESSAGE_SIZE = 35 * 1024 * 1024 * 1.33; // 35MB file after base64 encoding
             const base64Size = base64.data.length;
 
-            if (base64Size > MAX_MESSAGE_SIZE) {
-              throw new Error(`File "${audioFile.name}" is too large (${(audioFile.size / 1024 / 1024).toFixed(1)}MB). Maximum is 40MB. Please compress it using online-audio-converter.com (select Standard Quality, 64 kbps or 128 kbps) or other audio software.`);
+            if (base64Size > MAX_MESSAGE_SIZE && audioFile.size > 35 * 1024 * 1024) {
+              console.warn(`[Upload] Large file detected in single upload path: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB) - should use chunking`);
             }
 
             // Retry logic for upload
@@ -8299,7 +8556,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
               ${failedTracks.map(t => `<li>${t.name} (${(t.size / 1024 / 1024).toFixed(1)}MB)</li>`).join('')}
             </ul>
             <div style="margin-top: 8px; font-size: 12px; color: #92400e;">
-              Compress these files to under 40MB and upload them manually in the Yoto app.
+              These files are extremely large. Consider compressing them or uploading directly in the Yoto app.
             </div>
           </div>
           ` : ''}
@@ -8531,9 +8788,9 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         return;
       }
 
-      const MAX_SIZE = 100 * 1024 * 1024; // 100MB limit
+      const MAX_SIZE = 2 * 1024 * 1024 * 1024; // 2GB limit (matching chunking capability)
       if (file.size > MAX_SIZE) {
-        reject(new Error(`File too large: ${file.name} exceeds 100MB limit`));
+        reject(new Error(`File too large: ${file.name} exceeds 2GB limit`));
         return;
       }
 

@@ -6,6 +6,7 @@ importScripts('../lib/translate.js');
 const CONFIG = ExtensionConfig;
 
 const yotoIconsCache = new Map();
+const chunkedUploads = new Map();
 
 function getRedirectUri() {
     return chrome.identity.getRedirectURL();
@@ -269,6 +270,11 @@ async function exchangeCodeForTokens(code) {
 }
 
 async function makeAuthenticatedRequest(endpoint, options = {}) {
+    // Extract or initialize retry parameters
+    const maxRetries = options.maxRetries ?? 3;
+    const currentRetry = options.currentRetry ?? 0;
+    const baseDelay = options.baseDelay ?? 1000; // Start with 1 second
+
     let tokens = await TokenManager.getTokens();
 
     if (tokens?.access_token) {
@@ -298,12 +304,12 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
         const isFormData = options.body instanceof FormData;
         const isBinary = options.body instanceof ArrayBuffer || options.body instanceof Uint8Array;
         const hasContentType = options.headers && 'Content-Type' in options.headers;
-        
+
         const defaultHeaders = {};
         if (!isFormData && !isBinary && !hasContentType) {
             defaultHeaders['Content-Type'] = 'application/json';
         }
-        
+
         const authHeaders = {
             'Authorization': `Bearer ${tokens.access_token}`,
             ...defaultHeaders,
@@ -324,6 +330,48 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             });
             tokens = await TokenManager.refreshToken();
             return makeAuthenticatedRequest(endpoint, options);
+        }
+
+        // Handle rate limiting with exponential backoff
+        if (response.status === 429) {
+            if (currentRetry >= maxRetries) {
+                console.error(`[API] Max retries (${maxRetries}) exceeded for rate limited request to ${endpoint}`);
+                const retryAfter = response.headers.get('Retry-After');
+                const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : baseDelay * Math.pow(2, currentRetry);
+                throw new Error(`Rate limited: Too many requests. Please wait ${Math.ceil(waitTime / 1000)} seconds before retrying.`);
+            }
+
+            // Check for Retry-After header
+            const retryAfter = response.headers.get('Retry-After');
+            let delay;
+
+            if (retryAfter) {
+                // If server provides Retry-After, use it (convert to milliseconds)
+                delay = parseInt(retryAfter) * 1000;
+                console.log(`[API] Rate limited on ${endpoint}, server says retry after ${retryAfter} seconds`);
+            } else {
+                // Otherwise use exponential backoff: 1s, 2s, 4s, 8s, etc.
+                delay = baseDelay * Math.pow(2, currentRetry);
+                console.log(`[API] Rate limited on ${endpoint}, retrying after ${delay}ms (attempt ${currentRetry + 1}/${maxRetries})`);
+            }
+
+            // Add jitter to prevent thundering herd (random 0-10% additional delay)
+            const jitter = delay * Math.random() * 0.1;
+            delay = Math.min(delay + jitter, 30000); // Cap at 30 seconds
+
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackRateLimitEvent(endpoint, currentRetry + 1, delay);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Retry with incremented counter
+            return makeAuthenticatedRequest(endpoint, {
+                ...options,
+                currentRetry: currentRetry + 1,
+                maxRetries,
+                baseDelay
+            });
         }
 
         if (response.status === 403) {
@@ -1463,6 +1511,9 @@ async function uploadCoverImage(imageFileData) {
 }
 
 async function uploadIcon(iconFileData) {
+    const uploadStartTime = Date.now();
+    const fileSize = iconFileData.data ? iconFileData.data.length * 0.75 : 0;
+
     try {
         const binaryString = atob(iconFileData.data);
         const bytes = new Uint8Array(binaryString.length);
@@ -1485,12 +1536,17 @@ async function uploadIcon(iconFileData) {
         );
         
         if (response.error) {
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, false, response.error);
+            }
             return { error: response.error };
         }
-        
+
         if (response.displayIcon) {
-            // Return the mediaId in yoto:# format for use in tracks
             const mediaId = response.displayIcon.mediaId;
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, true);
+            }
             return {
                 success: true,
                 iconId: mediaId.startsWith('yoto:#') ? mediaId : `yoto:#${mediaId}`,
@@ -1499,19 +1555,33 @@ async function uploadIcon(iconFileData) {
                 isNew: response.displayIcon.new || false
             };
         }
-        
-        return { error: 'No icon data in response' };
+
+        const errorMsg = 'No icon data in response';
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+        }
+        return { error: errorMsg };
     } catch (error) {
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, false, error.message);
+        }
         return { error: error.message };
     }
 }
 
 async function uploadAudioFile(audioFileData) {
-    try {
+    const uploadStartTime = Date.now();
+    const fileSize = audioFileData.blob?.size || 0;
 
+    try {
+        const getUrlStartTime = Date.now();
         const uploadUrlResponse = await makeAuthenticatedRequest('/media/transcode/audio/uploadUrl', {
             method: 'GET'
         });
+
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadLatency('get_upload_url', Date.now() - getUrlStartTime, 'audio');
+        }
 
         if (uploadUrlResponse.needsAuth) {
             return { error: 'Authentication required. Please log in again.' };
@@ -1526,17 +1596,57 @@ async function uploadAudioFile(audioFileData) {
             return { error: 'Failed to get upload URL - invalid response structure' };
         }
 
-        
-        const uploadResponse = await fetch(upload.uploadUrl, {
-            method: 'PUT',
-            body: audioFileData.blob,
-            headers: {
-                'Content-Type': audioFileData.type || 'audio/mpeg'
+        // Upload to S3 with retry logic for rate limiting
+        let uploadAttempts = 0;
+        const maxUploadAttempts = 3;
+        let uploadResponse;
+        const s3UploadStartTime = Date.now();
+
+        while (uploadAttempts < maxUploadAttempts) {
+            uploadResponse = await fetch(upload.uploadUrl, {
+                method: 'PUT',
+                body: audioFileData.blob,
+                headers: {
+                    'Content-Type': audioFileData.type || 'audio/mpeg'
+                }
+            });
+
+            // Handle S3 rate limiting (429 or 503)
+            if (uploadResponse.status === 429 || uploadResponse.status === 503) {
+                uploadAttempts++;
+                const retryAfter = uploadResponse.headers.get('Retry-After');
+                const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, uploadAttempts - 1), 10000);
+
+                if (typeof YotoAnalytics !== 'undefined') {
+                    YotoAnalytics.trackRateLimitEvent('s3_upload', uploadAttempts, delay);
+                }
+
+                if (uploadAttempts >= maxUploadAttempts) {
+                    const errorMsg = `Upload rate limited after ${maxUploadAttempts} attempts. Please wait and try again.`;
+                    if (typeof YotoAnalytics !== 'undefined') {
+                        YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+                    }
+                    return { error: errorMsg };
+                }
+
+                console.log(`[S3 Upload] Rate limited (${uploadResponse.status}), retrying after ${delay}ms (attempt ${uploadAttempts}/${maxUploadAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
             }
-        });
+
+            break; // Success or non-retryable error
+        }
+
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadLatency('s3_upload', Date.now() - s3UploadStartTime, 'audio');
+        }
 
         if (!uploadResponse.ok) {
-            return { error: `Failed to upload audio file: ${uploadResponse.status} ${uploadResponse.statusText}` };
+            const errorMsg = `Failed to upload audio file: ${uploadResponse.status} ${uploadResponse.statusText}`;
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+            }
+            return { error: errorMsg };
         }
 
         
@@ -1572,15 +1682,26 @@ async function uploadAudioFile(audioFileData) {
         }
 
         if (!transcodedAudio) {
-            return { error: `Transcoding timed out after ${maxAttempts} seconds. The file may be too large or in an unsupported format.` };
+            const errorMsg = `Transcoding timed out after ${maxAttempts} seconds. The file may be too large or in an unsupported format.`;
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+            }
+            return { error: errorMsg };
         }
-        
+
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, true);
+        }
+
         return {
             success: true,
             transcodedAudio,
             uploadId: upload.uploadId
         };
     } catch (error) {
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, error.message);
+        }
         return { error: error.message };
     }
 }
@@ -2263,7 +2384,7 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         }
         const playlistName = `${podcast.title} - Podcast`;
         
-        const CONCURRENT_LIMIT = 3; // Process up to 3 episodes at once
+        const CONCURRENT_LIMIT = 6;
         const audioTracks = [];
         let processedCount = 0;
         let failedCount = 0;
@@ -2762,6 +2883,78 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                     break;
 
+
+                case 'START_CHUNKED_AUDIO_UPLOAD':
+                    try {
+                        const uploadId = `chunk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        chunkedUploads.set(uploadId, {
+                            fileName: request.fileName,
+                            fileType: request.fileType,
+                            fileSize: request.fileSize,
+                            totalChunks: request.totalChunks,
+                            chunks: [],
+                            receivedChunks: 0
+                        });
+                        sendResponse({ success: true, uploadId: uploadId });
+                    } catch (error) {
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
+                case 'SEND_AUDIO_CHUNK':
+                    try {
+                        const upload = chunkedUploads.get(request.uploadId);
+                        if (!upload) {
+                            sendResponse({ error: 'Invalid upload ID' });
+                            break;
+                        }
+
+                        upload.chunks[request.chunkIndex] = request.chunkData;
+                        upload.receivedChunks++;
+
+                        sendResponse({ success: true, received: upload.receivedChunks, total: upload.totalChunks });
+                    } catch (error) {
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
+                case 'COMPLETE_CHUNKED_AUDIO_UPLOAD':
+                    try {
+                        const upload = chunkedUploads.get(request.uploadId);
+                        if (!upload) {
+                            sendResponse({ error: 'Invalid upload ID' });
+                            break;
+                        }
+
+                        if (upload.receivedChunks !== upload.totalChunks) {
+                            sendResponse({ error: `Missing chunks: received ${upload.receivedChunks}/${upload.totalChunks}` });
+                            break;
+                        }
+
+                        const fullBase64 = upload.chunks.join('');
+
+                        const binaryString = atob(fullBase64);
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        const audioBlob = new Blob([bytes], { type: upload.fileType });
+
+                        const uploadResult = await uploadAudioFile({
+                            blob: audioBlob,
+                            type: upload.fileType,
+                            name: upload.fileName
+                        });
+
+                        chunkedUploads.delete(request.uploadId);
+
+                        sendResponse(uploadResult);
+                    } catch (error) {
+                        chunkedUploads.delete(request.uploadId);
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
                 case 'UPLOAD_AUDIO':
                     try {
 
@@ -2834,6 +3027,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         sendResponse({ error: error.message || 'Upload failed' });
                     }
                     break;
+
                     
                 case 'UPLOAD_ICON':
                     const iconResponse = await uploadIcon({
@@ -2940,6 +3134,48 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 request.parameters.label,
                                 request.parameters.value
                             );
+                        }
+                    }
+                    sendResponse({success: true});
+                    break;
+
+                case 'TRACK_ANALYTICS':
+                    if (typeof YotoAnalytics !== 'undefined') {
+                        const data = request.data;
+                        switch(request.eventName) {
+                            case 'queue_status':
+                                YotoAnalytics.trackQueueStatus(
+                                    data.queueType,
+                                    data.currentLength,
+                                    data.maxLength,
+                                    data.processingRate
+                                );
+                                break;
+                            case 'batch_metrics':
+                                YotoAnalytics.trackBatchUploadMetrics(
+                                    data.batchType,
+                                    data.queueLength,
+                                    data.processedCount,
+                                    data.failureCount,
+                                    data.totalDuration
+                                );
+                                break;
+                            case 'upload_performance':
+                                YotoAnalytics.trackUploadPerformance(
+                                    data.fileType,
+                                    data.duration,
+                                    data.fileSize,
+                                    data.success,
+                                    data.errorMessage
+                                );
+                                break;
+                            case 'upload_latency':
+                                YotoAnalytics.trackUploadLatency(
+                                    data.operation,
+                                    data.latencyMs,
+                                    data.stage
+                                );
+                                break;
                         }
                     }
                     sendResponse({success: true});
