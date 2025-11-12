@@ -3238,7 +3238,6 @@ async function createVisualTimer() {
       }
 
       if (!silentAudioObj) {
-        console.warn(`Silent audio not found, skipping final silent track: ${silentFileName}`);
         // Skip adding a silent final track if we can't load the audio
       } else {
         let silentResponse;
@@ -4421,8 +4420,6 @@ async function selectPodcast(podcast) {
               importCancelled = true;
               break;
             } else if (statusResponse.needsPermission) {
-              // This shouldn't happen anymore since we request permission upfront
-              // But keep as fallback just in case
               importComplete = true;
               statusText.innerHTML = `
                 <div style="color: #dc3545;">
@@ -6811,18 +6808,88 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
       const audioResults = await uploadInChunks(
         audioFiles,
         async (audio, index) => {
-          const fileData = audio.file instanceof File ?
-            await readFileAsBase64(audio.file) :
-            audio.file;
+          const fileSize = audio.file.size || audio.file.fileSize || 0;
+          const MAX_SINGLE_FILE = 35 * 1024 * 1024;
 
-          const uploadResult = await chrome.runtime.sendMessage({
-            action: 'UPLOAD_AUDIO',
-            file: {
-              data: fileData,
-              type: audio.file.type || 'audio/mpeg',
-              name: audio.name
+          let uploadResult;
+
+          if (fileSize > MAX_SINGLE_FILE) {
+            const CHUNK_SIZE = 10 * 1024 * 1024;
+            const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+            const startResult = await chrome.runtime.sendMessage({
+              action: 'START_CHUNKED_AUDIO_UPLOAD',
+              fileName: audio.name,
+              fileType: audio.file.type || 'audio/mpeg',
+              fileSize: fileSize,
+              totalChunks: totalChunks
+            });
+
+            if (startResult.error) {
+              throw new Error(startResult.error);
             }
-          });
+
+            const uploadId = startResult.uploadId;
+
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+              const start = chunkIndex * CHUNK_SIZE;
+              const end = Math.min(start + CHUNK_SIZE, fileSize);
+              const chunk = audio.file.slice(start, end);
+
+              const reader = new FileReader();
+              const chunkBase64 = await new Promise((resolve, reject) => {
+                reader.onload = () => {
+                  const dataUrl = reader.result;
+                  const base64Index = dataUrl.indexOf(',');
+                  if (base64Index === -1) {
+                    reject(new Error(`Invalid data URL for chunk ${chunkIndex}`));
+                    return;
+                  }
+                  const base64Part = dataUrl.substring(base64Index + 1);
+                  if (!base64Part) {
+                    reject(new Error(`Empty base64 for chunk ${chunkIndex}`));
+                    return;
+                  }
+                  resolve(base64Part);
+                };
+                reader.onerror = () => reject(new Error(`Failed to read chunk ${chunkIndex}`));
+                reader.readAsDataURL(chunk);
+              });
+
+              const chunkResult = await chrome.runtime.sendMessage({
+                action: 'SEND_AUDIO_CHUNK',
+                uploadId: uploadId,
+                chunkIndex: chunkIndex,
+                chunkData: chunkBase64,
+                isLastChunk: chunkIndex === totalChunks - 1
+              });
+
+              if (chunkResult.error) {
+                throw new Error(chunkResult.error);
+              }
+            }
+
+            uploadResult = await chrome.runtime.sendMessage({
+              action: 'COMPLETE_CHUNKED_AUDIO_UPLOAD',
+              uploadId: uploadId
+            });
+
+            if (uploadResult.error) {
+              throw new Error(uploadResult.error);
+            }
+          } else {
+            const fileData = audio.file instanceof File ?
+              await readFileAsBase64(audio.file) :
+              audio.file;
+
+            uploadResult = await chrome.runtime.sendMessage({
+              action: 'UPLOAD_AUDIO',
+              file: {
+                data: fileData,
+                type: audio.file.type || 'audio/mpeg',
+                name: audio.name
+              }
+            });
+          }
 
           return { uploadResult, audio, index };
         },
@@ -6859,18 +6926,88 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
       });
     } else {
       const audioPromises = audioFiles.map(async (audio, index) => {
-        const fileData = audio.file instanceof File ?
-          await readFileAsBase64(audio.file) :
-          audio.file;
+        const fileSize = audio.file.size || audio.file.fileSize || 0;
+        const MAX_SINGLE_FILE = 35 * 1024 * 1024;
 
-        const uploadResult = await chrome.runtime.sendMessage({
-          action: 'UPLOAD_AUDIO',
-          file: {
-            data: fileData,
-            type: audio.file.type || 'audio/mpeg',
-            name: audio.name
+        let uploadResult;
+
+        if (fileSize > MAX_SINGLE_FILE) {
+          const CHUNK_SIZE = 10 * 1024 * 1024;
+          const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+          const startResult = await chrome.runtime.sendMessage({
+            action: 'START_CHUNKED_AUDIO_UPLOAD',
+            fileName: audio.name,
+            fileType: audio.file.type || 'audio/mpeg',
+            fileSize: fileSize,
+            totalChunks: totalChunks
+          });
+
+          if (startResult.error) {
+            throw new Error(startResult.error);
           }
-        });
+
+          const uploadId = startResult.uploadId;
+
+          for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, fileSize);
+            const chunk = audio.file.slice(start, end);
+
+            const reader = new FileReader();
+            const chunkBase64 = await new Promise((resolve, reject) => {
+              reader.onload = () => {
+                const dataUrl = reader.result;
+                const base64Index = dataUrl.indexOf(',');
+                if (base64Index === -1) {
+                  reject(new Error(`Invalid data URL for chunk ${chunkIndex}`));
+                  return;
+                }
+                const base64Part = dataUrl.substring(base64Index + 1);
+                if (!base64Part) {
+                  reject(new Error(`Empty base64 for chunk ${chunkIndex}`));
+                  return;
+                }
+                resolve(base64Part);
+              };
+              reader.onerror = () => reject(new Error(`Failed to read chunk ${chunkIndex}`));
+              reader.readAsDataURL(chunk);
+            });
+
+            const chunkResult = await chrome.runtime.sendMessage({
+              action: 'SEND_AUDIO_CHUNK',
+              uploadId: uploadId,
+              chunkIndex: chunkIndex,
+              chunkData: chunkBase64,
+              isLastChunk: chunkIndex === totalChunks - 1
+            });
+
+            if (chunkResult.error) {
+              throw new Error(chunkResult.error);
+            }
+          }
+
+          uploadResult = await chrome.runtime.sendMessage({
+            action: 'COMPLETE_CHUNKED_AUDIO_UPLOAD',
+            uploadId: uploadId
+          });
+
+          if (uploadResult.error) {
+            throw new Error(uploadResult.error);
+          }
+        } else {
+          const fileData = audio.file instanceof File ?
+            await readFileAsBase64(audio.file) :
+            audio.file;
+
+          uploadResult = await chrome.runtime.sendMessage({
+            action: 'UPLOAD_AUDIO',
+            file: {
+              data: fileData,
+              type: audio.file.type || 'audio/mpeg',
+              name: audio.name
+            }
+          });
+        }
 
         const progressPercent = 30 + ((index + 1) / audioFiles.length) * 40;
         progressBar.style.width = `${progressPercent}%`;
@@ -7271,16 +7408,11 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   }
   
   addLogEntry(`Starting bulk import of ${totalPlaylists} playlist${totalPlaylists > 1 ? 's' : ''}...`);
-  console.log(`[Bulk Import] Starting import of ${totalPlaylists} playlists:`, playlists.map(p => p.name));
 
   const bulkImportStartTime = Date.now();
   const CONCURRENT_PLAYLISTS = 10;
 
   window.bulkImportActive = true;
-
-  if (totalPlaylists > 10) {
-    console.warn(`⚠️ Large bulk import detected (${totalPlaylists} playlists). Processing in batches of ${CONCURRENT_PLAYLISTS} to maintain stability.`);
-  }
 
   for (let batchStart = 0; batchStart < playlists.length; batchStart += CONCURRENT_PLAYLISTS) {
     if (isCancelled) {
@@ -7291,7 +7423,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
     const batch = playlists.slice(batchStart, Math.min(batchStart + CONCURRENT_PLAYLISTS, playlists.length));
     const currentBatch = Math.floor(batchStart / CONCURRENT_PLAYLISTS) + 1;
     const totalBatches = Math.ceil(playlists.length / CONCURRENT_PLAYLISTS);
-    console.log(`[Bulk Import] Processing batch ${currentBatch}/${totalBatches}: ${batch.length} playlists`);
 
     const remainingPlaylists = playlists.length - batchStart;
     const processingRate = completedPlaylists / ((Date.now() - bulkImportStartTime) / 1000) || 0;
@@ -7342,7 +7473,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
           );
 
           const playlistDuration = (Date.now() - playlistStartTime) / 1000;
-          console.log(`[Bulk Import] Successfully imported playlist: "${playlist.name}" in ${playlistDuration.toFixed(2)}s`);
 
           if (result.droppedFiles && result.droppedFiles.length > 0) {
             hasDroppedFiles = true;
@@ -7371,7 +7501,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
           successfulImports++;
           const durationText = result.duration ? ` (${result.duration.toFixed(2)}s)` : '';
           addLogEntry(`✓ Successfully imported "${result.playlist.name}"${durationText}`, 'success');
-          console.log(`[Bulk Import] Success: "${result.playlist.name}"`, result);
         } else {
           failedImports++;
           const errorMessage = result.error.message || 'Unknown error';
@@ -7449,20 +7578,6 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   const totalSeconds = totalDuration / 1000;
   const avgTimePerPlaylist = successfulImports > 0 ? (totalDuration / successfulImports / 1000).toFixed(2) : 0;
 
-  console.log(`%c🎯 BULK IMPORT PERFORMANCE REPORT`, 'color: #10b981; font-weight: bold; font-size: 16px');
-  console.log(`%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'color: #10b981');
-  console.log(`%c📊 Summary:`, 'color: #3b82f6; font-weight: bold');
-  console.log(`   Total Time: ${totalSeconds.toFixed(2)} seconds (${(totalSeconds/60).toFixed(2)} minutes)`);
-  console.log(`   Playlists Processed: ${totalPlaylists}`);
-  console.log(`   Successful: ${successfulImports}`);
-  console.log(`   Failed: ${failedImports}`);
-  console.log(`%c⚡ Performance:`, 'color: #8b5cf6; font-weight: bold');
-  console.log(`   Average Time per Playlist: ${avgTimePerPlaylist}s`);
-  console.log(`   Parallel Batch Size: ${CONCURRENT_PLAYLISTS} playlists`);
-  console.log(`   Processing Rate: ${(successfulImports / totalSeconds * 60).toFixed(2)} playlists/minute`);
-  console.log(`%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`, 'color: #10b981');
-
-  console.log(`[Bulk Import] Summary: ${successfulImports} successful, ${failedImports} failed, cancelled: ${isCancelled}, hasDroppedFiles: ${hasDroppedFiles}`);
 
   window.bulkImportActive = false;
 
@@ -7591,8 +7706,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     delayBetweenBatches = 50;  // Reduced from 100
   }
 
-  console.log(`[Upload Strategy] "${playlistName}": ${audioFiles.length} files, avg size: ${(avgFileSize/1024/1024).toFixed(2)}MB, parallel: ${parallelCount}, delay: ${delayBetweenBatches}ms`);
-
   progressCallback(10, chrome.i18n.getMessage('status_uploadingAudioFilesPercent', ['0']));
 
   const uploadedTracks = [];
@@ -7622,8 +7735,6 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
         const MAX_SINGLE_FILE = 35 * 1024 * 1024;
 
         if (fileSize > MAX_SINGLE_FILE) {
-          console.log(`[Chunked Upload] Large file detected: ${file.name} (${(fileSize/1024/1024).toFixed(2)}MB)`);
-
           const CHUNK_SIZE = 10 * 1024 * 1024;
           const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
           const startResult = await chrome.runtime.sendMessage({
@@ -7646,8 +7757,22 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
             const chunk = file.slice(start, end);
 
             const reader = new FileReader();
-            const chunkBase64 = await new Promise((resolve) => {
-              reader.onload = () => resolve(reader.result.split(',')[1]);
+            const chunkBase64 = await new Promise((resolve, reject) => {
+              reader.onload = () => {
+                const dataUrl = reader.result;
+                const base64Index = dataUrl.indexOf(',');
+                if (base64Index === -1) {
+                  reject(new Error(`Invalid data URL for chunk ${chunkIndex}`));
+                  return;
+                }
+                const base64Part = dataUrl.substring(base64Index + 1);
+                if (!base64Part) {
+                  reject(new Error(`Empty base64 for chunk ${chunkIndex}`));
+                  return;
+                }
+                resolve(base64Part);
+              };
+              reader.onerror = () => reject(new Error(`Failed to read chunk ${chunkIndex}`));
               reader.readAsDataURL(chunk);
             });
 
@@ -7669,6 +7794,9 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
             uploadId: uploadId
           });
 
+          if (uploadResult.error) {
+            throw new Error(uploadResult.error);
+          }
         } else {
           let base64Data;
           try {
@@ -8206,47 +8334,172 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         const audioResults = await uploadInChunks(
           audioFiles,
           async (audioFile, index) => {
-            const base64Data = await fileToBase64(audioFile);
+            const fileSize = audioFile.size || audioFile.fileSize || 0;
+            const MAX_SINGLE_FILE = 35 * 1024 * 1024;
 
-            const MAX_MESSAGE_SIZE = 35 * 1024 * 1024 * 1.33; // 35MB file after base64 encoding
-            const base64Size = base64Data.data.length;
-
-            if (base64Size > MAX_MESSAGE_SIZE && audioFile.size > 35 * 1024 * 1024) {
-              // File is too large for single upload, but should have been chunked
-              // This shouldn't happen with the new chunking implementation
-              console.warn(`[Upload] Large file detected in update path: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB)`);
-            }
-
-            // Retry logic for chunked uploads
             let response;
-            let retryCount = 0;
-            const maxRetries = 2;
 
-            while (retryCount <= maxRetries) {
-              try {
-                response = await chrome.runtime.sendMessage({
-                  action: 'UPLOAD_AUDIO',
-                  file: base64Data
-                });
+            if (fileSize > MAX_SINGLE_FILE) {
+              // For large files, upload directly to S3 from content script
+              // This avoids sending binary data through Chrome's message passing
+              console.log(`[Import Playlist] Large file detected (${(fileSize / 1024 / 1024).toFixed(1)}MB), using direct S3 upload`);
 
-                // If we got a response (even with error), break out of retry loop
-                if (response !== undefined) {
-                  break;
-                }
-              } catch (error) {
+              // Get presigned URL from service worker
+              const urlResult = await chrome.runtime.sendMessage({
+                action: 'GET_UPLOAD_URL'
+              });
+
+              if (urlResult.error) {
+                throw new Error(`Failed to get upload URL: ${urlResult.error}`);
               }
 
-              if (retryCount < maxRetries) {
-                // Wait with exponential backoff
-                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
-                retryCount++;
-              } else {
-                break;
+              const { uploadUrl, uploadId } = urlResult;
+              console.log(`[Import Playlist] Got presigned URL for uploadId: ${uploadId}`);
+
+              // Upload directly to S3 from content script
+              console.log(`[Import Playlist] Uploading ${audioFile.name} directly to S3...`);
+
+              try {
+                const uploadResponse = await fetch(uploadUrl, {
+                  method: 'PUT',
+                  body: audioFile,
+                  headers: {
+                    'Content-Type': audioFile.type || 'audio/mpeg'
+                  }
+                });
+
+                if (!uploadResponse.ok) {
+                  throw new Error(`S3 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+                }
+
+                console.log(`[Import Playlist] S3 upload successful, waiting for transcoding...`);
+
+                // Poll for transcoding completion
+                let transcodedAudio = null;
+                let attempts = 0;
+                const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+
+                // Adaptive timeout based on file size
+                // Base: 60 attempts (60 seconds) for files up to 35MB
+                // Add 2 attempts per MB over 35MB, up to max 600 attempts (10 minutes)
+                const baseAttempts = 60;
+                const additionalAttempts = fileSize > (35 * 1024 * 1024)
+                    ? Math.floor((fileSize / (1024 * 1024) - 35) * 2)
+                    : 0;
+                const maxAttempts = Math.min(baseAttempts + additionalAttempts, 600);
+
+                // Initial polling with exponential backoff
+                let pollDelay = 500; // Start at 500ms
+                const maxPollDelay = 3000; // Max 3 seconds between polls
+                let totalElapsed = 0;
+
+                console.log(`[Import Playlist] File uploaded, transcoding ${fileSizeMB}MB file (estimated ${Math.round(maxAttempts / 60)} minutes max)...`);
+
+                while (attempts < maxAttempts && !transcodedAudio) {
+                  attempts++;
+
+                  await new Promise(resolve => setTimeout(resolve, pollDelay));
+                  totalElapsed += pollDelay;
+
+                  const transcodeResult = await chrome.runtime.sendMessage({
+                    action: 'CHECK_TRANSCODE_STATUS',
+                    uploadId: uploadId
+                  });
+
+                  if (transcodeResult.error) {
+                    // Check for specific errors that indicate rejection
+                    if (transcodeResult.error.includes('403') ||
+                        transcodeResult.error.includes('forbidden') ||
+                        transcodeResult.error.includes('not allowed')) {
+                      throw new Error(`Upload rejected: ${transcodeResult.error}`);
+                    }
+                    // Check for permanent errors
+                    if (transcodeResult.error.includes('404') ||
+                        transcodeResult.error.includes('not found')) {
+                      throw new Error(`Upload failed: ${transcodeResult.error}. Please try uploading again.`);
+                    }
+                    // Log other errors but continue polling
+                    if (attempts % 10 === 0) {
+                      console.log(`[Import Playlist] Transcoding status check error (continuing): ${transcodeResult.error}`);
+                    }
+                  } else if (transcodeResult.ready && transcodeResult.transcodedAudio) {
+                    transcodedAudio = transcodeResult.transcodedAudio;
+                    const elapsedSeconds = Math.round(totalElapsed / 1000);
+                    console.log(`[Import Playlist] ✅ Transcoding complete after ${elapsedSeconds} seconds (${attempts} attempts)`);
+                    break;
+                  }
+
+                  // Show progress with more realistic estimates
+                  if (attempts % 10 === 0) {
+                    const elapsedSeconds = Math.round(totalElapsed / 1000);
+                    // More conservative estimate: 3-4 seconds per MB for large files
+                    const estimatedTotal = Math.round(fileSizeMB * (fileSizeMB > 50 ? 4 : 3));
+                    const percentComplete = Math.min(95, Math.round((elapsedSeconds / estimatedTotal) * 100));
+                    console.log(`[Import Playlist] Transcoding... ${elapsedSeconds}s elapsed (~${percentComplete}% complete for ${fileSizeMB}MB file)`);
+                  }
+
+                  // Exponential backoff: increase delay by 1.5x each time, up to max
+                  pollDelay = Math.min(Math.floor(pollDelay * 1.5), maxPollDelay);
+                }
+
+                if (!transcodedAudio) {
+                  const elapsedSeconds = Math.round(totalElapsed / 1000);
+                  throw new Error(`Transcoding timeout after ${elapsedSeconds} seconds (${attempts} attempts). The file may be too large or complex.`);
+                }
+
+                response = {
+                  success: true,
+                  transcodedAudio: transcodedAudio,
+                  uploadId: uploadId
+                };
+
+              } catch (uploadError) {
+                console.error(`[Import Playlist] Direct upload failed:`, uploadError);
+                throw new Error(`Upload failed: ${uploadError.message}`);
+              }
+
+              if (response.error) {
+                throw new Error(response.error);
+              }
+
+              // Small delay after large file upload to prevent overwhelming the system
+              await new Promise(resolve => setTimeout(resolve, 100));
+            } else {
+              const base64Data = await fileToBase64(audioFile);
+
+              let retryCount = 0;
+              const maxRetries = 2;
+
+              while (retryCount <= maxRetries) {
+                try {
+                  response = await chrome.runtime.sendMessage({
+                    action: 'UPLOAD_AUDIO',
+                    file: base64Data
+                  });
+
+                  if (response !== undefined) {
+                    break;
+                  }
+                } catch (error) {
+                }
+
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                  retryCount++;
+                } else {
+                  break;
+                }
               }
             }
 
             if (response === undefined) {
               throw new Error(chrome.i18n.getMessage('error_uploadFailedTooLarge', [audioFile.name]));
+            }
+
+            // Validate the response has the expected structure
+            if (!response.transcodedAudio) {
+              console.error(`[Import Playlist] Upload response missing transcodedAudio for ${audioFile.name}:`, response);
+              throw new Error(`Upload completed but no transcoded audio returned for ${audioFile.name}`);
             }
 
             return { response, audioFile, index };
@@ -8261,23 +8514,42 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         );
         
         audioResults.forEach((result, index) => {
-          if (result.status === 'fulfilled' && result.value && result.value.response && !result.value.response.error) {
-            uploadedTracks[index] = {
-              title: cleanTrackTitle(result.value.audioFile.name),
-              transcodedAudio: result.value.response.transcodedAudio
-            };
+          if (result.status === 'fulfilled' && result.value && result.value.response) {
+            // For chunked uploads, the response IS the upload result with transcodedAudio at the top level
+            // For regular uploads, it's the same structure
+            if (result.value.response.transcodedAudio && !result.value.response.error) {
+              uploadedTracks[index] = {
+                title: cleanTrackTitle(result.value.audioFile.name),
+                transcodedAudio: result.value.response.transcodedAudio
+              };
+            } else if (result.value.response.success && result.value.response.transcodedAudio) {
+              // Handle the response from chunked upload which has success: true
+              uploadedTracks[index] = {
+                title: cleanTrackTitle(result.value.audioFile.name),
+                transcodedAudio: result.value.response.transcodedAudio
+              };
+            } else {
+              uploadedTracks[index] = null;
+            }
           } else {
             uploadedTracks[index] = null;
 
             let errorMessage = chrome.i18n.getMessage('label_unknown');
             if (result.status === 'rejected') {
-              errorMessage = result.reason;
+              errorMessage = result.reason?.message || result.reason;
             } else if (result.value && result.value.response && result.value.response.error) {
               errorMessage = result.value.response.error;
             } else if (result.value && result.value.response && !result.value.response.transcodedAudio) {
               errorMessage = 'No transcoded audio in response';
             }
-            console.warn(`Failed to upload track ${index + 1}: ${errorMessage}`);
+
+            // Log full error details for debugging
+            console.error(`Failed to upload track ${index + 1} (${audioFiles[index]?.name}): ${errorMessage}`, {
+              status: result.status,
+              value: result.value,
+              audioFile: audioFiles[index]?.name,
+              fileSize: audioFiles[index]?.size
+            });
           }
         });
         
@@ -8320,40 +8592,159 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         uploadTypes.push(...Array(iconPromises.length).fill('icon'));
         
         const audioPromises = audioFiles.map((audioFile, index) =>
-          fileToBase64(audioFile).then(async base64 => {
+          (async () => {
+            const fileSize = audioFile.size || audioFile.fileSize || 0;
+            const MAX_SINGLE_FILE = 35 * 1024 * 1024;
 
-            const MAX_MESSAGE_SIZE = 35 * 1024 * 1024 * 1.33; // 35MB file after base64 encoding
-            const base64Size = base64.data.length;
-
-            if (base64Size > MAX_MESSAGE_SIZE && audioFile.size > 35 * 1024 * 1024) {
-              console.warn(`[Upload] Large file detected in single upload path: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(1)}MB) - should use chunking`);
-            }
-
-            // Retry logic for upload
             let response;
-            let retryCount = 0;
-            const maxRetries = 2;
 
-            while (retryCount <= maxRetries) {
-              try {
-                response = await chrome.runtime.sendMessage({
-                  action: 'UPLOAD_AUDIO',
-                  file: base64
-                });
+            if (fileSize > MAX_SINGLE_FILE) {
+              // For large files, upload directly to S3 from content script
+              // This avoids sending binary data through Chrome's message passing
+              console.log(`[Import Playlist] Large file detected (${(fileSize / 1024 / 1024).toFixed(1)}MB), using direct S3 upload`);
 
-                // If we got a response (even with error), break out of retry loop
-                if (response !== undefined) {
-                  break;
-                }
-              } catch (error) {
+              // Get presigned URL from service worker
+              const urlResult = await chrome.runtime.sendMessage({
+                action: 'GET_UPLOAD_URL'
+              });
+
+              if (urlResult.error) {
+                throw new Error(`Failed to get upload URL: ${urlResult.error}`);
               }
 
-              if (retryCount < maxRetries) {
-                // Wait a bit before retrying (exponential backoff)
-                await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
-                retryCount++;
-              } else {
-                break;
+              const { uploadUrl, uploadId } = urlResult;
+              console.log(`[Import Playlist] Got presigned URL for uploadId: ${uploadId}`);
+
+              // Upload directly to S3 from content script
+              console.log(`[Import Playlist] Uploading ${audioFile.name} directly to S3...`);
+
+              try {
+                const uploadResponse = await fetch(uploadUrl, {
+                  method: 'PUT',
+                  body: audioFile,
+                  headers: {
+                    'Content-Type': audioFile.type || 'audio/mpeg'
+                  }
+                });
+
+                if (!uploadResponse.ok) {
+                  throw new Error(`S3 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+                }
+
+                console.log(`[Import Playlist] S3 upload successful, waiting for transcoding...`);
+
+                // Poll for transcoding completion
+                let transcodedAudio = null;
+                let attempts = 0;
+                const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+
+                // Adaptive timeout based on file size
+                // Base: 60 attempts (60 seconds) for files up to 35MB
+                // Add 2 attempts per MB over 35MB, up to max 600 attempts (10 minutes)
+                const baseAttempts = 60;
+                const additionalAttempts = fileSize > (35 * 1024 * 1024)
+                    ? Math.floor((fileSize / (1024 * 1024) - 35) * 2)
+                    : 0;
+                const maxAttempts = Math.min(baseAttempts + additionalAttempts, 600);
+
+                // Initial polling with exponential backoff
+                let pollDelay = 500; // Start at 500ms
+                const maxPollDelay = 3000; // Max 3 seconds between polls
+                let totalElapsed = 0;
+
+                console.log(`[Import Playlist] File uploaded, transcoding ${fileSizeMB}MB file (estimated ${Math.round(maxAttempts / 60)} minutes max)...`);
+
+                while (attempts < maxAttempts && !transcodedAudio) {
+                  attempts++;
+
+                  await new Promise(resolve => setTimeout(resolve, pollDelay));
+                  totalElapsed += pollDelay;
+
+                  const transcodeResult = await chrome.runtime.sendMessage({
+                    action: 'CHECK_TRANSCODE_STATUS',
+                    uploadId: uploadId
+                  });
+
+                  if (transcodeResult.error) {
+                    // Check for specific errors that indicate rejection
+                    if (transcodeResult.error.includes('403') ||
+                        transcodeResult.error.includes('forbidden') ||
+                        transcodeResult.error.includes('not allowed')) {
+                      throw new Error(`Upload rejected: ${transcodeResult.error}`);
+                    }
+                    // Check for permanent errors
+                    if (transcodeResult.error.includes('404') ||
+                        transcodeResult.error.includes('not found')) {
+                      throw new Error(`Upload failed: ${transcodeResult.error}. Please try uploading again.`);
+                    }
+                    // Log other errors but continue polling
+                    if (attempts % 10 === 0) {
+                      console.log(`[Import Playlist] Transcoding status check error (continuing): ${transcodeResult.error}`);
+                    }
+                  } else if (transcodeResult.ready && transcodeResult.transcodedAudio) {
+                    transcodedAudio = transcodeResult.transcodedAudio;
+                    const elapsedSeconds = Math.round(totalElapsed / 1000);
+                    console.log(`[Import Playlist] ✅ Transcoding complete after ${elapsedSeconds} seconds (${attempts} attempts)`);
+                    break;
+                  }
+
+                  // Show progress with more realistic estimates
+                  if (attempts % 10 === 0) {
+                    const elapsedSeconds = Math.round(totalElapsed / 1000);
+                    // More conservative estimate: 3-4 seconds per MB for large files
+                    const estimatedTotal = Math.round(fileSizeMB * (fileSizeMB > 50 ? 4 : 3));
+                    const percentComplete = Math.min(95, Math.round((elapsedSeconds / estimatedTotal) * 100));
+                    console.log(`[Import Playlist] Transcoding... ${elapsedSeconds}s elapsed (~${percentComplete}% complete for ${fileSizeMB}MB file)`);
+                  }
+
+                  // Exponential backoff: increase delay by 1.5x each time, up to max
+                  pollDelay = Math.min(Math.floor(pollDelay * 1.5), maxPollDelay);
+                }
+
+                if (!transcodedAudio) {
+                  const elapsedSeconds = Math.round(totalElapsed / 1000);
+                  throw new Error(`Transcoding timeout after ${elapsedSeconds} seconds (${attempts} attempts). The file may be too large or complex.`);
+                }
+
+                response = {
+                  success: true,
+                  transcodedAudio: transcodedAudio,
+                  uploadId: uploadId
+                };
+
+              } catch (uploadError) {
+                console.error(`[Import Playlist] Direct upload failed:`, uploadError);
+                throw new Error(`Upload failed: ${uploadError.message}`);
+              }
+
+              if (response.error) {
+                throw new Error(response.error);
+              }
+            } else {
+              const base64 = await fileToBase64(audioFile);
+
+              let retryCount = 0;
+              const maxRetries = 2;
+
+              while (retryCount <= maxRetries) {
+                try {
+                  response = await chrome.runtime.sendMessage({
+                    action: 'UPLOAD_AUDIO',
+                    file: base64
+                  });
+
+                  if (response !== undefined) {
+                    break;
+                  }
+                } catch (error) {
+                }
+
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+                  retryCount++;
+                } else {
+                  break;
+                }
               }
             }
 
@@ -8363,9 +8754,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
 
             updateProgress();
             return { response, audioFile, index };
-          }).catch(error => {
-            throw error;
-          })
+          })()
         );
         uploadPromises.push(...audioPromises);
         uploadTypes.push(...Array(audioPromises.length).fill('audio'));
@@ -8414,12 +8803,10 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
                 } else if (response.error) {
                   errorMessage = response.error;
                 }
-                console.warn(`Failed to upload ${audioFile.name}: ${errorMessage}`);
               }
             }
           } else {
             if (type === 'audio') {
-              console.warn(`Audio upload failed: ${result.reason}`);
             } else {
 
             }
@@ -8551,12 +8938,12 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
             margin-bottom: 20px;
             text-align: left;
           ">
-            <div style="font-weight: 500; margin-bottom: 8px; color: #92400e;">Files Skipped (too large):</div>
+            <div style="font-weight: 500; margin-bottom: 8px; color: #92400e;">Files Skipped (upload failed):</div>
             <ul style="margin: 0; padding-left: 20px; color: #78350f; font-size: 14px;">
               ${failedTracks.map(t => `<li>${t.name} (${(t.size / 1024 / 1024).toFixed(1)}MB)</li>`).join('')}
             </ul>
             <div style="margin-top: 8px; font-size: 12px; color: #92400e;">
-              These files are extremely large. Consider compressing them or uploading directly in the Yoto app.
+              These files failed to upload. They may be too large (>100MB), in an unsupported format, or the server may have timed out. Try compressing them or uploading directly in the Yoto app.
             </div>
           </div>
           ` : ''}
