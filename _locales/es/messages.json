@@ -412,8 +412,8 @@
     }
   },
   "error_fileTooLarge40MB": {
-    "message": "$FILENAME$ es demasiado grande (máx. 40MB debido a limitaciones del navegador)",
-    "description": "Error for individual file over 40MB",
+    "message": "$FILENAME$ es demasiado grande (máx. 2GB soportado)",
+    "description": "Error for individual file over 2GB",
     "placeholders": {
       "filename": {
         "content": "$1",
@@ -488,7 +488,7 @@
     "description": "Generic unknown error message"
   },
   "error_uploadFailedLargeFiles": {
-    "message": "Error al subir. Estos archivos pueden ser demasiado grandes (máx. 40MB recomendado):",
+    "message": "Error al subir. Estos archivos pueden ser demasiado grandes:",
     "description": "Header for list of failed large files"
   },
   "error_uploadFailedTooLarge": {
@@ -580,7 +580,7 @@
     "description": "Battery charging status"
   },
   "label_compressFiles": {
-    "message": "Comprime el/los archivo(s) a un tamaño inferior a 40MB",
+    "message": "Comprime el/los archivo(s) si es necesario (se soportan archivos hasta 2GB)",
     "description": "Suggestion to compress files"
   },
   "label_contentWillUploadSinglePlaylist": {
@@ -1853,6 +1853,16 @@
       }
     }
   },
+  "status_uploadingAudioFilePercent": {
+    "message": "Subiendo archivos de audio... $PERCENT$%",
+    "description": "Status for individual audio upload with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "30"
+      }
+    }
+  },
   "status_uploadingAudioFiles": {
     "message": "Subiendo archivos de audio... $CURRENT$/$TOTAL$",
     "description": "Status for uploading audio files",
@@ -1864,6 +1874,16 @@
       "total": {
         "content": "$2",
         "example": "20"
+      }
+    }
+  },
+  "status_uploadingAudioFilesPercent": {
+    "message": "Subiendo archivos de audio... $PERCENT$%",
+    "description": "Status for uploading audio files with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "45"
       }
     }
   },

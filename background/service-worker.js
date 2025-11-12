@@ -6,6 +6,7 @@ importScripts('../lib/translate.js');
 const CONFIG = ExtensionConfig;
 
 const yotoIconsCache = new Map();
+const chunkedUploads = new Map();
 
 function getRedirectUri() {
     return chrome.identity.getRedirectURL();
@@ -269,6 +270,11 @@ async function exchangeCodeForTokens(code) {
 }
 
 async function makeAuthenticatedRequest(endpoint, options = {}) {
+    // Extract or initialize retry parameters
+    const maxRetries = options.maxRetries ?? 3;
+    const currentRetry = options.currentRetry ?? 0;
+    const baseDelay = options.baseDelay ?? 1000; // Start with 1 second
+
     let tokens = await TokenManager.getTokens();
 
     if (tokens?.access_token) {
@@ -298,12 +304,12 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
         const isFormData = options.body instanceof FormData;
         const isBinary = options.body instanceof ArrayBuffer || options.body instanceof Uint8Array;
         const hasContentType = options.headers && 'Content-Type' in options.headers;
-        
+
         const defaultHeaders = {};
         if (!isFormData && !isBinary && !hasContentType) {
             defaultHeaders['Content-Type'] = 'application/json';
         }
-        
+
         const authHeaders = {
             'Authorization': `Bearer ${tokens.access_token}`,
             ...defaultHeaders,
@@ -324,6 +330,48 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             });
             tokens = await TokenManager.refreshToken();
             return makeAuthenticatedRequest(endpoint, options);
+        }
+
+        // Handle rate limiting with exponential backoff
+        if (response.status === 429) {
+            if (currentRetry >= maxRetries) {
+                console.error(`[API] Max retries (${maxRetries}) exceeded for rate limited request to ${endpoint}`);
+                const retryAfter = response.headers.get('Retry-After');
+                const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : baseDelay * Math.pow(2, currentRetry);
+                throw new Error(`Rate limited: Too many requests. Please wait ${Math.ceil(waitTime / 1000)} seconds before retrying.`);
+            }
+
+            // Check for Retry-After header
+            const retryAfter = response.headers.get('Retry-After');
+            let delay;
+
+            if (retryAfter) {
+                // If server provides Retry-After, use it (convert to milliseconds)
+                delay = parseInt(retryAfter) * 1000;
+                console.log(`[API] Rate limited on ${endpoint}, server says retry after ${retryAfter} seconds`);
+            } else {
+                // Otherwise use exponential backoff: 1s, 2s, 4s, 8s, etc.
+                delay = baseDelay * Math.pow(2, currentRetry);
+                console.log(`[API] Rate limited on ${endpoint}, retrying after ${delay}ms (attempt ${currentRetry + 1}/${maxRetries})`);
+            }
+
+            // Add jitter to prevent thundering herd (random 0-10% additional delay)
+            const jitter = delay * Math.random() * 0.1;
+            delay = Math.min(delay + jitter, 30000); // Cap at 30 seconds
+
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackRateLimitEvent(endpoint, currentRetry + 1, delay);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, delay));
+
+            // Retry with incremented counter
+            return makeAuthenticatedRequest(endpoint, {
+                ...options,
+                currentRetry: currentRetry + 1,
+                maxRetries,
+                baseDelay
+            });
         }
 
         if (response.status === 403) {
@@ -1463,6 +1511,9 @@ async function uploadCoverImage(imageFileData) {
 }
 
 async function uploadIcon(iconFileData) {
+    const uploadStartTime = Date.now();
+    const fileSize = iconFileData.data ? iconFileData.data.length * 0.75 : 0;
+
     try {
         const binaryString = atob(iconFileData.data);
         const bytes = new Uint8Array(binaryString.length);
@@ -1485,12 +1536,17 @@ async function uploadIcon(iconFileData) {
         );
         
         if (response.error) {
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, false, response.error);
+            }
             return { error: response.error };
         }
-        
+
         if (response.displayIcon) {
-            // Return the mediaId in yoto:# format for use in tracks
             const mediaId = response.displayIcon.mediaId;
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, true);
+            }
             return {
                 success: true,
                 iconId: mediaId.startsWith('yoto:#') ? mediaId : `yoto:#${mediaId}`,
@@ -1499,19 +1555,40 @@ async function uploadIcon(iconFileData) {
                 isNew: response.displayIcon.new || false
             };
         }
-        
-        return { error: 'No icon data in response' };
+
+        const errorMsg = 'No icon data in response';
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+        }
+        return { error: errorMsg };
     } catch (error) {
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('icon', Date.now() - uploadStartTime, fileSize, false, error.message);
+        }
         return { error: error.message };
     }
 }
 
 async function uploadAudioFile(audioFileData) {
-    try {
+    const uploadStartTime = Date.now();
+    const fileSize = audioFileData.blob?.size || 0;
+    const fileSizeMB = fileSize / 1024 / 1024;
+    const fileName = audioFileData.name || 'Unknown';
 
+    // Warn about very large files
+    if (fileSizeMB > 100) {
+        console.warn(`[Upload] Large file warning: ${fileName} is ${fileSizeMB.toFixed(2)}MB. Files over 100MB may experience transcoding issues.`);
+    }
+
+    try {
+        const getUrlStartTime = Date.now();
         const uploadUrlResponse = await makeAuthenticatedRequest('/media/transcode/audio/uploadUrl', {
             method: 'GET'
         });
+
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadLatency('get_upload_url', Date.now() - getUrlStartTime, 'audio');
+        }
 
         if (uploadUrlResponse.needsAuth) {
             return { error: 'Authentication required. Please log in again.' };
@@ -1526,23 +1603,80 @@ async function uploadAudioFile(audioFileData) {
             return { error: 'Failed to get upload URL - invalid response structure' };
         }
 
-        
-        const uploadResponse = await fetch(upload.uploadUrl, {
-            method: 'PUT',
-            body: audioFileData.blob,
-            headers: {
-                'Content-Type': audioFileData.type || 'audio/mpeg'
-            }
-        });
+        // Upload to S3 with retry logic for rate limiting
+        let uploadAttempts = 0;
+        const maxUploadAttempts = 3;
+        let uploadResponse;
+        const s3UploadStartTime = Date.now();
 
-        if (!uploadResponse.ok) {
-            return { error: `Failed to upload audio file: ${uploadResponse.status} ${uploadResponse.statusText}` };
+        while (uploadAttempts < maxUploadAttempts) {
+            uploadResponse = await fetch(upload.uploadUrl, {
+                method: 'PUT',
+                body: audioFileData.blob,
+                headers: {
+                    'Content-Type': audioFileData.type || 'audio/mpeg'
+                }
+            });
+
+            // Handle S3 rate limiting (429 or 503)
+            if (uploadResponse.status === 429 || uploadResponse.status === 503) {
+                uploadAttempts++;
+                const retryAfter = uploadResponse.headers.get('Retry-After');
+                const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, uploadAttempts - 1), 10000);
+
+                if (typeof YotoAnalytics !== 'undefined') {
+                    YotoAnalytics.trackRateLimitEvent('s3_upload', uploadAttempts, delay);
+                }
+
+                if (uploadAttempts >= maxUploadAttempts) {
+                    const errorMsg = `Upload rate limited after ${maxUploadAttempts} attempts. Please wait and try again.`;
+                    if (typeof YotoAnalytics !== 'undefined') {
+                        YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+                    }
+                    return { error: errorMsg };
+                }
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue;
+            }
+
+            break; // Success or non-retryable error
         }
 
-        
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadLatency('s3_upload', Date.now() - s3UploadStartTime, 'audio');
+            // Track that this was a direct S3 upload for large files
+            YotoAnalytics.sendEvent('large_file_upload', {
+                file_size_mb: Math.round(fileSizeMB * 100) / 100,
+                upload_method: 'direct_s3',
+                s3_upload_duration_ms: Date.now() - s3UploadStartTime
+            });
+        }
+
+        if (!uploadResponse.ok) {
+            const errorMsg = `Failed to upload audio file: ${uploadResponse.status} ${uploadResponse.statusText}`;
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+            }
+            return { error: errorMsg };
+        }
+
+
         let transcodedAudio = null;
         let attempts = 0;
-        const maxAttempts = 60; // 60 seconds - increased for larger files
+        const fileName = audioFileData.name || 'Unknown';
+        const fileSizeMB = fileSize / 1024 / 1024;
+
+        // Adaptive timeout based on file size
+        const baseAttempts = 30;
+        const additionalAttempts = fileSizeMB > 35 ? Math.floor((fileSizeMB - 35) / 5) : 0;
+        const maxAttempts = Math.min(baseAttempts + additionalAttempts, 120);
+
+        let pollInterval = 500;
+        const maxPollInterval = 5000; // Max 5 seconds between polls
+        let totalElapsedTime = 0;
+        const transcodingStartTime = Date.now();
+
 
         while (attempts < maxAttempts) {
             const transcodeResponse = await makeAuthenticatedRequest(
@@ -1554,33 +1688,76 @@ async function uploadAudioFile(audioFileData) {
                 if (transcodeResponse.error.includes('403') ||
                     transcodeResponse.error.includes('forbidden') ||
                     transcodeResponse.error.includes('not allowed')) {
+                    console.error(`[Transcoding] Upload rejected for ${fileName}: ${transcodeResponse.error}`);
                     return { error: `Upload rejected: ${transcodeResponse.error}. The file may contain copyrighted content.` };
+                }
+
+                // Check for permanent errors
+                if (transcodeResponse.error.includes('404') ||
+                    transcodeResponse.error.includes('not found')) {
+                    console.error(`[Transcoding] Upload not found for ${fileName}: ${transcodeResponse.error}`);
+                    return { error: `Upload failed: ${transcodeResponse.error}. Please try uploading again.` };
+                }
+
+                // Handle rate limiting - increase backoff significantly
+                if (transcodeResponse.error.includes('429') ||
+                    transcodeResponse.error.includes('rate limit') ||
+                    transcodeResponse.error.includes('too many')) {
+                    pollInterval = Math.min(pollInterval * 2, 10000); // Double the interval, max 10s
                 }
             }
 
+            // Check for successful transcoding
             if (!transcodeResponse.error && transcodeResponse.transcode?.transcodedSha256) {
                 transcodedAudio = transcodeResponse.transcode;
                 break;
             }
 
-            // Log every 5 seconds to show progress
-            if (attempts % 5 === 0) {
+            // Also check alternate response structure
+            if (!transcodeResponse.error && transcodeResponse.transcodedAudio?.transcodedSha256) {
+                transcodedAudio = transcodeResponse.transcodedAudio;
+                break;
             }
 
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            totalElapsedTime += pollInterval;
             attempts++;
+
+            // Exponential backoff: increase interval by 1.5x each attempt, up to max
+            pollInterval = Math.min(Math.floor(pollInterval * 1.5), maxPollInterval);
         }
 
         if (!transcodedAudio) {
-            return { error: `Transcoding timed out after ${maxAttempts} seconds. The file may be too large or in an unsupported format.` };
+            const totalTimeSeconds = Math.ceil(totalElapsedTime / 1000);
+            const errorMsg = `Transcoding timed out after ${totalTimeSeconds} seconds (${attempts} attempts). The file may be too large or in an unsupported format.`;
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+            }
+            return { error: errorMsg };
         }
-        
+
+        if (typeof YotoAnalytics !== 'undefined') {
+            const transcodingDuration = Date.now() - transcodingStartTime;
+            YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, true);
+            YotoAnalytics.trackUploadLatency('transcoding', transcodingDuration, 'audio');
+            // Track transcoding performance separately
+            YotoAnalytics.sendEvent('transcoding_performance', {
+                file_size_mb: Math.round(fileSizeMB * 100) / 100,
+                transcoding_duration_ms: transcodingDuration,
+                polling_attempts: attempts,
+                success: true
+            });
+        }
+
         return {
             success: true,
             transcodedAudio,
             uploadId: upload.uploadId
         };
     } catch (error) {
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, error.message);
+        }
         return { error: error.message };
     }
 }
@@ -2263,7 +2440,7 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         }
         const playlistName = `${podcast.title} - Podcast`;
         
-        const CONCURRENT_LIMIT = 3; // Process up to 3 episodes at once
+        const CONCURRENT_LIMIT = 6;
         const audioTracks = [];
         let processedCount = 0;
         let failedCount = 0;
@@ -2762,6 +2939,252 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                     break;
 
+
+                case 'GET_UPLOAD_URL':
+                    // Just get the presigned URL, don't upload anything
+                    try {
+                        const uploadUrlResponse = await makeAuthenticatedRequest('/media/transcode/audio/uploadUrl', {
+                            method: 'GET'
+                        });
+
+                        if (uploadUrlResponse.needsAuth) {
+                            sendResponse({ error: 'Authentication required. Please log in again.' });
+                            break;
+                        }
+
+                        if (uploadUrlResponse.error) {
+                            sendResponse({ error: uploadUrlResponse.error });
+                            break;
+                        }
+
+                        const { upload } = uploadUrlResponse;
+                        if (!upload?.uploadUrl || !upload?.uploadId) {
+                            sendResponse({ error: 'Failed to get upload URL - invalid response structure' });
+                            break;
+                        }
+
+                        // Return the presigned URL and upload ID to content script
+                        sendResponse({
+                            success: true,
+                            uploadUrl: upload.uploadUrl,
+                            uploadId: upload.uploadId
+                        });
+                    } catch (error) {
+                        console.error('[Upload] Error getting upload URL:', error);
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
+                case 'CHECK_TRANSCODE_STATUS':
+                    // Check if transcoding is complete
+                    try {
+                        const transcodeResponse = await makeAuthenticatedRequest(
+                            `/media/upload/${request.uploadId}/transcoded?loudnorm=false`
+                        );
+
+                        if (transcodeResponse.error) {
+                            sendResponse({ error: transcodeResponse.error });
+                            break;
+                        }
+
+                        // Check for transcoded audio in all possible response formats
+                        const transcodedAudio = transcodeResponse.transcode ||
+                                               transcodeResponse.transcodedAudio ||
+                                               transcodeResponse.result;
+
+                        // Check for completion by looking for transcodedSha256
+                        if (transcodedAudio?.transcodedSha256) {
+                            sendResponse({
+                                success: true,
+                                transcodedAudio: transcodedAudio,
+                                ready: true
+                            });
+                        } else {
+                            sendResponse({
+                                success: true,
+                                ready: false
+                            });
+                        }
+                    } catch (error) {
+                        console.error('[Transcode] Error checking status:', error);
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
+                case 'START_CHUNKED_AUDIO_UPLOAD':
+                    try {
+                        const uploadId = `chunk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                        // Initialize chunks array with correct size to avoid sparse array issues
+                        const chunksArray = new Array(request.totalChunks);
+                        for (let i = 0; i < request.totalChunks; i++) {
+                            chunksArray[i] = null;
+                        }
+
+                        chunkedUploads.set(uploadId, {
+                            fileName: request.fileName,
+                            fileType: request.fileType,
+                            fileSize: request.fileSize,
+                            totalChunks: request.totalChunks,
+                            chunks: chunksArray,
+                            receivedChunks: 0
+                        });
+                        sendResponse({ success: true, uploadId: uploadId });
+                    } catch (error) {
+                        console.error('[Chunked Upload] Error starting upload:', error);
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
+                case 'SEND_AUDIO_CHUNK':
+                    try {
+                        const upload = chunkedUploads.get(request.uploadId);
+                        if (!upload) {
+                            console.error(`[Chunked Upload] Invalid upload ID for chunk: ${request.uploadId}`);
+                            sendResponse({ error: 'Invalid upload ID' });
+                            break;
+                        }
+
+                        // Validate chunk data
+                        if (!request.chunkData || typeof request.chunkData !== 'string' || request.chunkData.length === 0) {
+                            console.error(`[Chunked Upload] Invalid chunk data for chunk ${request.chunkIndex}/${upload.totalChunks}`);
+                            sendResponse({ error: `Invalid chunk data for chunk ${request.chunkIndex}` });
+                            break;
+                        }
+
+                        // Ensure chunk data is not literally "null" or "undefined"
+                        if (request.chunkData === 'null' || request.chunkData === 'undefined') {
+                            console.error(`[Chunked Upload] Chunk data is literally '${request.chunkData}' for chunk ${request.chunkIndex}/${upload.totalChunks}`);
+                            sendResponse({ error: `Invalid chunk data (${request.chunkData}) for chunk ${request.chunkIndex}` });
+                            break;
+                        }
+
+                        // Validate chunk index
+                        if (request.chunkIndex < 0 || request.chunkIndex >= upload.totalChunks) {
+                            console.error(`[Chunked Upload] Invalid chunk index ${request.chunkIndex} (total chunks: ${upload.totalChunks})`);
+                            sendResponse({ error: `Invalid chunk index ${request.chunkIndex}` });
+                            break;
+                        }
+
+
+                        // Check if this chunk was already received
+                        if (upload.chunks[request.chunkIndex] !== null) {
+                            // Don't increment receivedChunks for duplicates
+                            upload.chunks[request.chunkIndex] = request.chunkData;
+                        } else {
+                            // First time receiving this chunk
+                            upload.chunks[request.chunkIndex] = request.chunkData;
+                            upload.receivedChunks++;
+                        }
+
+                        sendResponse({ success: true, received: upload.receivedChunks, total: upload.totalChunks });
+                    } catch (error) {
+                        console.error(`[Chunked Upload] Error receiving chunk:`, error);
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
+                case 'CANCEL_CHUNKED_UPLOAD':
+                    try {
+                        const upload = chunkedUploads.get(request.uploadId);
+                        if (upload) {
+                            chunkedUploads.delete(request.uploadId);
+                            sendResponse({ success: true, message: 'Upload cancelled' });
+                        } else {
+                            sendResponse({ success: true, message: 'Upload not found (may have already been cleaned up)' });
+                        }
+                    } catch (error) {
+                        console.error('[Chunked Upload] Error cancelling upload:', error);
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
+                case 'COMPLETE_CHUNKED_AUDIO_UPLOAD':
+                    try {
+                        const upload = chunkedUploads.get(request.uploadId);
+                        if (!upload) {
+                            console.error(`[Chunked Upload] Invalid upload ID: ${request.uploadId}`);
+                            sendResponse({ error: 'Invalid upload ID' });
+                            break;
+                        }
+
+                        if (upload.receivedChunks !== upload.totalChunks) {
+                            console.error(`[Chunked Upload] Missing chunks for ${upload.fileName}: received ${upload.receivedChunks}/${upload.totalChunks}`);
+                            sendResponse({ error: `Missing chunks: received ${upload.receivedChunks}/${upload.totalChunks}` });
+                            break;
+                        }
+
+                        // Verify all chunks are present
+                        const missingChunks = [];
+                        for (let i = 0; i < upload.totalChunks; i++) {
+                            if (upload.chunks[i] === undefined || upload.chunks[i] === null) {
+                                missingChunks.push(i);
+                            }
+                        }
+
+                        if (missingChunks.length > 0) {
+                            console.error(`[Chunked Upload] Missing ${missingChunks.length} chunks for ${upload.fileName}`);
+                            sendResponse({ error: `Missing chunks: ${missingChunks.join(', ')}` });
+                            chunkedUploads.delete(request.uploadId);
+                            return;
+                        }
+
+                        // Filter out any undefined/null values AND string "null" values
+                        const validChunks = upload.chunks.filter(chunk => {
+                            return chunk !== undefined &&
+                                   chunk !== null &&
+                                   chunk !== 'null' &&
+                                   chunk !== 'undefined' &&
+                                   typeof chunk === 'string' &&
+                                   chunk.length > 0;
+                        });
+
+                        if (validChunks.length !== upload.totalChunks) {
+                            console.error(`[Chunked Upload] Chunk count mismatch for ${upload.fileName}: expected ${upload.totalChunks}, got ${validChunks.length}`);
+                            sendResponse({ error: `Chunk count mismatch: expected ${upload.totalChunks}, got ${validChunks.length} valid chunks` });
+                            chunkedUploads.delete(request.uploadId);
+                            return;
+                        }
+
+                        const fullBase64 = validChunks.join('');
+
+                        let binaryString;
+                        try {
+                            binaryString = atob(fullBase64);
+                        } catch (decodeError) {
+                            console.error(`[Chunked Upload] Base64 decode error for ${upload.fileName}:`, decodeError.message);
+                            sendResponse({ error: `Failed to decode base64: ${decodeError.message || decodeError.toString()}` });
+                            chunkedUploads.delete(request.uploadId);
+                            return;
+                        }
+
+                        const bytes = new Uint8Array(binaryString.length);
+                        for (let i = 0; i < binaryString.length; i++) {
+                            bytes[i] = binaryString.charCodeAt(i);
+                        }
+                        const audioBlob = new Blob([bytes], { type: upload.fileType });
+
+                        const uploadResult = await uploadAudioFile({
+                            blob: audioBlob,
+                            type: upload.fileType,
+                            name: upload.fileName
+                        });
+
+                        chunkedUploads.delete(request.uploadId);
+
+                        if (!uploadResult) {
+                            console.error('[Chunked Upload] uploadAudioFile returned undefined!');
+                            sendResponse({ error: 'Upload failed - no result returned' });
+                        } else {
+                            sendResponse(uploadResult);
+                        }
+                    } catch (error) {
+                        console.error(`[Chunked Upload] Error in COMPLETE_CHUNKED_AUDIO_UPLOAD:`, error);
+                        chunkedUploads.delete(request.uploadId);
+                        sendResponse({ error: error.message });
+                    }
+                    break;
+
                 case 'UPLOAD_AUDIO':
                     try {
 
@@ -2834,6 +3257,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         sendResponse({ error: error.message || 'Upload failed' });
                     }
                     break;
+
                     
                 case 'UPLOAD_ICON':
                     const iconResponse = await uploadIcon({
@@ -2940,6 +3364,48 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 request.parameters.label,
                                 request.parameters.value
                             );
+                        }
+                    }
+                    sendResponse({success: true});
+                    break;
+
+                case 'TRACK_ANALYTICS':
+                    if (typeof YotoAnalytics !== 'undefined') {
+                        const data = request.data;
+                        switch(request.eventName) {
+                            case 'queue_status':
+                                YotoAnalytics.trackQueueStatus(
+                                    data.queueType,
+                                    data.currentLength,
+                                    data.maxLength,
+                                    data.processingRate
+                                );
+                                break;
+                            case 'batch_metrics':
+                                YotoAnalytics.trackBatchUploadMetrics(
+                                    data.batchType,
+                                    data.queueLength,
+                                    data.processedCount,
+                                    data.failureCount,
+                                    data.totalDuration
+                                );
+                                break;
+                            case 'upload_performance':
+                                YotoAnalytics.trackUploadPerformance(
+                                    data.fileType,
+                                    data.duration,
+                                    data.fileSize,
+                                    data.success,
+                                    data.errorMessage
+                                );
+                                break;
+                            case 'upload_latency':
+                                YotoAnalytics.trackUploadLatency(
+                                    data.operation,
+                                    data.latencyMs,
+                                    data.stage
+                                );
+                                break;
                         }
                     }
                     sendResponse({success: true});
@@ -3071,7 +3537,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         podcastImportResult: {cancelled: true, message: 'Import cancelled by user'},
                         podcastImportTimestamp: Date.now()
                     });
-                    
+
                     sendResponse({success: true, message: 'Import cancelled'});
                     break;
 

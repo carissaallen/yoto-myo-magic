@@ -1627,6 +1627,16 @@
       }
     }
   },
+  "status_uploadingAudioFilesPercent": {
+    "message": "Uploading audio files... $PERCENT$%",
+    "description": "Status for uploading audio files with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "45"
+      }
+    }
+  },
   "status_uploadingIconFiles": {
     "message": "Uploading icon files...",
     "description": "Uploading icons in update"
@@ -1658,7 +1668,7 @@
     "description": "Suggestion for large files"
   },
   "label_compressFiles": {
-    "message": "Compress the file(s) to a size under 40MB",
+    "message": "Compress the file(s) if needed (files up to 2GB supported)",
     "description": "Suggestion to compress files"
   },
   "label_howToFix": {
@@ -2143,6 +2153,16 @@
       }
     }
   },
+  "status_uploadingAudioFilePercent": {
+    "message": "Uploading audio files... $PERCENT$%",
+    "description": "Status for individual audio upload with percentage",
+    "placeholders": {
+      "percent": {
+        "content": "$1",
+        "example": "30"
+      }
+    }
+  },
   "button_disablePaint": {
     "message": "Disable Paint",
     "description": "Button to disable paint mode"
@@ -2206,12 +2226,12 @@
     }
   },
   "error_uploadFailedLargeFiles": {
-    "message": "Upload failed. These files may be too large (max 40MB recommended):",
+    "message": "Upload failed. These files may be too large:",
     "description": "Header for list of failed large files"
   },
   "error_fileTooLarge40MB": {
-    "message": "$FILENAME$ is too large (max 40MB due to browser limitations)",
-    "description": "Error for individual file over 40MB",
+    "message": "$FILENAME$ is too large (max 2GB supported)",
+    "description": "Error for individual file over 2GB",
     "placeholders": {
       "filename": {
         "content": "$1",
