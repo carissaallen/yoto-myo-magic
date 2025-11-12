@@ -1645,6 +1645,12 @@ async function uploadAudioFile(audioFileData) {
 
         if (typeof YotoAnalytics !== 'undefined') {
             YotoAnalytics.trackUploadLatency('s3_upload', Date.now() - s3UploadStartTime, 'audio');
+            // Track that this was a direct S3 upload for large files
+            YotoAnalytics.sendEvent('large_file_upload', {
+                file_size_mb: Math.round(fileSizeMB * 100) / 100,
+                upload_method: 'direct_s3',
+                s3_upload_duration_ms: Date.now() - s3UploadStartTime
+            });
         }
 
         if (!uploadResponse.ok) {
@@ -1669,6 +1675,7 @@ async function uploadAudioFile(audioFileData) {
         let pollInterval = 500;
         const maxPollInterval = 5000; // Max 5 seconds between polls
         let totalElapsedTime = 0;
+        const transcodingStartTime = Date.now();
 
 
         while (attempts < maxAttempts) {
@@ -1730,7 +1737,16 @@ async function uploadAudioFile(audioFileData) {
         }
 
         if (typeof YotoAnalytics !== 'undefined') {
+            const transcodingDuration = Date.now() - transcodingStartTime;
             YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, true);
+            YotoAnalytics.trackUploadLatency('transcoding', transcodingDuration, 'audio');
+            // Track transcoding performance separately
+            YotoAnalytics.sendEvent('transcoding_performance', {
+                file_size_mb: Math.round(fileSizeMB * 100) / 100,
+                transcoding_duration_ms: transcodingDuration,
+                polling_attempts: attempts,
+                success: true
+            });
         }
 
         return {

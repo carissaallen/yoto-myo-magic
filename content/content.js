@@ -8455,6 +8455,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
               // Upload directly to S3 from content script
 
               try {
+                const s3UploadStartTime = Date.now();
                 const uploadResponse = await fetch(uploadUrl, {
                   method: 'PUT',
                   body: audioFile,
@@ -8467,6 +8468,18 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
                   throw new Error(`S3 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
                 }
 
+                // Track direct S3 upload from content script
+                const uploadDuration = Date.now() - s3UploadStartTime;
+                chrome.runtime.sendMessage({
+                  action: 'TRACK_ANALYTICS',
+                  eventName: 'upload_performance',
+                  data: {
+                    fileType: 'audio_direct_s3',
+                    duration: uploadDuration,
+                    fileSize: fileSize,
+                    success: true
+                  }
+                });
 
                 // Poll for transcoding completion
                 let transcodedAudio = null;
@@ -8702,6 +8715,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
               // Upload directly to S3 from content script
 
               try {
+                const s3UploadStartTime = Date.now();
                 const uploadResponse = await fetch(uploadUrl, {
                   method: 'PUT',
                   body: audioFile,
@@ -8714,6 +8728,18 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
                   throw new Error(`S3 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
                 }
 
+                // Track direct S3 upload from content script
+                const uploadDuration = Date.now() - s3UploadStartTime;
+                chrome.runtime.sendMessage({
+                  action: 'TRACK_ANALYTICS',
+                  eventName: 'upload_performance',
+                  data: {
+                    fileType: 'audio_direct_s3',
+                    duration: uploadDuration,
+                    fileSize: fileSize,
+                    success: true
+                  }
+                });
 
                 // Poll for transcoding completion
                 let transcodedAudio = null;
