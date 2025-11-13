@@ -1664,8 +1664,6 @@ async function uploadAudioFile(audioFileData) {
 
         let transcodedAudio = null;
         let attempts = 0;
-        const fileName = audioFileData.name || 'Unknown';
-        const fileSizeMB = fileSize / 1024 / 1024;
 
         // Adaptive timeout based on file size
         const baseAttempts = 30;
@@ -2444,7 +2442,8 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         const audioTracks = [];
         let processedCount = 0;
         let failedCount = 0;
-        
+        const encounteredDomains = new Set(); // Track domains that need permissions
+
         const processEpisode = async (episode, index) => {
             if (episode.audio_length_sec > 3600) {
                 console.warn(`Episode "${episode.title}" exceeds 60 minutes, it may be truncated by Yoto`);
