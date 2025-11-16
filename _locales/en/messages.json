@@ -777,6 +777,28 @@
     "message": "No playlists have valid files after filtering",
     "description": "Error when filtering removes all files"
   },
+  "notification_multiplePlaylistsDetected": {
+    "message": "Detected $COUNT$ playlists. Choose import method...",
+    "description": "Notification when multiple playlists are detected in Import Playlist flow",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "modal_multiplePlaylistsDetected": {
+    "message": "Multiple Playlists Detected",
+    "description": "Modal title when multiple playlists are detected"
+  },
+  "modal_chooseImportMethod": {
+    "message": "Choose how to import these playlists:",
+    "description": "Modal description prompting user to choose import method"
+  },
+  "button_continueImport": {
+    "message": "Continue with Import",
+    "description": "Button text to continue with import process"
+  },
   "notification_noFilesToUpdate": {
     "message": "No files to update after filtering",
     "description": "Error when no files remain to update"

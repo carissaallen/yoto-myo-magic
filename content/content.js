@@ -1573,7 +1573,7 @@ function showUpdateImportOptionsModal(cardId, cardTitle) {
   });
 }
 
-function showBulkImportOptionsModal() {
+function showBulkImportOptionsModal(preSelectedFiles = null, preSelectedZipFile = null) {
   const existingModal = document.getElementById('yoto-bulk-import-options-modal');
   if (existingModal) existingModal.remove();
 
@@ -1593,6 +1593,14 @@ function showBulkImportOptionsModal() {
     background-color: rgba(0, 0, 0, 0.5);
   `;
 
+  const modalTitle = preSelectedFiles || preSelectedZipFile ?
+    chrome.i18n.getMessage('modal_multiplePlaylistsDetected') :
+    chrome.i18n.getMessage('modal_bulkImportSettings');
+
+  const modalDescription = preSelectedFiles || preSelectedZipFile ?
+    chrome.i18n.getMessage('modal_chooseImportMethod') :
+    chrome.i18n.getMessage('modal_selectZipOrFolder');
+
   modal.innerHTML = `
     <div style="
       background-color: white;
@@ -1603,8 +1611,8 @@ function showBulkImportOptionsModal() {
       margin: 0 16px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     ">
-      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">${chrome.i18n.getMessage('modal_bulkImportSettings')}</h2>
-      <p style="color: #6b7280; margin-bottom: 20px;">${chrome.i18n.getMessage('modal_selectZipOrFolder')}</p>
+      <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px; color: #1f2937;">${modalTitle}</h2>
+      <p style="color: #6b7280; margin-bottom: 20px;">${modalDescription}</p>
 
       <div style="
         background-color: #f3f4f6;
@@ -1634,49 +1642,73 @@ function showBulkImportOptionsModal() {
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
-        <button id="bulk-import-zip-btn" style="
-          width: 100%;
-          padding: 12px 16px;
-          background-color: #10b981;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          cursor: pointer;
-          font-size: 16px;
-          font-weight: 500;
-          transition: background-color 0.2s;
-        " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
-          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
-          <span>${chrome.i18n.getMessage('button_selectZipFile')}</span>
-        </button>
+        ${preSelectedFiles || preSelectedZipFile ? `
+          <button id="bulk-import-continue-btn" style="
+            width: 100%;
+            padding: 12px 16px;
+            background-color: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+          " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+            <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+            </svg>
+            <span>${chrome.i18n.getMessage('button_continueImport')}</span>
+          </button>
+        ` : `
+          <button id="bulk-import-zip-btn" style="
+            width: 100%;
+            padding: 12px 16px;
+            background-color: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+          " onmouseover="this.style.backgroundColor='#059669'" onmouseout="this.style.backgroundColor='#10b981'">
+            <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <span>${chrome.i18n.getMessage('button_selectZipFile')}</span>
+          </button>
 
-        <button id="bulk-import-folder-btn" style="
-          width: 100%;
-          padding: 12px 16px;
-          background-color: #3b82f6;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          cursor: pointer;
-          font-size: 16px;
-          font-weight: 500;
-          transition: background-color 0.2s;
-        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
-          <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-          </svg>
-          <span>${chrome.i18n.getMessage('button_selectFolder')}</span>
-        </button>
+          <button id="bulk-import-folder-btn" style="
+            width: 100%;
+            padding: 12px 16px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+          " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
+            <svg style="width: 20px; height: 20px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+            </svg>
+            <span>${chrome.i18n.getMessage('button_selectFolder')}</span>
+          </button>
+        `}
       </div>
 
       <button id="bulk-import-cancel-btn" style="
@@ -1697,17 +1729,45 @@ function showBulkImportOptionsModal() {
 
   document.body.appendChild(modal);
 
-  document.getElementById('bulk-import-zip-btn').addEventListener('click', () => {
-    const importMode = document.querySelector('input[name="import-mode"]:checked').value;
-    modal.remove();
-    selectBulkZipFile(importMode);
-  });
+  if (preSelectedFiles || preSelectedZipFile) {
+    const continueBtn = document.getElementById('bulk-import-continue-btn');
+    if (continueBtn) {
+      continueBtn.addEventListener('click', async () => {
+        const importMode = document.querySelector('input[name="import-mode"]:checked').value;
+        modal.remove();
 
-  document.getElementById('bulk-import-folder-btn').addEventListener('click', () => {
-    const importMode = document.querySelector('input[name="import-mode"]:checked').value;
-    modal.remove();
-    selectBulkFolder(importMode);
-  });
+        showNotification(
+          chrome.i18n.getMessage('status_processingBulkFolder'),
+          'info'
+        );
+
+        if (preSelectedFiles) {
+          await processBulkFolderFiles(preSelectedFiles, importMode);
+        } else if (preSelectedZipFile) {
+          await processBulkZipFile(preSelectedZipFile, importMode);
+        }
+      });
+    }
+  } else {
+    const zipBtn = document.getElementById('bulk-import-zip-btn');
+    const folderBtn = document.getElementById('bulk-import-folder-btn');
+
+    if (zipBtn) {
+      zipBtn.addEventListener('click', () => {
+        const importMode = document.querySelector('input[name="import-mode"]:checked').value;
+        modal.remove();
+        selectBulkZipFile(importMode);
+      });
+    }
+
+    if (folderBtn) {
+      folderBtn.addEventListener('click', () => {
+        const importMode = document.querySelector('input[name="import-mode"]:checked').value;
+        modal.remove();
+        selectBulkFolder(importMode);
+      });
+    }
+  }
 
   document.getElementById('bulk-import-cancel-btn').addEventListener('click', () => {
     modal.remove();
@@ -4774,14 +4834,13 @@ async function processFolderFiles(files) {
   if (files[0] && files[0].webkitRelativePath) {
     const pathParts = files[0].webkitRelativePath.split('/');
     if (pathParts.length > 0) {
-      folderName = pathParts[0]; // Get the root folder name
+      folderName = pathParts[0];
     }
   }
-  
-  // Supported audio and image extensions (same as ZIP processing)
+
   const audioExtensions = ['m4a', 'mp3', 'mp4', 'm4b', 'wav', 'ogg', 'aac', 'flac'];
   const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
-  
+
   const cleanFiles = Array.from(files).filter(f => {
     if (f.name.startsWith('._') || f.webkitRelativePath.includes('__MACOSX/')) {
       return false;
@@ -4792,43 +4851,70 @@ async function processFolderFiles(files) {
     const ext = f.name.split('.').pop().toLowerCase();
     return audioExtensions.includes(ext) || imageExtensions.includes(ext);
   });
-  
+
   const allAudioFiles = [];
   const allImageFiles = [];
-  
+
   cleanFiles.forEach(f => {
     const ext = f.name.split('.').pop().toLowerCase();
-    f.fileSize = f.size; // Add fileSize property for consistency
-    
+    f.fileSize = f.size;
+
     if (audioExtensions.includes(ext)) {
       allAudioFiles.push(f);
     } else if (imageExtensions.includes(ext)) {
       allImageFiles.push(f);
     }
   });
+
+  if (allAudioFiles.length > 0) {
+    const topLevelDirs = new Map();
+
+    allAudioFiles.forEach(f => {
+      const pathParts = f.webkitRelativePath.split('/');
+      if (pathParts.length >= 3) {
+        const subfolderName = pathParts[1];
+        if (!topLevelDirs.has(subfolderName)) {
+          topLevelDirs.set(subfolderName, 0);
+        }
+        topLevelDirs.set(subfolderName, topLevelDirs.get(subfolderName) + 1);
+      }
+    });
+
+    if (topLevelDirs.size > 1) {
+      const playlistCount = topLevelDirs.size;
+
+      showNotification(
+        chrome.i18n.getMessage('notification_multiplePlaylistsDetected', [playlistCount.toString()]),
+        'info'
+      );
+
+      showBulkImportOptionsModal(files, null);
+      return;
+    }
+  }
   
   let audioFiles = [];
-  
-  const audioFolderFiles = allAudioFiles.filter(f => 
+
+  const audioFolderFiles = allAudioFiles.filter(f =>
     f.webkitRelativePath.toLowerCase().includes('/audio')
   );
-  
+
   if (audioFolderFiles.length > 0) {
     audioFiles = audioFolderFiles;
-  } 
+  }
   else if (allAudioFiles.length > 0) {
     const audioDirs = {};
     allAudioFiles.forEach(f => {
       const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
       audioDirs[dir] = (audioDirs[dir] || 0) + 1;
     });
-    
+
     // Use files from the directory with most audio files, or all if in root
     if (Object.keys(audioDirs).length > 0) {
-      const mainAudioDir = Object.keys(audioDirs).reduce((a, b) => 
+      const mainAudioDir = Object.keys(audioDirs).reduce((a, b) =>
         audioDirs[a] > audioDirs[b] ? a : b, ''
       );
-      audioFiles = allAudioFiles.filter(f => 
+      audioFiles = allAudioFiles.filter(f =>
         f.webkitRelativePath.startsWith(mainAudioDir)
       );
     } else {
@@ -5063,11 +5149,8 @@ async function processZipFile(file) {
       return; // Exit early, don't process as single playlist
     }
     
-    const allAudioFiles = [];
-    const allImageFiles = [];
-    const filesByPath = {};
-
-    // Filter valid entries first
+    // First, analyze ZIP structure WITHOUT extracting files to detect multiple playlists quickly
+    const audioFilePaths = [];
     const validEntries = Object.entries(contents.files).filter(([path, zipEntry]) => {
       if (zipEntry.dir) return false;
 
@@ -5079,14 +5162,79 @@ async function processZipFile(file) {
       const fileName = path.split('/').pop();
       const ext = fileName.split('.').pop().toLowerCase();
 
+      // Track audio file paths for structure analysis
+      if (audioExtensions.includes(ext)) {
+        audioFilePaths.push(path);
+      }
+
       // Skip non-media files (.txt, .DS_Store, etc.)
       if (!audioExtensions.includes(ext) && !imageExtensions.includes(ext)) {
         return false;
       }
 
-      filesByPath[path] = zipEntry;
       return true;
     });
+
+    // Analyze structure BEFORE extracting any files
+    if (audioFilePaths.length > 0) {
+      const folderStructure = new Map();
+      let hasRootFiles = false;
+
+      audioFilePaths.forEach(path => {
+        const pathParts = path.split('/');
+
+        if (pathParts.length === 1 && pathParts[0]) {
+          hasRootFiles = true;
+          if (!folderStructure.has('__root__')) {
+            folderStructure.set('__root__', 0);
+          }
+          folderStructure.set('__root__', folderStructure.get('__root__') + 1);
+        } else if (pathParts.length === 2) {
+          hasRootFiles = true;
+          if (!folderStructure.has('__root__')) {
+            folderStructure.set('__root__', 0);
+          }
+          folderStructure.set('__root__', folderStructure.get('__root__') + 1);
+        } else if (pathParts.length >= 3) {
+          const playlistFolder = pathParts[1];
+          if (!folderStructure.has(playlistFolder)) {
+            folderStructure.set(playlistFolder, 0);
+          }
+          folderStructure.set(playlistFolder, folderStructure.get(playlistFolder) + 1);
+        }
+      });
+
+      const foldersWithAudio = Array.from(folderStructure.keys()).filter(key => key !== '__root__');
+
+      let shouldUseBulkImport = false;
+      let playlistCount = 0;
+
+      if (foldersWithAudio.length >= 2) {
+        shouldUseBulkImport = true;
+        playlistCount = foldersWithAudio.length;
+      } else if (hasRootFiles && foldersWithAudio.length > 0) {
+        shouldUseBulkImport = true;
+        playlistCount = foldersWithAudio.length + 1;
+      }
+
+      if (shouldUseBulkImport) {
+        // Exit early - show bulk import modal without extracting files
+        const existingModal = document.querySelector('#yoto-import-modal');
+        if (existingModal) existingModal.remove();
+
+        showNotification(
+          chrome.i18n.getMessage('notification_multiplePlaylistsDetected', [playlistCount.toString()]),
+          'info'
+        );
+
+        showBulkImportOptionsModal(null, file);
+        return;
+      }
+    }
+
+    // Only extract files if it's a single playlist
+    const allAudioFiles = [];
+    const allImageFiles = [];
 
     // Process files in parallel batches
     const FILE_BATCH_SIZE = 8; // Increased from 5 to 8 for faster file extraction
@@ -5103,14 +5251,16 @@ async function processZipFile(file) {
 
           if (audioExtensions.includes(ext)) {
             const file = new File([blob], fileName, { type: `audio/${ext}` });
-            file.webkitRelativePath = path;
             file.fileSize = fileSize;
-            return { type: 'audio', file };
+            file.zipPath = path; // Store ZIP path since webkitRelativePath is read-only
+            file.webkitRelativePath = path;
+            return { type: 'audio', file, path };
           } else if (imageExtensions.includes(ext)) {
             const file = new File([blob], fileName, { type: `image/${ext}` });
-            file.webkitRelativePath = path;
             file.fileSize = fileSize;
-            return { type: 'image', file };
+            file.zipPath = path; // Store ZIP path since webkitRelativePath is read-only
+            file.webkitRelativePath = path;
+            return { type: 'image', file, path };
           }
         } catch (err) {
           console.error(`Error processing ${path}:`, err);
@@ -5129,37 +5279,41 @@ async function processZipFile(file) {
         }
       });
     }
-    
+
+    // At this point, we know it's a single playlist, so proceed with normal import
     let audioFiles = [];
-    
-    const audioFolderFiles = allAudioFiles.filter(f => 
-      f.webkitRelativePath.toLowerCase().includes('/audio')
-    );
-    
+
+    const audioFolderFiles = allAudioFiles.filter(f => {
+      const path = f.zipPath || f.webkitRelativePath || '';
+      return path.toLowerCase().includes('/audio');
+    });
+
     if (audioFolderFiles.length > 0) {
       audioFiles = audioFolderFiles;
-    } 
+    }
     else if (allAudioFiles.length > 0) {
       const audioDirs = {};
       allAudioFiles.forEach(f => {
-        const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
+        const path = f.zipPath || f.webkitRelativePath || '';
+        const dir = path.substring(0, path.lastIndexOf('/'));
         audioDirs[dir] = (audioDirs[dir] || 0) + 1;
       });
-      
+
       // Use files from the directory with most audio files
-      const mainAudioDir = Object.keys(audioDirs).reduce((a, b) => 
+      const mainAudioDir = Object.keys(audioDirs).reduce((a, b) =>
         audioDirs[a] > audioDirs[b] ? a : b, ''
       );
-      
-      audioFiles = allAudioFiles.filter(f => 
-        f.webkitRelativePath.startsWith(mainAudioDir)
-      );
+
+      audioFiles = allAudioFiles.filter(f => {
+        const path = f.zipPath || f.webkitRelativePath || '';
+        return path.startsWith(mainAudioDir);
+      });
     }
     
     let imageFiles = [];
-    
+
     const imageFolderFiles = allImageFiles.filter(f => {
-      const path = f.webkitRelativePath.toLowerCase();
+      const path = (f.zipPath || f.webkitRelativePath || '').toLowerCase();
       return path.includes('/image') || path.includes('/icon');
     });
     
@@ -5169,18 +5323,20 @@ async function processZipFile(file) {
     else if (allImageFiles.length > 0) {
       const imageDirs = {};
       allImageFiles.forEach(f => {
-        const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
+        const path = f.zipPath || f.webkitRelativePath || '';
+        const dir = path.substring(0, path.lastIndexOf('/'));
         imageDirs[dir] = (imageDirs[dir] || 0) + 1;
       });
-      
+
       // Use files from the directory with most image files
-      const mainImageDir = Object.keys(imageDirs).reduce((a, b) => 
+      const mainImageDir = Object.keys(imageDirs).reduce((a, b) =>
         imageDirs[a] > imageDirs[b] ? a : b, ''
       );
-      
-      imageFiles = allImageFiles.filter(f => 
-        f.webkitRelativePath.startsWith(mainImageDir)
-      );
+
+      imageFiles = allImageFiles.filter(f => {
+        const path = f.zipPath || f.webkitRelativePath || '';
+        return path.startsWith(mainImageDir);
+      });
     }
     
     audioFiles.sort((a, b) => {
@@ -5200,8 +5356,7 @@ async function processZipFile(file) {
     showImportModal(audioFiles, trackIcons, coverImage, folderName, 'zip');
     
   } catch (error) {
-    showNotification(chrome.i18n.getMessage('notification_errorProcessingFile'), 'error');
-    showNotification('Failed to process ZIP file. Error: ' + error.message, 'error');
+    showNotification(chrome.i18n.getMessage('notification_failedToProcessZip', [error.message]), 'error');
     // Track ZIP processing errors
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
@@ -5574,7 +5729,7 @@ async function processBulkZipFile(file, importMode = 'separate') {
     if (loadingModal && loadingModal.parentNode) {
       loadingModal.remove();
     }
-    showNotification('Error processing bulk ZIP file: ' + error.message, 'error');
+    showNotification(chrome.i18n.getMessage('notification_errorProcessingBulkZip', [error.message]), 'error');
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
       error: error.message || 'Bulk ZIP processing failed',
@@ -5681,7 +5836,7 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
     }
     
   } catch (error) {
-    showNotification('Error processing bulk folder: ' + error.message, 'error');
+    showNotification(chrome.i18n.getMessage('notification_errorProcessingBulkFolder', [error.message]), 'error');
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
       error: error.message || 'Bulk folder processing failed',
@@ -7190,7 +7345,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
     cancelBtn.textContent = chrome.i18n.getMessage('button_close');
     cancelBtn.disabled = false;
 
-    showNotification('Failed to update card: ' + error.message, 'error');
+    showNotification(chrome.i18n.getMessage('error_failedToUpdateCard', [error.message]), 'error');
 
     chrome.runtime.sendMessage({
       action: 'TRACK_ERROR',
@@ -9240,7 +9395,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         }
       } else {
         // For other errors, show simple notification
-        showNotification('Import failed: ' + error.message, 'error');
+        showNotification(chrome.i18n.getMessage('notification_importFailed', [error.message]), 'error');
       }
 
       // Track import failures
