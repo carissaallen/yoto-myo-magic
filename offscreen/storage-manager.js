@@ -1,15 +1,11 @@
-/**
- * Storage Manager - Handles OPFS, IndexedDB, and manifest persistence
- * Manages temporary file storage and progressive download state
- */
+// Storage Manager - Handles OPFS, and manifest persistence
+// Manages temporary file storage and progressive download state
 
 class StorageManager {
     constructor() {
         this.root = null;
         this.tempDir = null;
         this.initialized = false;
-        this.CHUNK_SIZE = 1024 * 1024; // 1MB chunks for large files
-        this.MAX_MEMORY_SIZE = 10 * 1024 * 1024; // 10MB threshold for streaming
         this.manifests = new Map(); // Store manifests in memory since offscreen can't access chrome.storage
     }
 
@@ -17,22 +13,18 @@ class StorageManager {
         if (this.initialized) return;
 
         try {
-            // Check if OPFS is available
             if (!navigator.storage || !navigator.storage.getDirectory) {
                 throw new Error('OPFS (Origin Private File System) is not available in this context');
             }
 
             console.log('[StorageManager] Attempting to access OPFS...');
 
-            // Initialize OPFS
             this.root = await navigator.storage.getDirectory();
             console.log('[StorageManager] Got OPFS root directory');
 
-            // Create temp directory
             this.tempDir = await this.root.getDirectoryHandle('yoto-downloads', { create: true });
             console.log('[StorageManager] Created/accessed yoto-downloads directory');
 
-            // Check storage quota
             if (navigator.storage.estimate) {
                 const estimate = await navigator.storage.estimate();
                 const usedMB = (estimate.usage / 1024 / 1024).toFixed(2);
@@ -65,34 +57,21 @@ class StorageManager {
         }
     }
 
-    /**
-     * Store manifest in memory
-     */
     storeManifestInMemory(manifestId, manifest) {
         this.manifests.set(manifestId, manifest);
         console.log(`[StorageManager] Stored manifest ${manifestId} in memory`);
     }
 
-    /**
-     * Get manifest from memory
-     */
     getManifestFromMemory(manifestId) {
         return this.manifests.get(manifestId);
     }
 
-    /**
-     * Get or create a manifest for a download session
-     */
     async getManifest(manifestId) {
         // In offscreen context, we only use memory storage
         return this.manifests.get(manifestId) || null;
     }
 
-    /**
-     * Save or update a manifest
-     */
     async saveManifest(manifestId, manifest) {
-        // In offscreen context, we only use memory storage
         this.manifests.set(manifestId, manifest);
         // Notify service worker of updates
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -108,9 +87,6 @@ class StorageManager {
         }
     }
 
-    /**
-     * Update specific fields in a manifest
-     */
     async updateManifest(manifestId, updates) {
         const manifest = this.manifests.get(manifestId);
         if (!manifest) {
@@ -155,10 +131,8 @@ class StorageManager {
             delete updates.files;
         }
 
-        // Apply remaining updates
         Object.assign(manifest, updates);
 
-        // Store updated manifest
         this.manifests.set(manifestId, manifest);
 
         // Notify service worker of updates (including files)
@@ -175,9 +149,6 @@ class StorageManager {
         }
     }
 
-    /**
-     * Save a file to OPFS with streaming support for large files
-     */
     async saveFile(stream, fileInfo, manifestId) {
         try {
             // Ensure we're initialized
@@ -193,20 +164,12 @@ class StorageManager {
 
             console.log(`[StorageManager] Saving ${fileType} file: ${filename} for playlist: ${playlistId}`);
 
-            // Create playlist directory
             const playlistDir = await this.tempDir.getDirectoryHandle(playlistId, { create: true });
-
-            // Create subdirectory based on file type
             const subDir = await playlistDir.getDirectoryHandle(fileType, { create: true });
-
-            // Create or get file handle
             const fileHandle = await subDir.getFileHandle(filename, { create: true });
-
-            // Write stream to file
             const writable = await fileHandle.createWritable();
             await stream.pipeTo(writable);
 
-            // Update manifest with file location
             const filePath = `${playlistId}/${fileType}/${filename}`;
             await this.updateManifest(manifestId, {
                 files: {
@@ -266,9 +229,6 @@ class StorageManager {
         }
     }
 
-    /**
-     * Save file from ArrayBuffer (for smaller files)
-     */
     async saveFileFromBuffer(buffer, fileInfo, manifestId) {
         const stream = new ReadableStream({
             start(controller) {
@@ -279,30 +239,6 @@ class StorageManager {
         return await this.saveFile(stream, fileInfo, manifestId);
     }
 
-    /**
-     * Check if a file exists in OPFS
-     */
-    async fileExists(filePath) {
-        if (!this.initialized) await this.initialize();
-
-        try {
-            const parts = filePath.split('/');
-            let currentDir = this.tempDir;
-
-            for (let i = 0; i < parts.length - 1; i++) {
-                currentDir = await currentDir.getDirectoryHandle(parts[i]);
-            }
-
-            await currentDir.getFileHandle(parts[parts.length - 1]);
-            return true;
-        } catch (error) {
-            return false;
-        }
-    }
-
-    /**
-     * Get file from OPFS
-     */
     async getFile(filePath) {
         if (!this.initialized) await this.initialize();
 
@@ -317,12 +253,6 @@ class StorageManager {
         return await fileHandle.getFile();
     }
 
-    /**
-     * Create a ZIP file from downloaded files
-     * @param {string} manifestId - The manifest ID
-     * @param {Array<string>} playlistIds - Optional playlist IDs to include
-     * @param {Map} inMemoryFiles - Optional map of files stored in memory (from DownloadManager)
-     */
     async createZipFromManifest(manifestId, playlistIds = null, inMemoryFiles = null) {
         const manifest = this.manifests.get(manifestId);
         if (!manifest) {
@@ -339,10 +269,9 @@ class StorageManager {
 
         for (const playlist of playlists) {
             const playlistFolder = zip.folder(this.sanitizeName(playlist.title));
-            const audioFolder = playlistFolder.folder('audio');
+            const audioFolder = playlistFolder.folder('audio_files');
             const imagesFolder = playlistFolder.folder('images');
 
-            // Process all files for this playlist
             for (const fileId in manifest.files) {
                 const fileInfo = manifest.files[fileId];
 
@@ -397,9 +326,6 @@ class StorageManager {
         return blob;
     }
 
-    /**
-     * Clean up completed or old downloads
-     */
     async cleanupOldDownloads() {
         const now = Date.now();
         const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -429,9 +355,6 @@ class StorageManager {
         }
     }
 
-    /**
-     * Remove a manifest and its associated files
-     */
     async removeManifestAndFiles(manifestId) {
         const manifest = this.manifests.get(manifestId);
         if (!manifest) return;
@@ -469,9 +392,6 @@ class StorageManager {
         console.log(`[StorageManager] Cleaned up manifest: ${manifestId}`);
     }
 
-    /**
-     * Get storage quota information
-     */
     async getStorageInfo() {
         const estimate = await navigator.storage.estimate();
         return {
@@ -481,9 +401,6 @@ class StorageManager {
         };
     }
 
-    /**
-     * Check if we have enough storage for a download
-     */
     async hasStorageSpace(requiredBytes) {
         const info = await this.getStorageInfo();
         const available = info.quota - info.used;
@@ -491,9 +408,6 @@ class StorageManager {
         return available > (requiredBytes + buffer);
     }
 
-    /**
-     * Sanitize names for file system
-     */
     sanitizeName(name) {
         return String(name)
             .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
@@ -502,9 +416,6 @@ class StorageManager {
             .slice(0, 200) || 'untitled';
     }
 
-    /**
-     * Deep merge helper
-     */
     deepMerge(target, source) {
         const result = { ...target };
 

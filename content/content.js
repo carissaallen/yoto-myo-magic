@@ -107,7 +107,7 @@ function init() {
         status.style.color = '#ef4444';
       }
       // Show notification to user
-      showNotification(`Export error: ${request.error}`, 'error');
+      showNotification(chrome.i18n.getMessage('bulkExport_exportError').replace('{{error}}', request.error), 'error');
     } else if (request.type === 'DOWNLOAD_PROGRESS') {
       console.log('[Bulk Export] Progress:', request);
       handleDownloadProgress(request);
@@ -126,7 +126,7 @@ function init() {
       // Update status in the export modal
       const status = document.getElementById('export-status');
       if (status) {
-        status.textContent = 'Export complete! ZIP downloaded to your Downloads folder.';
+        status.textContent = chrome.i18n.getMessage('bulkExport_zipDownloaded');
         status.style.color = '#10b981';
       }
 
@@ -155,7 +155,7 @@ function init() {
       }
 
       // Show error notification
-      showNotification(`Export error: ${request.error}`, 'error');
+      showNotification(chrome.i18n.getMessage('bulkExport_exportError').replace('{{error}}', request.error), 'error');
     } else if (request.type === 'ZIP_CREATION_ERROR') {
       console.error('[Bulk Export] ZIP creation error:', request.error);
 
@@ -167,7 +167,7 @@ function init() {
       }
 
       // Show error notification
-      showNotification(`Export error: ${request.error}`, 'error');
+      showNotification(chrome.i18n.getMessage('bulkExport_exportError').replace('{{error}}', request.error), 'error');
     } else if (request.type === 'DOWNLOADS_STARTED') {
       console.log('[Bulk Export] Downloads started:', request);
       handleDownloadsStarted(request);
@@ -1359,12 +1359,31 @@ async function showBulkExportModal() {
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    position: relative;
   `;
 
   modalContent.innerHTML = `
-    <h2 style="font-size: 20px; font-weight: bold; color: #1f2937; margin: 0 0 20px 0;">Bulk Export Playlists</h2>
+    <h2 style="font-size: 20px; font-weight: bold; color: #1f2937; margin: 0 0 20px 0;">${chrome.i18n.getMessage('bulkExport_modalTitle')}</h2>
+    <button id="close-modal-btn" style="
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 4px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: all 0.2s;
+    " onmouseover="this.style.backgroundColor='#f3f4f6'; this.style.color='#6b7280';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#9ca3af';">×</button>
 
-    <p style="color: #6b7280; margin-bottom: 20px;">Select playlists to export. Each playlist will be saved in its own folder with audio files and images.</p>
+    <p style="color: #6b7280; margin-bottom: 20px;">${chrome.i18n.getMessage('bulkExport_description')}</p>
 
     <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
       <div>
@@ -1378,7 +1397,7 @@ async function showBulkExportModal() {
         cursor: pointer;
         margin-right: 8px;
         transition: all 0.2s;
-      ">Select All</button>
+      ">${chrome.i18n.getMessage('bulkExport_selectAll')}</button>
       <button id="deselect-all-playlists" style="
         background-color: #f3f4f6;
         color: #374151;
@@ -1388,7 +1407,7 @@ async function showBulkExportModal() {
         font-size: 14px;
         cursor: pointer;
         transition: all 0.2s;
-      ">Deselect All</button>
+      ">${chrome.i18n.getMessage('bulkExport_deselectAll')}</button>
       </div>
 
       <select id="sort-playlists" style="
@@ -1402,10 +1421,10 @@ async function showBulkExportModal() {
         outline: none;
         transition: border-color 0.2s;
       ">
-        <option value="name-asc">Sort: A-Z</option>
-        <option value="name-desc">Sort: Z-A</option>
-        <option value="updated" selected>Sort: Last Updated</option>
-        <option value="created">Sort: Last Created</option>
+        <option value="name-asc">${chrome.i18n.getMessage('bulkExport_sortAZ')}</option>
+        <option value="name-desc">${chrome.i18n.getMessage('bulkExport_sortZA')}</option>
+        <option value="updated" selected>${chrome.i18n.getMessage('bulkExport_sortUpdated')}</option>
+        <option value="created">${chrome.i18n.getMessage('bulkExport_sortCreated')}</option>
       </select>
     </div>
 
@@ -1419,7 +1438,7 @@ async function showBulkExportModal() {
         animation: spin 1s linear infinite;
         margin: 0 auto 16px;
       "></div>
-      <p style="color: #6b7280;">Loading your playlists...</p>
+      <p style="color: #6b7280;">${chrome.i18n.getMessage('bulkExport_loading')}</p>
     </div>
 
     <div id="playlists-container" style="display: none;">
@@ -1465,7 +1484,7 @@ async function showBulkExportModal() {
           font-size: 14px;
           cursor: pointer;
           transition: background-color 0.2s;
-        ">Cancel</button>
+        ">${chrome.i18n.getMessage('bulkExport_cancelExport')}</button>
         <div style="display: flex; gap: 12px;">
           <button id="close-export" style="
             background-color: #f3f4f6;
@@ -1476,7 +1495,7 @@ async function showBulkExportModal() {
             font-size: 14px;
             cursor: pointer;
             transition: background-color 0.2s;
-          ">Close</button>
+          ">${chrome.i18n.getMessage('bulkExport_close')}</button>
           <button id="start-export" style="
             background-color: #3b82f6;
             color: white;
@@ -1486,7 +1505,7 @@ async function showBulkExportModal() {
             font-size: 14px;
             cursor: pointer;
             transition: background-color 0.2s;
-          ">Start Export</button>
+          ">${chrome.i18n.getMessage('bulkExport_startExport')}</button>
         </div>
       </div>
     </div>
@@ -1512,12 +1531,22 @@ async function showBulkExportModal() {
         action: 'CANCEL_BULK_EXPORT',
         manifestId: window.currentExportManifestId
       });
-      showNotification('Export cancelled', 'info');
+      showNotification(chrome.i18n.getMessage('bulkExport_exportCancelled'), 'info');
     }
     modal.remove();
   };
   cancelBtn.onmouseover = function() { this.style.backgroundColor = '#e5e7eb'; };
   cancelBtn.onmouseout = function() { this.style.backgroundColor = '#f3f4f6'; };
+
+  const closeModalBtn = document.getElementById('close-modal-btn');
+  if (closeModalBtn) {
+    closeModalBtn.onclick = () => {
+      modal.remove();
+      if (window.currentExportManifestId) {
+        showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
+      }
+    };
+  }
 
   // Close button - only closes the modal, doesn't cancel the export
   const closeBtn = document.getElementById('close-export');
@@ -1525,7 +1554,7 @@ async function showBulkExportModal() {
     modal.remove();
     if (window.currentExportManifestId) {
       // If export is running, remind user it continues in background
-      showNotification('Export continues in background', 'info');
+      showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
     }
   };
   closeBtn.onmouseover = function() { this.style.backgroundColor = '#e5e7eb'; };
@@ -1537,7 +1566,7 @@ async function showBulkExportModal() {
       modal.remove();
       if (window.currentExportManifestId) {
         // If export is running, remind user it continues in background
-        showNotification('Export continues in background', 'info');
+        showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
       }
     }
   };
@@ -1735,7 +1764,7 @@ async function startBulkExport(allPlaylists) {
       window.exportCompletedFiles = 0;
       window.exportFailedFiles = 0;
 
-      showNotification('Export cancelled', 'info');
+      showNotification(chrome.i18n.getMessage('bulkExport_exportCancelled'), 'info');
     };
 
     // Update UI to show background mode
@@ -1767,13 +1796,13 @@ async function startBulkExport(allPlaylists) {
     // Add status indicator to page
     addExportStatusIndicator();
 
-    showNotification('Export started! Downloads will continue in the background.', 'success');
+    showNotification(chrome.i18n.getMessage('bulkExport_exportStarted'), 'success');
 
   } catch (error) {
     console.error('[Bulk Export] Failed to start export:', error);
     status.textContent = `Error: ${error.message}`;
     document.getElementById('start-export').disabled = false;
-    showNotification(`Failed to start export: ${error.message}`, 'error');
+    showNotification(chrome.i18n.getMessage('bulkExport_exportFailed').replace('{{error}}', error.message), 'error');
   }
 }
 
@@ -1849,7 +1878,13 @@ function handleExportCompleted(request) {
   if (status && progressBar) {
     progressBar.style.width = '100%';
     const failedText = stats.failed > 0 ? ` (${stats.failed} failed)` : '';
-    status.textContent = `Creating ZIP file with ${stats.completed} files${failedText}...`;
+    const zipMsg = stats.failed > 0
+      ? chrome.i18n.getMessage('bulkExport_creatingZipWithFailed')
+          .replace('{{completed}}', stats.completed)
+          .replace('{{failed}}', stats.failed)
+      : chrome.i18n.getMessage('bulkExport_creatingZipWithFiles')
+          .replace('{{completed}}', stats.completed);
+    status.textContent = zipMsg;
   }
 
   // Automatically download the ZIP
@@ -1862,23 +1897,27 @@ function handleExportCompleted(request) {
         action: 'DOWNLOAD_EXPORT_ZIP',
         manifestId: manifestId
       });
-      console.log('[Bulk Export] DOWNLOAD_EXPORT_ZIP response:', response);
+      if (response && response.error !== 'Unknown action') {
+        console.log('[Bulk Export] DOWNLOAD_EXPORT_ZIP response:', response);
+      }
 
-      if (response && response.error) {
+      if (response && response.success) {
+        console.log('[Bulk Export] ZIP creation initiated successfully');
+      } else if (response && response.error && response.error !== 'Unknown action') {
         throw new Error(response.error);
       }
 
-      // Don't show success immediately, wait for the actual download notification
       if (status) {
-        status.textContent = 'Creating ZIP file...';
+        status.textContent = chrome.i18n.getMessage('bulkExport_statusCreatingZip');
       }
     } catch (error) {
-      console.error('[Bulk Export] Failed to create ZIP:', error);
-      console.error('[Bulk Export] Error stack:', error.stack);
-      if (status) {
-        status.textContent = `Failed to create ZIP: ${error.message}`;
+      if (error.message !== 'Unknown action') {
+        console.error('[Bulk Export] Failed to create ZIP:', error);
+        if (status) {
+          status.textContent = `Failed to create ZIP: ${error.message}`;
+        }
+        showNotification(chrome.i18n.getMessage('bulkExport_zipFailed'), 'error');
       }
-      showNotification('Failed to create ZIP file. Please try again.', 'error');
     }
   })();
 
@@ -1903,8 +1942,11 @@ function handleExportCompleted(request) {
     // Update status text
     const statusText = document.getElementById('export-indicator-status');
     if (statusText) {
-      const failedText = stats.failed > 0 ? ` (${stats.failed} failed)` : '';
-      statusText.textContent = `Complete! ${stats.completed} files${failedText}`;
+      statusText.textContent = stats.failed > 0
+          ? chrome.i18n.getMessage('bulkExport_creatingZipWithFailed')
+              .replace('{{completed}}', stats.completed)
+              .replace('{{failed}}', stats.failed)
+          : chrome.i18n.getMessage('bulkExport_statusComplete');
     }
 
     // Show notification
@@ -1933,11 +1975,17 @@ function updateExportProgress() {
 
     progressBar.style.width = `${percentage}%`;
 
-    const failedText = failed > 0 ? ` (${failed} failed)` : '';
-    status.textContent = `Downloading: ${processed}/${total} files${failedText}`;
+    status.textContent = failed > 0
+        ? chrome.i18n.getMessage('bulkExport_downloadProgressWithFailed')
+            .replace('{{processed}}', processed)
+            .replace('{{total}}', total)
+            .replace('{{failed}}', failed)
+        : chrome.i18n.getMessage('bulkExport_downloadProgress')
+            .replace('{{processed}}', processed)
+            .replace('{{total}}', total);
   }
 
-  // Also update the floating indicator
+  updateExportProgressModal();
   updateExportStatusIndicator();
 }
 
@@ -1981,7 +2029,7 @@ function addExportStatusIndicator() {
       animation: spin 1s linear infinite;
     "></div>
     <div style="flex: 1;">
-      <div style="font-size: 12px; opacity: 0.9;">Bulk Export</div>
+      <div style="font-size: 12px; opacity: 0.9;">${chrome.i18n.getMessage('bulkExport_floatingIndicator')}</div>
       <div id="export-indicator-status" style="font-size: 11px; opacity: 0.8;">Processing...</div>
     </div>
   `;
@@ -2020,7 +2068,91 @@ function addExportStatusIndicator() {
   updateExportStatusIndicator();
 }
 
-// Update the floating indicator with current progress
+function updateExportProgressModal() {
+  const modal = document.getElementById('yoto-bulk-export-modal');
+  if (!modal || !window.currentExportManifestId) return;
+
+  const completed = window.exportCompletedFiles || 0;
+  const failed = window.exportFailedFiles || 0;
+  const total = window.exportTotalFiles || 0;
+  const processed = completed + failed;
+  const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+  const progressBar = modal.querySelector('div[style*="background: linear-gradient"]');
+  if (progressBar) {
+    progressBar.style.width = `${percentage}%`;
+  }
+
+  const statusText = modal.querySelector('p[style*="margin-bottom: 12px"]');
+  if (statusText) {
+    const statusLabel = chrome.i18n.getMessage('bulkExport_statusLabel');
+    const statusValue = percentage === 100
+      ? chrome.i18n.getMessage('bulkExport_statusComplete')
+      : chrome.i18n.getMessage('bulkExport_statusDownloading');
+    statusText.innerHTML = `<strong>${statusLabel}</strong> ${statusValue}`;
+  }
+
+  // Update the file count
+  const fileCountSpan = modal.querySelector('span');
+  if (fileCountSpan && fileCountSpan.textContent.includes('of')) {
+    fileCountSpan.textContent = `${processed} of ${total} files`;
+  }
+
+  const percentageSpans = modal.querySelectorAll('span');
+  percentageSpans.forEach(span => {
+    if (span.textContent.includes('%') && !span.textContent.includes('of')) {
+      span.textContent = `${percentage}%`;
+    }
+  });
+
+  const failedWarning = modal.querySelector('p[style*="color: #ef4444"]');
+  if (failed > 0) {
+    if (!failedWarning) {
+      const warningContainer = modal.querySelector('div[style*="background-color: #f3f4f6"]');
+      if (warningContainer) {
+        const warning = document.createElement('p');
+        warning.style.cssText = 'color: #ef4444; font-size: 13px; margin-top: 8px;';
+        warning.textContent = `⚠️ ${failed} files failed to download`;
+        warningContainer.appendChild(warning);
+      }
+    } else {
+      failedWarning.textContent = `⚠️ ${failed} files failed to download`;
+    }
+  }
+
+  if (percentage === 100) {
+    const completionDiv = modal.querySelector('div[style*="background-color: #10b981"]');
+    if (!completionDiv) {
+      const modalContent = modal.querySelector('div[style*="background-color: white"]');
+      const existingCompletion = modalContent.querySelector('div[style*="display: flex; justify-content: center"]');
+      if (!existingCompletion) {
+        const completionHTML = `
+          <div style="display: flex; justify-content: center; margin-top: 16px;">
+            <div style="
+              background-color: #10b981;
+              color: white;
+              padding: 10px 20px;
+              border-radius: 6px;
+              font-size: 14px;
+              text-align: center;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 8px;
+            ">
+              <svg style="width: 16px; height: 16px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+              ZIP Downloaded to Downloads folder
+            </div>
+          </div>
+        `;
+        modalContent.insertAdjacentHTML('beforeend', completionHTML);
+      }
+    }
+  }
+}
+
 function updateExportStatusIndicator() {
   const indicator = document.getElementById('export-indicator-status');
   if (!indicator || !window.currentExportManifestId) return;
@@ -2043,22 +2175,17 @@ function removeExportStatusIndicator() {
   }
 }
 
-// Check for active export on page load
 async function checkForActiveExport() {
   try {
-    // Check chrome.storage for active export manifest
     const storage = await chrome.storage.local.get(null);
 
-    // Find any active export manifests
     for (const key in storage) {
       if (key.startsWith('manifest_')) {
         const manifest = storage[key];
 
-        // Check if export is still in progress
         if (manifest && manifest.status !== 'completed' && manifest.status !== 'cancelled') {
           const manifestId = key.replace('manifest_', '');
 
-          // Restore export tracking variables
           window.currentExportManifestId = manifestId;
 
           // Calculate progress
@@ -2071,10 +2198,8 @@ async function checkForActiveExport() {
           window.exportCompletedFiles = completed;
           window.exportFailedFiles = failed;
 
-          // Show the status indicator
           addExportStatusIndicator();
 
-          // Show notification that export is still running
           if (manifest.status === 'downloading') {
             showNotification('Bulk export is still running in the background', 'info');
           }
@@ -2131,7 +2256,25 @@ async function reopenExportModal() {
       animation: scaleIn 0.3s ease-out;
       position: relative;
     ">
-      <h2 style="font-size: 20px; font-weight: bold; color: #1f2937; margin: 0 0 20px 0;">Export Progress</h2>
+      <h2 style="font-size: 20px; font-weight: bold; color: #1f2937; margin: 0 0 20px 0;">${chrome.i18n.getMessage('bulkExport_progressTitle')}</h2>
+      <button id="close-modal" style="
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        background: none;
+        border: none;
+        font-size: 20px;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 4px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s;
+      " onmouseover="this.style.backgroundColor='#f3f4f6'; this.style.color='#6b7280';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#9ca3af';">×</button>
 
       <div style="
         background-color: #f3f4f6;
@@ -2140,7 +2283,7 @@ async function reopenExportModal() {
         margin-bottom: 20px;
       ">
         <p style="margin-bottom: 12px; font-size: 14px; color: #374151;">
-          <strong>Status:</strong> ${percentage === 100 ? 'Complete' : 'Downloading in background...'}
+          <strong>${chrome.i18n.getMessage('bulkExport_statusLabel')}</strong> ${percentage === 100 ? chrome.i18n.getMessage('bulkExport_statusComplete') : chrome.i18n.getMessage('bulkExport_statusDownloading')}
         </p>
 
         <div style="margin-bottom: 8px;">
@@ -2196,6 +2339,20 @@ async function reopenExportModal() {
 
   document.body.appendChild(modal);
 
+  const closeBtn = document.getElementById('close-modal');
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      modal.remove();
+      if (window.exportProgressModalInterval) {
+        clearInterval(window.exportProgressModalInterval);
+        window.exportProgressModalInterval = null;
+      }
+      if (window.currentExportManifestId && percentage < 100) {
+        showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
+      }
+    };
+  }
+
   // Add animation styles if not already present
   if (!document.getElementById('export-modal-styles')) {
     const style = document.createElement('style');
@@ -2233,7 +2390,7 @@ async function reopenExportModal() {
       cursor: pointer;
       transition: background-color 0.2s;
     `;
-    cancelBtn.textContent = 'Cancel';
+    cancelBtn.textContent = 'Cancel Export';
     cancelBtn.onmouseover = () => {
       cancelBtn.style.backgroundColor = '#e5e7eb';
     };
@@ -2243,6 +2400,12 @@ async function reopenExportModal() {
     cancelBtn.onclick = async () => {
       cancelBtn.disabled = true;
       cancelBtn.textContent = 'Cancelling...';
+
+      // Clear the update interval
+      if (window.exportProgressModalInterval) {
+        clearInterval(window.exportProgressModalInterval);
+        window.exportProgressModalInterval = null;
+      }
 
       // Send cancel request to service worker
       await chrome.runtime.sendMessage({
@@ -2260,7 +2423,7 @@ async function reopenExportModal() {
       window.exportCompletedFiles = 0;
       window.exportFailedFiles = 0;
 
-      showNotification('Export cancelled', 'info');
+      showNotification(chrome.i18n.getMessage('bulkExport_exportCancelled'), 'info');
     };
 
     cancelBtnContainer.appendChild(cancelBtn);
@@ -2269,8 +2432,28 @@ async function reopenExportModal() {
 
   // Event handlers
   modal.onclick = (e) => {
-    if (e.target === modal) modal.remove();
+    if (e.target === modal) {
+      modal.remove();
+      if (window.exportProgressModalInterval) {
+        clearInterval(window.exportProgressModalInterval);
+        window.exportProgressModalInterval = null;
+      }
+    }
   };
+
+  if (percentage < 100) {
+    window.exportProgressModalInterval = setInterval(() => {
+      updateExportProgressModal();
+
+      const currentPercentage = window.exportTotalFiles > 0 ?
+        Math.round(((window.exportCompletedFiles || 0) + (window.exportFailedFiles || 0)) / window.exportTotalFiles * 100) : 0;
+
+      if (currentPercentage >= 100 || !window.currentExportManifestId) {
+        clearInterval(window.exportProgressModalInterval);
+        window.exportProgressModalInterval = null;
+      }
+    }, 500); // Update every 500ms for smooth progress
+  }
 }
 
 async function exportPlaylist(playlist) {
@@ -2316,12 +2499,18 @@ async function exportPlaylist(playlist) {
   };
 
   // Try different possible structures for cover image
-  const coverUrl = resolvedData.card?.metadata?.cover?.imageL ||
-                   resolvedData.card?.content?.cover?.imageL ||
-                   resolvedData.metadata?.cover?.imageL ||
-                   resolvedData.metadata?.cover?.imageS ||
-                   resolvedData.cover?.imageL ||
-                   resolvedData.coverImageL;
+  let coverUrl = resolvedData.card?.metadata?.cover?.imageL ||
+                 resolvedData.card?.content?.cover?.imageL ||
+                 resolvedData.metadata?.cover?.imageL ||
+                 resolvedData.metadata?.cover?.imageS ||
+                 resolvedData.cover?.imageL ||
+                 resolvedData.coverImageL;
+
+  if (coverUrl && coverUrl.startsWith('yoto:#')) {
+    const coverId = coverUrl.replace('yoto:#', '');
+    coverUrl = `https://api.yotoplay.com/media/${coverId}`;
+    console.log(`[Bulk Export] Converted cover yoto:# URL to media URL: ${coverUrl}`);
+  }
 
   if (coverUrl) {
     exportData.coverImage = {
@@ -2350,9 +2539,25 @@ async function exportPlaylist(playlist) {
         // Chapter has multiple tracks, process each one
         for (let j = 0; j < chapter.tracks.length; j++) {
           const track = chapter.tracks[j];
-          const trackUrl = track.trackUrl || track.url;
+          let trackUrl = track.trackUrl || track.url || track.audioUrl || track.mediaUrl;
 
-          if (trackUrl) {
+          if (!trackUrl && track.downloadUrl) {
+            trackUrl = track.downloadUrl;
+          }
+          if (!trackUrl && track.contentUrl) {
+            trackUrl = track.contentUrl;
+          }
+
+          console.log(`[Bulk Export] Track ${i}-${j} URL fields:`, {
+            trackUrl: track.trackUrl,
+            url: track.url,
+            audioUrl: track.audioUrl,
+            mediaUrl: track.mediaUrl,
+            downloadUrl: track.downloadUrl,
+            contentUrl: track.contentUrl
+          });
+
+          if (trackUrl && (trackUrl.startsWith('http://') || trackUrl.startsWith('https://'))) {
             const trackNumber = String(i + 1).padStart(2, '0');
             const trackSubNumber = chapter.tracks.length > 1 ? `-${String(j + 1).padStart(2, '0')}` : '';
             const trackTitle = sanitizeFilename(track.title || chapter.title || `Track ${i + 1}`);
@@ -2361,11 +2566,23 @@ async function exportPlaylist(playlist) {
               filename: `${trackNumber}${trackSubNumber} - ${trackTitle}.mp3`
             });
             console.log(`[Bulk Export] Found audio URL for track ${i}-${j}: ${trackUrl.substring(0, 50)}...`);
+          } else if (trackUrl && trackUrl.startsWith('yoto:#')) {
+            console.log(`[Bulk Export] Track ${i}-${j} has yoto:# URL (internal reference): ${trackUrl}`);
+            exportData.protectedTracks = (exportData.protectedTracks || 0) + 1;
+          } else {
+            console.log(`[Bulk Export] No valid URL found for track ${i}-${j}`);
 
             // Use track's icon if available (preferred over chapter icon)
-            const trackIconUrl = track.display?.icon16x16 ||
+            let trackIconUrl = track.display?.icon16x16 ||
                                 track.display?.displayIcon?.imageL ||
                                 track.display?.displayIcon?.imageS;
+
+            // Convert yoto:# icon URLs to actual downloadable URLs
+            if (trackIconUrl && trackIconUrl.startsWith('yoto:#')) {
+              const iconId = trackIconUrl.replace('yoto:#', '');
+              trackIconUrl = `https://api.yotoplay.com/media/${iconId}`;
+              console.log(`[Bulk Export] Converted icon yoto:# URL to media URL: ${trackIconUrl}`);
+            }
 
             if (trackIconUrl) {
               const iconFilename = chapter.tracks.length > 1 ? `icon-${i}-${j}.png` : `icon-${i}.png`;
@@ -2379,13 +2596,30 @@ async function exportPlaylist(playlist) {
         }
       } else {
         // Fallback to old structure (single track per chapter)
-        const trackUrl = chapter.track?.trackUrl ||
-                        chapter.track?.url ||
-                        chapter.trackUrl ||
-                        chapter.audio?.url ||
-                        chapter.audioUrl;
+        let trackUrl = chapter.track?.trackUrl ||
+                      chapter.track?.url ||
+                      chapter.trackUrl ||
+                      chapter.url ||
+                      chapter.audio?.url ||
+                      chapter.audioUrl ||
+                      chapter.mediaUrl ||
+                      chapter.downloadUrl ||
+                      chapter.contentUrl;
 
-        if (trackUrl) {
+        console.log(`[Bulk Export] Chapter ${i} URL fields:`, {
+          'track.trackUrl': chapter.track?.trackUrl,
+          'track.url': chapter.track?.url,
+          trackUrl: chapter.trackUrl,
+          url: chapter.url,
+          'audio.url': chapter.audio?.url,
+          audioUrl: chapter.audioUrl,
+          mediaUrl: chapter.mediaUrl,
+          downloadUrl: chapter.downloadUrl,
+          contentUrl: chapter.contentUrl
+        });
+
+        // Process the URL if it's a valid http/https URL
+        if (trackUrl && (trackUrl.startsWith('http://') || trackUrl.startsWith('https://'))) {
           const trackNumber = String(i + 1).padStart(2, '0');
           const trackTitle = sanitizeFilename(chapter.title || `Track ${i + 1}`);
           exportData.audioFiles.push({
@@ -2393,20 +2627,30 @@ async function exportPlaylist(playlist) {
             filename: `${trackNumber} - ${trackTitle}.mp3`
           });
           console.log(`[Bulk Export] Found audio URL for chapter ${i}: ${trackUrl.substring(0, 50)}...`);
+        } else if (trackUrl && trackUrl.startsWith('yoto:#')) {
+          console.log(`[Bulk Export] Chapter ${i} has yoto:# URL (internal reference): ${trackUrl}`);
+          exportData.protectedTracks = (exportData.protectedTracks || 0) + 1;
         } else {
-          console.log(`[Bulk Export] No audio URL found for chapter ${i}`);
+          console.log(`[Bulk Export] No valid URL found for chapter ${i}`);
         }
       }
 
       // Only use chapter-level icon if we didn't get track-level icons
       // (track-level icons are handled inside the tracks loop above)
       if (!chapter.tracks || chapter.tracks.length === 0) {
-        const iconUrl = chapter.display?.icon16x16 ||  // From actual data structure
-                       chapter.display?.displayIcon?.imageL ||
-                       chapter.display?.displayIcon?.imageS ||
-                       chapter.displayIcon?.imageL ||
-                       chapter.icon?.imageL ||
-                       chapter.iconImageL;
+        let iconUrl = chapter.display?.icon16x16 ||  // From actual data structure
+                     chapter.display?.displayIcon?.imageL ||
+                     chapter.display?.displayIcon?.imageS ||
+                     chapter.displayIcon?.imageL ||
+                     chapter.icon?.imageL ||
+                     chapter.iconImageL;
+
+        // Convert yoto:# icon URLs to actual downloadable URLs
+        if (iconUrl && iconUrl.startsWith('yoto:#')) {
+          const iconId = iconUrl.replace('yoto:#', '');
+          iconUrl = `https://api.yotoplay.com/media/${iconId}`;
+          console.log(`[Bulk Export] Converted icon yoto:# URL to media URL: ${iconUrl}`);
+        }
 
         if (iconUrl) {
           exportData.iconImages.push({
@@ -2417,9 +2661,16 @@ async function exportPlaylist(playlist) {
         }
       } else if (chapter.tracks && !chapter.tracks.some(t => t.display?.icon16x16)) {
         // If tracks don't have icons, fall back to chapter icon
-        const chapterIconUrl = chapter.display?.icon16x16 ||
-                              chapter.display?.displayIcon?.imageL ||
-                              chapter.display?.displayIcon?.imageS;
+        let chapterIconUrl = chapter.display?.icon16x16 ||
+                            chapter.display?.displayIcon?.imageL ||
+                            chapter.display?.displayIcon?.imageS;
+
+        // Convert yoto:# icon URLs to actual downloadable URLs
+        if (chapterIconUrl && chapterIconUrl.startsWith('yoto:#')) {
+          const iconId = chapterIconUrl.replace('yoto:#', '');
+          chapterIconUrl = `https://api.yotoplay.com/media/${iconId}`;
+          console.log(`[Bulk Export] Converted icon yoto:# URL to media URL: ${chapterIconUrl}`);
+        }
 
         if (chapterIconUrl) {
           exportData.iconImages.push({
@@ -2437,10 +2688,21 @@ async function exportPlaylist(playlist) {
 
   console.log(`[Bulk Export] Export data prepared: ${exportData.audioFiles.length} audio files, ${exportData.iconImages.length} icons`);
 
+  if (exportData.protectedTracks > 0) {
+    const warningMsg = chrome.i18n.getMessage('bulkExport_protectedContent').replace('{{count}}', exportData.protectedTracks);
+    console.warn(`[Bulk Export] ${warningMsg}`);
+    showNotification(warningMsg, 'warning');
+  }
+
   // Check if we have anything to export
   if (exportData.audioFiles.length === 0 && exportData.iconImages.length === 0 && !exportData.coverImage) {
     console.warn('[Bulk Export] No exportable content found for this playlist');
-    throw new Error('No content available for export (audio/images not accessible)');
+
+    if (exportData.protectedTracks > 0) {
+      throw new Error(chrome.i18n.getMessage('bulkExport_protectedOnly').replace('{{count}}', exportData.protectedTracks));
+    } else {
+      throw new Error(chrome.i18n.getMessage('bulkExport_noContent'));
+    }
   }
 
   await downloadExportData(exportData);

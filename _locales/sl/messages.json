@@ -2354,5 +2354,149 @@
   "status_allIconsLoaded": {
     "message": "Vse ikone naložene",
     "description": "Status text shown when all icon search is complete"
+  },
+  "button_bulkExport": {
+    "message": "Množični Izvoz",
+    "description": "Button to export multiple playlists"
+  },
+  "bulkExport_modalTitle": {
+    "message": "Izvozi Sezname Predvajanja",
+    "description": "Title of bulk export modal"
+  },
+  "bulkExport_progressTitle": {
+    "message": "Napredek Izvoza",
+    "description": "Title of export progress modal"
+  },
+  "bulkExport_description": {
+    "message": "Izberite sezname predvajanja za izvoz. Vsak seznam bo shranjen v svoji mapi z zvočnimi datotekami in slikami.",
+    "description": "Description of bulk export feature"
+  },
+  "bulkExport_selectAll": {
+    "message": "Izberi Vse",
+    "description": "Button to select all playlists"
+  },
+  "bulkExport_deselectAll": {
+    "message": "Prekliči Vse",
+    "description": "Button to deselect all playlists"
+  },
+  "bulkExport_sortAZ": {
+    "message": "Razvrsti: A-Ž",
+    "description": "Sort playlists alphabetically A-Z"
+  },
+  "bulkExport_sortZA": {
+    "message": "Razvrsti: Ž-A",
+    "description": "Sort playlists alphabetically Z-A"
+  },
+  "bulkExport_sortUpdated": {
+    "message": "Razvrsti: Nazadnje Posodobljeno",
+    "description": "Sort playlists by last updated"
+  },
+  "bulkExport_sortCreated": {
+    "message": "Razvrsti: Nazadnje Ustvarjeno",
+    "description": "Sort playlists by creation date"
+  },
+  "bulkExport_loading": {
+    "message": "Nalaganje vaših seznamov predvajanja...",
+    "description": "Loading playlists message"
+  },
+  "bulkExport_startExport": {
+    "message": "Začni Izvoz",
+    "description": "Button to start export"
+  },
+  "bulkExport_close": {
+    "message": "Zapri",
+    "description": "Button to close modal"
+  },
+  "bulkExport_cancelExport": {
+    "message": "Prekliči Izvoz",
+    "description": "Button to cancel export"
+  },
+  "bulkExport_statusDownloading": {
+    "message": "Prenos v ozadju...",
+    "description": "Status when downloading files"
+  },
+  "bulkExport_statusComplete": {
+    "message": "Končano",
+    "description": "Status when export is complete"
+  },
+  "bulkExport_statusCreatingZip": {
+    "message": "Ustvarjanje ZIP datoteke...",
+    "description": "Status when creating ZIP"
+  },
+  "bulkExport_downloadProgress": {
+    "message": "Prenos: {{processed}}/{{total}} datotek",
+    "description": "Download progress with file count"
+  },
+  "bulkExport_downloadProgressWithFailed": {
+    "message": "Prenos: {{processed}}/{{total}} datotek ({{failed}} neuspešnih)",
+    "description": "Download progress with failed count"
+  },
+  "bulkExport_failedFiles": {
+    "message": "{{count}} datotek ni bilo mogoče prenesti",
+    "description": "Number of failed file downloads"
+  },
+  "bulkExport_zipDownloaded": {
+    "message": "ZIP prenesen v mapo Prenosi",
+    "description": "Message when ZIP is downloaded"
+  },
+  "bulkExport_creatingZipWithFiles": {
+    "message": "Ustvarjanje ZIP datoteke z {{completed}} datotekami...",
+    "description": "Creating ZIP with file count"
+  },
+  "bulkExport_creatingZipWithFailed": {
+    "message": "Ustvarjanje ZIP datoteke z {{completed}} datotekami ({{failed}} neuspešnih)...",
+    "description": "Creating ZIP with failed count"
+  },
+  "bulkExport_exportContinues": {
+    "message": "Izvoz se nadaljuje v ozadju",
+    "description": "Notification when modal closed but export continues"
+  },
+  "bulkExport_exportCancelled": {
+    "message": "Izvoz preklican",
+    "description": "Notification when export is cancelled"
+  },
+  "bulkExport_exportStarted": {
+    "message": "Izvoz začet! Prenosi se bodo nadaljevali v ozadju.",
+    "description": "Notification when export starts"
+  },
+  "bulkExport_exportFailed": {
+    "message": "Napaka pri začetku izvoza: {{error}}",
+    "description": "Error when export fails to start"
+  },
+  "bulkExport_zipFailed": {
+    "message": "Napaka pri ustvarjanju ZIP datoteke. Poskusite znova.",
+    "description": "Error when ZIP creation fails"
+  },
+  "bulkExport_protectedContent": {
+    "message": "Opomba: {{count}} zvočnih skladb je zaščitenih in jih ni mogoče prenesti. Izvožene bodo samo vsebine, ki jih je naložil uporabnik, in slike.",
+    "description": "Warning about protected content"
+  },
+  "bulkExport_noContent": {
+    "message": "Ni vsebine za izvoz",
+    "description": "Error when no content to export"
+  },
+  "bulkExport_protectedOnly": {
+    "message": "Ta seznam predvajanja vsebuje samo zaščiteno vsebino ({{count}} skladb). Zaščitenih zvočnih datotek ni mogoče prenesti, lahko pa še vedno prenesete ikone po meri ali slike naslovnic.",
+    "description": "Error when only protected content"
+  },
+  "bulkExport_exportError": {
+    "message": "Napaka izvoza: {{error}}",
+    "description": "Generic export error"
+  },
+  "bulkExport_downloadingFiles": {
+    "message": "Prenos {{count}} datotek v ozadju...",
+    "description": "Status when downloading multiple files"
+  },
+  "bulkExport_ofFiles": {
+    "message": "{{current}} od {{total}} datotek",
+    "description": "File progress indicator"
+  },
+  "bulkExport_statusLabel": {
+    "message": "Stanje:",
+    "description": "Status label"
+  },
+  "bulkExport_floatingIndicator": {
+    "message": "Množični Izvoz",
+    "description": "Label on floating status indicator"
   }
 }

@@ -1,15 +1,10 @@
-/**
- * Offscreen Document - Main coordinator for background downloads
- */
+// Offscreen Document - Main coordinator for background downloads
 
 let storageManager = null;
 let downloadManager = null;
 let keepAliveInterval = null;
 let manifests = new Map(); // Store manifests in memory since we can't access chrome.storage
 
-/**
- * Safe message sender that checks if chrome.runtime is available
- */
 function sendMessage(message) {
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
         try {
@@ -24,9 +19,6 @@ function sendMessage(message) {
     }
 }
 
-/**
- * Initialize the offscreen document
- */
 async function initialize() {
     console.log('[Offscreen] Initializing background downloader');
 
@@ -56,9 +48,6 @@ async function initialize() {
     console.log('[Offscreen] Initialization complete');
 }
 
-/**
- * Handle messages from service worker and content scripts
- */
 async function handleMessage(request, sender, sendResponse) {
     console.log('[Offscreen] Received message:', request.type || request.action);
 
@@ -130,9 +119,6 @@ async function handleMessage(request, sender, sendResponse) {
     return true; // Will respond asynchronously
 }
 
-/**
- * Start downloads for a manifest
- */
 async function handleStartDownloads(request) {
     const { manifestId, manifest } = request;
 
@@ -217,9 +203,6 @@ async function handleStartDownloads(request) {
     }
 }
 
-/**
- * Resume downloads for a manifest
- */
 async function handleResumeDownloads(request) {
     const { manifestId } = request;
 
@@ -238,9 +221,6 @@ async function handleResumeDownloads(request) {
     }
 }
 
-/**
- * Cancel ongoing downloads
- */
 async function handleCancelDownloads(request) {
     const { manifestId } = request;
 
@@ -268,9 +248,6 @@ async function handleCancelDownloads(request) {
     }
 }
 
-/**
- * Create ZIP file from downloaded files
- */
 async function handleCreateZip(request) {
     const { manifestId, playlistIds, manifest } = request;
 
@@ -318,11 +295,16 @@ async function handleCreateZip(request) {
             throw new Error('Created ZIP file is empty');
         }
 
-        // Generate filename with timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const filename = playlistIds?.length === 1
-            ? `yoto-export-${playlistIds[0]}-${timestamp}.zip`
-            : `yoto-export-${timestamp}.zip`;
+        // Generate filename with UTC date and timestamp in format: yoto-yyyy-mm-dd-timestamp.zip
+        const now = new Date();
+        const year = now.getUTCFullYear();
+        const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(now.getUTCDate()).padStart(2, '0');
+        const hours = String(now.getUTCHours()).padStart(2, '0');
+        const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+
+        const filename = `yoto-${year}-${month}-${day}-${hours}${minutes}${seconds}.zip`;
 
         console.log(`[Offscreen] Generated filename: ${filename}`);
 
@@ -408,9 +390,6 @@ async function handleCreateZip(request) {
     }
 }
 
-/**
- * Get total file count from manifest
- */
 function getTotalFileCount(manifest) {
     return manifest.playlists.reduce((total, playlist) => {
         const audioCount = playlist.audioFiles?.length || 0;
@@ -420,9 +399,6 @@ function getTotalFileCount(manifest) {
     }, 0);
 }
 
-/**
- * Keep service worker alive
- */
 function startKeepAlive() {
     // Send keepalive message every 20 seconds
     keepAliveInterval = setInterval(() => {
@@ -430,9 +406,7 @@ function startKeepAlive() {
     }, 20000);
 }
 
-/**
- * Cleanup on unload
- */
+// Cleanup on unload
 window.addEventListener('unload', () => {
     if (keepAliveInterval) {
         clearInterval(keepAliveInterval);

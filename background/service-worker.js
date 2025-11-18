@@ -12,11 +12,6 @@ function getRedirectUri() {
     return chrome.identity.getRedirectURL();
 }
 
-function base64URLEncode(buffer) {
-    const base64 = btoa(String.fromCharCode(...buffer));
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
 function cleanEpisodeTitle(title) {
     let cleanedTitle = title;
 
@@ -4033,6 +4028,8 @@ async function createExportManifest(playlists, manifestId) {
             iconImages: []
         };
 
+        let iconCounter = 1;
+
         // Extract audio files and icons from chapters
         const chapters = resolvedData?.card?.content?.chapters || resolvedData?.chapters || [];
 
@@ -4043,14 +4040,17 @@ async function createExportManifest(playlists, manifestId) {
             if (chapter.tracks && Array.isArray(chapter.tracks)) {
                 for (let j = 0; j < chapter.tracks.length; j++) {
                     const track = chapter.tracks[j];
-                    const trackUrl = track.trackUrl || track.url || track.audioUrl;
+                    const trackUrl = track.trackUrl || track.url || track.audioUrl || track.mediaUrl || track.downloadUrl;
 
-                    if (trackUrl) {
+                    if (trackUrl && (trackUrl.startsWith('http://') || trackUrl.startsWith('https://'))) {
                         const fileId = `${playlistId}_audio_${i}_${j}`;
+                        const baseFilename = sanitizeFilename(track.title || `track-${i}-${j}`);
+                        const filename = baseFilename.endsWith('.mp3') ? baseFilename : `${baseFilename}.mp3`;
+
                         const audioFile = {
                             id: fileId,
                             url: trackUrl,
-                            filename: sanitizeFilename(track.title || `track-${i}-${j}.mp3`),
+                            filename: filename,
                             size: track.size || track.fileSize
                         };
 
@@ -4063,6 +4063,12 @@ async function createExportManifest(playlists, manifestId) {
                             filename: audioFile.filename,
                             stored: false
                         };
+
+                        console.log(`[BulkExport] Added audio track ${i}-${j}: ${trackUrl.substring(0, 50)}...`);
+                    } else if (trackUrl && trackUrl.startsWith('yoto:#')) {
+                        console.log(`[BulkExport] Skipping protected track ${i}-${j} with yoto:# URL`);
+                    } else {
+                        console.log(`[BulkExport] No valid URL for track ${i}-${j}`);
                     }
 
                     // Track-level icon
@@ -4072,30 +4078,36 @@ async function createExportManifest(playlists, manifestId) {
 
                     if (trackIcon) {
                         const iconId = `${playlistId}_icon_${i}_${j}`;
+                        const iconFilename = `${String(iconCounter).padStart(2, '0')}-icon.png`;
+
                         playlistManifest.iconImages.push({
                             id: iconId,
                             url: trackIcon,
-                            filename: `icon-${i}-${j}.png`
+                            filename: iconFilename
                         });
 
                         manifest.files[iconId] = {
                             type: 'icon',
                             playlistId: playlistId,
-                            filename: `icon-${i}-${j}.png`,
+                            filename: iconFilename,
                             stored: false
                         };
+
+                        iconCounter++;
                     }
                 }
             } else {
-                // Single audio file chapter
-                const chapterUrl = chapter.trackUrl || chapter.url || chapter.audioUrl;
+                const chapterUrl = chapter.trackUrl || chapter.url || chapter.audioUrl || chapter.mediaUrl || chapter.downloadUrl;
 
-                if (chapterUrl) {
+                if (chapterUrl && (chapterUrl.startsWith('http://') || chapterUrl.startsWith('https://'))) {
                     const fileId = `${playlistId}_audio_${i}`;
+                    const baseFilename = sanitizeFilename(chapter.title || `chapter-${i}`);
+                    const filename = baseFilename.endsWith('.mp3') ? baseFilename : `${baseFilename}.mp3`;
+
                     const audioFile = {
                         id: fileId,
                         url: chapterUrl,
-                        filename: sanitizeFilename(chapter.title || `chapter-${i}.mp3`),
+                        filename: filename,
                         size: chapter.size || chapter.fileSize
                     };
 
@@ -4107,27 +4119,36 @@ async function createExportManifest(playlists, manifestId) {
                         filename: audioFile.filename,
                         stored: false
                     };
+
+                    console.log(`[BulkExport] Added audio chapter ${i}: ${chapterUrl.substring(0, 50)}...`);
+                } else if (chapterUrl && chapterUrl.startsWith('yoto:#')) {
+                    console.log(`[BulkExport] Skipping protected chapter ${i} with yoto:# URL`);
+                } else {
+                    console.log(`[BulkExport] No valid URL for chapter ${i}`);
                 }
 
-                // Chapter-level icon
                 const chapterIcon = chapter.display?.icon16x16 ||
                                   chapter.display?.displayIcon?.imageL ||
                                   chapter.icon?.imageL;
 
                 if (chapterIcon) {
                     const iconId = `${playlistId}_icon_${i}`;
+                    const iconFilename = `${String(iconCounter).padStart(2, '0')}-icon.png`;
+
                     playlistManifest.iconImages.push({
                         id: iconId,
                         url: chapterIcon,
-                        filename: `icon-${i}.png`
+                        filename: iconFilename
                     });
 
                     manifest.files[iconId] = {
                         type: 'icon',
                         playlistId: playlistId,
-                        filename: `icon-${i}.png`,
+                        filename: iconFilename,
                         stored: false
                     };
+
+                    iconCounter++;
                 }
             }
         }
@@ -4163,16 +4184,10 @@ async function createExportManifest(playlists, manifestId) {
     return manifest;
 }
 
-/**
- * Helper: Get total file count
- */
 function getTotalFileCount(manifest) {
     return Object.keys(manifest.files || {}).length;
 }
 
-/**
- * Helper: Sanitize filename
- */
 function sanitizeFilename(name) {
     return String(name)
         .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
@@ -4181,9 +4196,6 @@ function sanitizeFilename(name) {
         .slice(0, 200) || 'untitled';
 }
 
-/**
- * Resume a paused bulk export
- */
 async function resumeBulkExport(manifestId) {
     console.log(`[BulkExport] Resuming export for manifest: ${manifestId}`);
 
@@ -4207,9 +4219,6 @@ async function resumeBulkExport(manifestId) {
     }
 }
 
-/**
- * Cancel an ongoing bulk export
- */
 async function cancelBulkExport(manifestId) {
     console.log(`[BulkExport] Cancelling export for manifest: ${manifestId}`);
 
@@ -4220,13 +4229,11 @@ async function cancelBulkExport(manifestId) {
             return { error: 'Failed to initialize background downloader' };
         }
 
-        // Send cancel message to offscreen document
         await chrome.runtime.sendMessage({
             type: 'CANCEL_DOWNLOADS',
             manifestId: manifestId
         });
 
-        // Remove manifest from local storage
         await chrome.storage.local.remove(`manifest_${manifestId}`);
         exportManifests.delete(manifestId);
 
@@ -4237,22 +4244,16 @@ async function cancelBulkExport(manifestId) {
     }
 }
 
-/**
- * Get the current status of an export
- */
 async function getExportStatus(manifestId) {
     console.log(`[BulkExport] Getting status for manifest: ${manifestId}`);
 
     try {
-        // Try to get from memory first
         let manifest = exportManifests.get(manifestId);
 
-        // If not in memory, get from storage
         if (!manifest) {
             const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
             manifest = stored[`manifest_${manifestId}`];
         }
-
         if (!manifest) {
             return { error: 'Manifest not found' };
         }
@@ -4278,9 +4279,6 @@ async function getExportStatus(manifestId) {
     }
 }
 
-/**
- * Download the ZIP file for an export
- */
 async function downloadExportZip(manifestId, playlistIds) {
     console.log(`[BulkExport] downloadExportZip called with manifestId: ${manifestId}`);
     console.log(`[BulkExport] Creating ZIP for manifest: ${manifestId}`);
@@ -4295,14 +4293,12 @@ async function downloadExportZip(manifestId, playlistIds) {
             return { error: 'Failed to initialize background downloader' };
         }
 
-        // Get manifest to verify files are downloaded
         console.log(`[BulkExport] Retrieving manifest from storage: manifest_${manifestId}`);
         const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
         const manifest = stored[`manifest_${manifestId}`];
 
         if (!manifest) {
             console.error(`[BulkExport] Manifest not found in storage for ID: ${manifestId}`);
-            // Try to get from memory
             const memoryManifest = exportManifests.get(manifestId);
             if (!memoryManifest) {
                 console.error('[BulkExport] Manifest not found in memory either');
@@ -4369,9 +4365,6 @@ async function downloadExportZip(manifestId, playlistIds) {
     }
 }
 
-/**
- * Listen for messages from offscreen document and forward to content scripts
- */
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle proxy download requests from offscreen document
     if (request.type === 'PROXY_DOWNLOAD') {
@@ -4386,7 +4379,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 const buffer = await response.arrayBuffer();
 
-                // Convert to base64 for transfer
                 const bytes = new Uint8Array(buffer);
                 let binary = '';
                 for (let i = 0; i < bytes.byteLength; i++) {
@@ -4394,7 +4386,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
                 const base64 = btoa(binary);
 
-                // Send response back directly
                 sendResponse({
                     success: true,
                     data: base64
@@ -4415,7 +4406,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         (async () => {
             const { manifestId, updates } = request;
 
-            // Get manifest from memory first, then from storage
             let manifest = exportManifests.get(manifestId);
             if (!manifest) {
                 // Try to get from storage
@@ -4427,7 +4417,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             }
 
             if (manifest && updates) {
-                // Deep merge files updates
                 if (updates.files) {
                     if (!manifest.files) manifest.files = {};
 
@@ -4446,7 +4435,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     delete updates.files;
                 }
 
-                // Apply remaining updates
                 Object.assign(manifest, updates);
 
                 // Update progress stats
@@ -4476,7 +4464,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         (async () => {
             try {
-                // Sanitize filename
                 const sanitizedFilename = request.filename
                     .replace(/[<>:"|?*]/g, '_')
                     .replace(/\\/g, '/')
@@ -4484,7 +4471,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 console.log(`[BulkExport] Downloading file: ${sanitizedFilename}`);
 
-                // Download using chrome.downloads API with the blob URL
                 const downloadId = await chrome.downloads.download({
                     url: request.blobUrl,
                     filename: sanitizedFilename,
@@ -4494,7 +4480,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 console.log(`[BulkExport] Download initiated successfully with ID: ${downloadId}`);
 
-                // Monitor download
                 chrome.downloads.onChanged.addListener(function downloadListener(delta) {
                     if (delta.id === downloadId && delta.state) {
                         if (delta.state.current === 'complete') {
@@ -4515,7 +4500,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
                             chrome.downloads.onChanged.removeListener(downloadListener);
 
-                            // Get error details
                             chrome.downloads.search({id: downloadId}, (results) => {
                                 const error = results[0]?.error || 'Download was interrupted';
                                 console.error(`[BulkExport] Download error details: ${error}`);
@@ -4554,126 +4538,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return false;
     }
 
-    // Handle ZIP download from IndexedDB (legacy - keeping for compatibility)
-    if (request.type === 'DOWNLOAD_ZIP_FROM_INDEXEDDB') {
-        console.log(`[BulkExport] Retrieving ZIP from IndexedDB for download: ${request.filename}`);
-        console.log(`[BulkExport] ZIP file size: ${request.size} bytes (${(request.size / 1024 / 1024).toFixed(2)} MB)`);
-
-        (async () => {
-            try {
-                // Open IndexedDB
-                const dbName = 'YotoExportDB';
-                const db = await new Promise((resolve, reject) => {
-                    const dbRequest = indexedDB.open(dbName, 1);
-
-                    dbRequest.onerror = () => reject(dbRequest.error);
-                    dbRequest.onsuccess = () => resolve(dbRequest.result);
-
-                    dbRequest.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains('exports')) {
-                            db.createObjectStore('exports');
-                        }
-                    };
-                });
-
-                // Retrieve the blob
-                const exportData = await new Promise((resolve, reject) => {
-                    const transaction = db.transaction(['exports'], 'readonly');
-                    const store = transaction.objectStore('exports');
-                    const getRequest = store.get(request.manifestId);
-
-                    getRequest.onsuccess = () => resolve(getRequest.result);
-                    getRequest.onerror = () => reject(getRequest.error);
-                });
-
-                if (!exportData || !exportData.blob) {
-                    throw new Error('ZIP blob not found in IndexedDB');
-                }
-
-                console.log('[BulkExport] Retrieved ZIP blob from IndexedDB');
-
-                // Create blob URL
-                const blobUrl = URL.createObjectURL(exportData.blob);
-                console.log(`[BulkExport] Created blob URL: ${blobUrl}`);
-
-                // Sanitize filename
-                const sanitizedFilename = request.filename
-                    .replace(/[<>:"|?*]/g, '_')
-                    .replace(/\\/g, '/')
-                    .replace(/\.{2,}/g, '.');
-
-                // Download using chrome.downloads API
-                const downloadId = await chrome.downloads.download({
-                    url: blobUrl,
-                    filename: sanitizedFilename,
-                    saveAs: false,
-                    conflictAction: 'uniquify'
-                });
-
-                console.log(`[BulkExport] Download initiated successfully with ID: ${downloadId}`);
-
-                // Clean up IndexedDB entry
-                const cleanup = db.transaction(['exports'], 'readwrite');
-                cleanup.objectStore('exports').delete(request.manifestId);
-                db.close();
-
-                // Monitor download and clean up blob URL
-                chrome.downloads.onChanged.addListener(function downloadListener(delta) {
-                    if (delta.id === downloadId && delta.state) {
-                        if (delta.state.current === 'complete') {
-                            console.log(`[BulkExport] Download completed: ${sanitizedFilename}`);
-                            URL.revokeObjectURL(blobUrl);
-                            chrome.downloads.onChanged.removeListener(downloadListener);
-
-                            // Notify content script
-                            chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
-                                tabs.forEach(tab => {
-                                    chrome.tabs.sendMessage(tab.id, {
-                                        type: 'ZIP_DOWNLOADED',
-                                        manifestId: request.manifestId,
-                                        filename: sanitizedFilename
-                                    }).catch(() => {});
-                                });
-                            });
-                        } else if (delta.state.current === 'interrupted') {
-                            console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
-                            URL.revokeObjectURL(blobUrl);
-                            chrome.downloads.onChanged.removeListener(downloadListener);
-
-                            // Notify content script
-                            chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
-                                tabs.forEach(tab => {
-                                    chrome.tabs.sendMessage(tab.id, {
-                                        type: 'ZIP_DOWNLOAD_ERROR',
-                                        manifestId: request.manifestId,
-                                        error: 'Download was interrupted'
-                                    }).catch(() => {});
-                                });
-                            });
-                        }
-                    }
-                });
-
-            } catch (error) {
-                console.error('[BulkExport] Failed to retrieve/download ZIP from IndexedDB:', error);
-
-                // Notify content script
-                chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
-                    tabs.forEach(tab => {
-                        chrome.tabs.sendMessage(tab.id, {
-                            type: 'ZIP_DOWNLOAD_ERROR',
-                            manifestId: request.manifestId,
-                            error: error.message
-                        }).catch(() => {});
-                    });
-                });
-            }
-        })();
-
-        return false;
-    }
-
     // Handle ZIP download from offscreen document (for small files)
     if (request.type === 'DOWNLOAD_ZIP') {
         console.log(`[BulkExport] Received ZIP data for download: ${request.filename}`);
@@ -4681,14 +4545,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         (async () => {
             try {
-                // Validate data
                 if (!request.dataUrl) {
                     throw new Error('No data URL received from offscreen document');
                 }
 
                 console.log('[BulkExport] Data URL received, initiating download...');
 
-                // Sanitize filename to ensure it's valid
                 const sanitizedFilename = request.filename
                     .replace(/[<>:"|?*]/g, '_')  // Replace invalid characters
                     .replace(/\\/g, '/')          // Ensure forward slashes
@@ -4696,7 +4558,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 console.log(`[BulkExport] Downloading file: ${sanitizedFilename}`);
 
-                // Use chrome.downloads API to download the file
                 const downloadId = await chrome.downloads.download({
                     url: request.dataUrl,
                     filename: sanitizedFilename,
