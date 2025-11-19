@@ -1327,6 +1327,150 @@
     "message": "Import Folder",
     "description": "Button to import from folder"
   },
+  "button_bulkExport": {
+    "message": "Bulk Export",
+    "description": "Button to export multiple playlists"
+  },
+  "bulkExport_modalTitle": {
+    "message": "Bulk Export Playlists",
+    "description": "Title of bulk export modal"
+  },
+  "bulkExport_progressTitle": {
+    "message": "Export Progress",
+    "description": "Title of export progress modal"
+  },
+  "bulkExport_description": {
+    "message": "Select playlists to export. Each playlist will be saved in its own folder with audio files and images.",
+    "description": "Description of bulk export feature"
+  },
+  "bulkExport_selectAll": {
+    "message": "Select All",
+    "description": "Button to select all playlists"
+  },
+  "bulkExport_deselectAll": {
+    "message": "Deselect All",
+    "description": "Button to deselect all playlists"
+  },
+  "bulkExport_sortAZ": {
+    "message": "Sort: A-Z",
+    "description": "Sort playlists alphabetically A-Z"
+  },
+  "bulkExport_sortZA": {
+    "message": "Sort: Z-A",
+    "description": "Sort playlists alphabetically Z-A"
+  },
+  "bulkExport_sortUpdated": {
+    "message": "Sort: Last Updated",
+    "description": "Sort playlists by last updated"
+  },
+  "bulkExport_sortCreated": {
+    "message": "Sort: Last Created",
+    "description": "Sort playlists by creation date"
+  },
+  "bulkExport_loading": {
+    "message": "Loading your playlists...",
+    "description": "Loading playlists message"
+  },
+  "bulkExport_startExport": {
+    "message": "Start Export",
+    "description": "Button to start export"
+  },
+  "bulkExport_close": {
+    "message": "Close",
+    "description": "Button to close modal"
+  },
+  "bulkExport_cancelExport": {
+    "message": "Cancel Export",
+    "description": "Button to cancel export"
+  },
+  "bulkExport_statusDownloading": {
+    "message": "Downloading in background...",
+    "description": "Status when downloading files"
+  },
+  "bulkExport_statusComplete": {
+    "message": "Complete",
+    "description": "Status when export is complete"
+  },
+  "bulkExport_statusCreatingZip": {
+    "message": "Creating ZIP file...",
+    "description": "Status when creating ZIP"
+  },
+  "bulkExport_downloadProgress": {
+    "message": "Downloading: {{processed}}/{{total}} files",
+    "description": "Download progress with file count"
+  },
+  "bulkExport_downloadProgressWithFailed": {
+    "message": "Downloading: {{processed}}/{{total}} files ({{failed}} failed)",
+    "description": "Download progress with failed count"
+  },
+  "bulkExport_failedFiles": {
+    "message": "{{count}} files failed to download",
+    "description": "Number of failed file downloads"
+  },
+  "bulkExport_zipDownloaded": {
+    "message": "ZIP Downloaded to Downloads folder",
+    "description": "Message when ZIP is downloaded"
+  },
+  "bulkExport_creatingZipWithFiles": {
+    "message": "Creating ZIP file with {{completed}} files...",
+    "description": "Creating ZIP with file count"
+  },
+  "bulkExport_creatingZipWithFailed": {
+    "message": "Creating ZIP file with {{completed}} files ({{failed}} failed)...",
+    "description": "Creating ZIP with failed count"
+  },
+  "bulkExport_exportContinues": {
+    "message": "Export continues in background",
+    "description": "Notification when modal closed but export continues"
+  },
+  "bulkExport_exportCancelled": {
+    "message": "Export cancelled",
+    "description": "Notification when export is cancelled"
+  },
+  "bulkExport_exportStarted": {
+    "message": "Export started! Downloads will continue in the background.",
+    "description": "Notification when export starts"
+  },
+  "bulkExport_exportFailed": {
+    "message": "Failed to start export: {{error}}",
+    "description": "Error when export fails to start"
+  },
+  "bulkExport_zipFailed": {
+    "message": "Failed to create ZIP file. Please try again.",
+    "description": "Error when ZIP creation fails"
+  },
+  "bulkExport_protectedContent": {
+    "message": "Note: {{count}} audio track(s) are protected content and cannot be downloaded. Only user-uploaded content and images will be exported.",
+    "description": "Warning about protected content"
+  },
+  "bulkExport_noContent": {
+    "message": "No content available for export",
+    "description": "Error when no content to export"
+  },
+  "bulkExport_protectedOnly": {
+    "message": "This playlist contains only protected content ({{count}} tracks). Protected audio files cannot be downloaded, but you can still download any custom icons or cover images.",
+    "description": "Error when only protected content"
+  },
+  "bulkExport_exportError": {
+    "message": "Export error: {{error}}",
+    "description": "Generic export error"
+  },
+  "bulkExport_downloadingFiles": {
+    "message": "Downloading {{count}} files in background...",
+    "description": "Status when downloading multiple files"
+  },
+  "bulkExport_ofFiles": {
+    "message": "{{current}} of {{total}} files",
+    "description": "File progress indicator"
+  },
+  "bulkExport_statusLabel": {
+    "message": "Status:",
+    "description": "Status label"
+  },
+  "bulkExport_floatingIndicator": {
+    "message": "Bulk Export",
+    "description": "Label on floating status indicator"
+  },
   "button_authenticateNow": {
     "message": "Authenticate Now",
     "description": "Auth banner button text after cancelled authentication"

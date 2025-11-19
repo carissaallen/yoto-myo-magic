@@ -2,25 +2,34 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_extensionName__",
-  "version": "1.13.8",
+  "version": "1.14.0",
   "description": "__MSG_extensionDescription__",
 
   "permissions": [
     "storage",
     "scripting",
     "tabs",
-    "identity"
+    "identity",
+    "offscreen",
+    "downloads"
   ],
-  
+
+  "minimum_chrome_version": "109",
+
   "host_permissions": [
     "https://my.yotoplay.com/*",
     "https://api.yotoplay.com/*",
     "https://login.yotoplay.com/*",
+    "https://share.yoto.co/*",
     "https://www.yotoicons.com/*",
     "https://www.google-analytics.com/*",
     "https://www.listennotes.com/*",
     "https://audio.listennotes.com/*",
-    "https://*.listennotes.com/*"
+    "https://*.listennotes.com/*",
+    "https://*.cloudfront.net/*",
+    "https://*.amazonaws.com/*",
+    "https://cdn.yotoplay.com/*",
+    "https://media.yotoplay.com/*"
   ],
   
   "optional_host_permissions": [
@@ -75,7 +84,10 @@
         "lib/*.js",
         "utils/timerIconGenerator.js",
         "callback.html",
-        "callback.js"
+        "callback.js",
+        "offscreen/offscreen.html",
+        "offscreen/*.js",
+        "jszip.min.js"
       ],
       "matches": [
         "https://yotoplay.com/*",

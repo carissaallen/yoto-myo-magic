@@ -31,6 +31,7 @@ zip -r "$OUTPUT_FILE" \
     background/ \
     content/ \
     lib/ \
+    offscreen/ \
     options/ \
     popup/ \
     utils/ \

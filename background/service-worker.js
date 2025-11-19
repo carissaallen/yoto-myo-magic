@@ -12,11 +12,6 @@ function getRedirectUri() {
     return chrome.identity.getRedirectURL();
 }
 
-function base64URLEncode(buffer) {
-    const base64 = btoa(String.fromCharCode(...buffer));
-    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
 function cleanEpisodeTitle(title) {
     let cleanedTitle = title;
 
@@ -398,6 +393,19 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             throw new Error(`API request failed: ${response.status} - ${errorText}`);
         }
 
+        // Check if response is JSON or HTML
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/html')) {
+            // If HTML is returned, it's likely a redirect or error page
+            console.log(`[API] Received HTML response from ${endpoint}, likely a redirect`);
+            const htmlContent = await response.text();
+            // Check if it's a redirect to share.yoto.co
+            if (htmlContent.includes('share.yoto.co')) {
+                throw new Error('Endpoint redirected to share page - not an API endpoint');
+            }
+            throw new Error('Received HTML instead of JSON');
+        }
+
         return await response.json();
     } catch (error) {
         throw error;
@@ -444,6 +452,122 @@ async function getUserCards() {
         return { cards };
     } catch (error) {
         return { cards: [], error: error.message };
+    }
+}
+
+async function resolvePlaylist(playlistId) {
+    try {
+        console.log(`[Resolve API] Attempting to resolve playlist ${playlistId}`);
+
+        // Try the exact endpoints specified by the user
+        // First try /card/resolve/{playlistId}
+        try {
+            console.log(`[Resolve API] Trying /card/resolve/${playlistId}`);
+
+            // Make a direct fetch request to handle potential redirects
+            const tokens = await TokenManager.getTokens();
+            if (!tokens || !tokens.access_token) {
+                throw new Error('No authentication token available');
+            }
+
+            const cardResolveUrl = `https://api.yotoplay.com/card/resolve/${playlistId}`;
+            const response = await fetch(cardResolveUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${tokens.access_token}`,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                redirect: 'manual' // Don't follow redirects automatically
+            });
+
+            console.log(`[Resolve API] Response status: ${response.status}, type: ${response.type}`);
+            console.log(`[Resolve API] Response headers:`, {
+                contentType: response.headers.get('content-type'),
+                location: response.headers.get('location'),
+                redirected: response.redirected,
+                url: response.url
+            });
+
+            // Check if it's a redirect or opaqueredirect
+            if (response.type === 'opaqueredirect') {
+                console.log('[Resolve API] Got opaque redirect, cannot access details');
+            } else if (response.status === 301 || response.status === 302 || response.status === 303 || response.status === 307 || response.status === 308) {
+                const redirectUrl = response.headers.get('location');
+                console.log(`[Resolve API] Redirect detected to: ${redirectUrl}`);
+
+                // If it redirects to share.yoto.co, we can't use this endpoint for API access
+                if (redirectUrl && redirectUrl.includes('share.yoto.co')) {
+                    console.log('[Resolve API] Endpoint redirects to share page, not suitable for API access');
+                } else if (redirectUrl) {
+                    // Try following the redirect with auth header
+                    const redirectResponse = await fetch(redirectUrl, {
+                        headers: {
+                            'Authorization': `Bearer ${tokens.access_token}`,
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (redirectResponse.ok) {
+                        const contentType = redirectResponse.headers.get('content-type');
+                        if (contentType && contentType.includes('application/json')) {
+                            const data = await redirectResponse.json();
+                            console.log('[Resolve API] Got JSON from redirect');
+                            return { data };
+                        }
+                    }
+                }
+            } else if (response.ok) {
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    console.log('[Resolve API] Successfully resolved via /card/resolve');
+                    return { data };
+                }
+            }
+        } catch (err) {
+            console.log(`[Resolve API] /card/resolve failed:`, err.message);
+        }
+
+        // Try /content/resolve/{playlistId}
+        try {
+            console.log(`[Resolve API] Trying /content/resolve/${playlistId}`);
+            const contentResolveResponse = await makeAuthenticatedRequest(`/content/resolve/${playlistId}`);
+
+            if (!contentResolveResponse.error) {
+                console.log('[Resolve API] Successfully resolved via /content/resolve');
+                return { data: contentResolveResponse };
+            }
+        } catch (err) {
+            console.log(`[Resolve API] /content/resolve failed:`, err.message);
+        }
+
+        // If both resolve endpoints fail, fall back to regular content endpoint
+        console.log('[Resolve API] Both resolve endpoints failed, using standard content endpoint');
+        const contentResponse = await getCardContent(playlistId);
+
+        if (!contentResponse.error && contentResponse.card) {
+            console.log('[Resolve API] Got card data from content endpoint');
+            console.log('[Resolve API] Card structure has:', {
+                hasContent: !!contentResponse.card.content,
+                hasChapters: !!contentResponse.card.content?.chapters,
+                chapterCount: contentResponse.card.content?.chapters?.length || 0,
+                hasMetadata: !!contentResponse.card.metadata,
+                cardKeys: Object.keys(contentResponse.card)
+            });
+            return {
+                data: contentResponse.card,
+                warning: 'Audio URLs not available - resolve endpoints did not return playable content'
+            };
+        }
+
+        return {
+            error: `Could not resolve playlist ${playlistId}`
+        };
+
+    } catch (error) {
+        console.error('[Resolve API] Unexpected error:', error);
+        return { error: error.message };
     }
 }
 
@@ -2712,8 +2836,14 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Skip messages that use 'type' instead of 'action' - they'll be handled by the other listener
+    if (!request.action && request.type) {
+        return false; // Let other listeners handle this
+    }
+
     (async () => {
         try {
+            console.log('[DEBUG] Received message with action:', request.action, 'Full request:', request);
             switch (request.action) {
                 case 'CHECK_AUTH':
                     const isValid = await TokenManager.isTokenValid();
@@ -3544,6 +3674,106 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     const batteryResult = await getBatteryStatus();
                     sendResponse(batteryResult);
                     break;
+
+                case 'GET_USER_PLAYLISTS':
+                    const playlistsResult = await getUserCards();
+                    sendResponse(playlistsResult);
+                    break;
+
+                case 'RESOLVE_PLAYLIST':
+                    const resolveResult = await resolvePlaylist(request.playlistId);
+                    sendResponse(resolveResult);
+                    break;
+
+                case 'START_BULK_EXPORT':
+                    const exportResult = await startBulkExport(request);
+                    sendResponse(exportResult);
+                    break;
+
+                case 'RESUME_BULK_EXPORT':
+                    const resumeResult = await resumeBulkExport(request.manifestId);
+                    sendResponse(resumeResult);
+                    break;
+
+                case 'CANCEL_BULK_EXPORT':
+                    const cancelResult = await cancelBulkExport(request.manifestId);
+                    sendResponse(cancelResult);
+                    break;
+
+                case 'GET_EXPORT_STATUS':
+                    const statusResult = await getExportStatus(request.manifestId);
+                    sendResponse(statusResult);
+                    break;
+
+                case 'DOWNLOAD_EXPORT_ZIP':
+                    console.log('[BulkExport] Received DOWNLOAD_EXPORT_ZIP request with manifestId:', request.manifestId);
+                    // Send immediate response to prevent timeout
+                    sendResponse({ success: true, message: 'Download initiated' });
+                    // Process download asynchronously
+                    downloadExportZip(request.manifestId, request.playlistIds).then(result => {
+                        console.log('[BulkExport] downloadExportZip completed:', result);
+                        if (result.error) {
+                            // Notify content script of error
+                            chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                                tabs.forEach(tab => {
+                                    chrome.tabs.sendMessage(tab.id, {
+                                        type: 'ZIP_DOWNLOAD_ERROR',
+                                        manifestId: request.manifestId,
+                                        error: result.error
+                                    }).catch(() => {});
+                                });
+                            });
+                        }
+                    }).catch(error => {
+                        console.error('[BulkExport] downloadExportZip failed:', error);
+                        // Notify content script of error
+                        chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                            tabs.forEach(tab => {
+                                chrome.tabs.sendMessage(tab.id, {
+                                    type: 'ZIP_DOWNLOAD_ERROR',
+                                    manifestId: request.manifestId,
+                                    error: error.message
+                                }).catch(() => {});
+                            });
+                        });
+                    });
+                    break;
+
+                case 'PROXY_DOWNLOAD':
+                    // Handle proxy download for offscreen document
+                    (async () => {
+                        try {
+                            console.log(`[BulkExport] Proxying download for: ${request.filename}`);
+                            const response = await fetch(request.url);
+
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+
+                            const buffer = await response.arrayBuffer();
+
+                            // Convert to base64 for transfer
+                            const bytes = new Uint8Array(buffer);
+                            let binary = '';
+                            for (let i = 0; i < bytes.byteLength; i++) {
+                                binary += String.fromCharCode(bytes[i]);
+                            }
+                            const base64 = btoa(binary);
+
+                            sendResponse({
+                                success: true,
+                                data: base64
+                            });
+                        } catch (error) {
+                            console.error(`[BulkExport] Proxy download failed:`, error);
+                            sendResponse({
+                                success: false,
+                                error: error.message
+                            });
+                        }
+                    })();
+                    return true; // Keep message channel open for async response
+
                 default:
                     sendResponse({error: 'Unknown action'});
             }
@@ -3590,17 +3820,17 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && 
-        tab.url?.includes('my.yotoplay.com') && 
-        tab.url?.includes('/card/') && 
+    if (changeInfo.status === 'complete' &&
+        tab.url?.includes('my.yotoplay.com') &&
+        tab.url?.includes('/card/') &&
         tab.url?.includes('/edit')) {
-        
+
         try {
             await chrome.scripting.executeScript({
                 target: { tabId: tabId },
                 files: ['content/content-simple.js']
             });
-            
+
             const isValid = await TokenManager.isTokenValid();
             if (isValid) {
                 chrome.tabs.sendMessage(tabId, {
@@ -3612,5 +3842,827 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
             // Content script injection failed
         }
     }
+});
+
+/**
+ * ============================================
+ * BULK EXPORT CONTROLLER
+ * ============================================
+ */
+
+let offscreenDocument = null;
+let exportManifests = new Map();
+
+/**
+ * Ensure offscreen document exists
+ */
+async function ensureOffscreenDocument() {
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT']
+    });
+
+    if (existingContexts.length > 0) {
+        console.log('[BulkExport] Offscreen document already exists');
+        return true;
+    }
+
+    try {
+        await chrome.offscreen.createDocument({
+            url: 'offscreen/offscreen.html',
+            reasons: ['BLOBS'],
+            justification: 'Background download and ZIP creation for bulk export'
+        });
+
+        console.log('[BulkExport] Offscreen document created');
+
+        // Wait for the offscreen document to be fully loaded and ready
+        // This ensures the message listener is set up before we send messages
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Verify the offscreen document is ready by sending a keep-alive message
+        try {
+            await chrome.runtime.sendMessage({ type: 'KEEP_ALIVE' });
+            console.log('[BulkExport] Offscreen document is ready');
+        } catch (error) {
+            console.warn('[BulkExport] Keep-alive check failed, but continuing:', error);
+        }
+
+        offscreenDocument = true;
+        return true;
+    } catch (error) {
+        console.error('[BulkExport] Failed to create offscreen document:', error);
+        return false;
+    }
+}
+
+/**
+ * Start bulk export process
+ */
+async function startBulkExport(request) {
+    const { playlists } = request;
+
+    console.log(`[BulkExport] Starting export for ${playlists.length} playlists`);
+    console.log('[BulkExport] First playlist:', playlists[0]);
+
+    try {
+        // Ensure offscreen document exists
+        console.log('[BulkExport] Ensuring offscreen document exists...');
+        const offscreenReady = await ensureOffscreenDocument();
+        if (!offscreenReady) {
+            console.error('[BulkExport] Failed to create offscreen document');
+            return { error: 'Failed to initialize background downloader' };
+        }
+        console.log('[BulkExport] Offscreen document ready');
+
+        // Create export manifest
+        const manifestId = crypto.randomUUID();
+        console.log(`[BulkExport] Creating manifest with ID: ${manifestId}`);
+        const manifest = await createExportManifest(playlists, manifestId);
+        console.log('[BulkExport] Manifest created:', {
+            id: manifest.id,
+            playlistCount: manifest.playlists.length,
+            fileCount: Object.keys(manifest.files || {}).length
+        });
+
+        // Save manifest to chrome.storage
+        console.log(`[BulkExport] Saving manifest to storage with key: manifest_${manifestId}`);
+        await chrome.storage.local.set({
+            [`manifest_${manifestId}`]: manifest
+        });
+
+        // Verify it was saved
+        const saved = await chrome.storage.local.get(`manifest_${manifestId}`);
+        console.log('[BulkExport] Manifest saved to storage:', !!saved[`manifest_${manifestId}`]);
+
+        // Store reference locally
+        exportManifests.set(manifestId, manifest);
+
+        // Send message to offscreen document to start downloads
+        // Pass the full manifest since offscreen can't access chrome.storage
+        console.log('[BulkExport] Sending START_DOWNLOADS message to offscreen document with full manifest');
+        try {
+            const offscreenResponse = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({
+                    type: 'START_DOWNLOADS',
+                    manifestId: manifestId,
+                    manifest: manifest  // Pass full manifest data
+                }, response => {
+                    if (chrome.runtime.lastError) {
+                        console.error('[BulkExport] Error sending to offscreen:', chrome.runtime.lastError);
+                        // Resolve anyway - the offscreen document might still be processing
+                        resolve({ success: false, error: chrome.runtime.lastError.message });
+                    } else {
+                        console.log('[BulkExport] Got response from offscreen:', response);
+                        resolve(response);
+                    }
+                });
+            });
+
+            if (offscreenResponse && offscreenResponse.success) {
+                console.log(`[BulkExport] Offscreen confirmed start:`, offscreenResponse);
+            } else {
+                console.warn('[BulkExport] Offscreen response indicates issue, but continuing:', offscreenResponse);
+            }
+        } catch (error) {
+            console.error('[BulkExport] Failed to communicate with offscreen document:', error);
+            // Continue anyway, the offscreen document is likely still processing
+        }
+
+        console.log(`[BulkExport] Export started with manifest ID: ${manifestId}`);
+
+        return {
+            success: true,
+            manifestId: manifestId,
+            totalFiles: getTotalFileCount(manifest)
+        };
+    } catch (error) {
+        console.error('[BulkExport] Failed to start export:', error);
+        return { error: error.message };
+    }
+}
+
+/**
+ * Create export manifest from playlists
+ */
+async function createExportManifest(playlists, manifestId) {
+    console.log(`[BulkExport] Creating manifest ${manifestId} for ${playlists.length} playlists`);
+
+    const manifest = {
+        id: manifestId,
+        createdAt: Date.now(),
+        status: 'pending',
+        playlists: [],
+        files: {},
+        progress: {
+            total: 0,
+            completed: 0,
+            failed: 0
+        }
+    };
+
+    // Get current auth tokens for authenticated URLs
+    const tokens = await TokenManager.getTokens();
+    if (!tokens || !tokens.access_token) {
+        throw new Error('Authentication required for export');
+    }
+
+    // Process each playlist
+    for (const playlist of playlists) {
+        const playlistId = playlist.cardId || playlist.id || playlist._id;
+        console.log(`[BulkExport] Processing playlist: ${playlist.title} (${playlistId})`);
+
+        // Resolve playlist to get full details
+        const resolvedResult = await resolvePlaylist(playlistId);
+
+        if (resolvedResult.error) {
+            console.error(`[BulkExport] Failed to resolve playlist ${playlistId}:`, resolvedResult.error);
+            continue;
+        }
+
+        const resolvedData = resolvedResult.data;
+        const playlistManifest = {
+            id: playlistId,
+            title: playlist.title || 'Untitled',
+            audioFiles: [],
+            coverImage: null,
+            iconImages: []
+        };
+
+        let iconCounter = 1;
+
+        // Extract audio files and icons from chapters
+        const chapters = resolvedData?.card?.content?.chapters || resolvedData?.chapters || [];
+
+        for (let i = 0; i < chapters.length; i++) {
+            const chapter = chapters[i];
+
+            // Process tracks (audio files)
+            if (chapter.tracks && Array.isArray(chapter.tracks)) {
+                for (let j = 0; j < chapter.tracks.length; j++) {
+                    const track = chapter.tracks[j];
+                    const trackUrl = track.trackUrl || track.url || track.audioUrl || track.mediaUrl || track.downloadUrl;
+
+                    if (trackUrl && (trackUrl.startsWith('http://') || trackUrl.startsWith('https://'))) {
+                        const fileId = `${playlistId}_audio_${i}_${j}`;
+                        const baseFilename = sanitizeFilename(track.title || `track-${i}-${j}`);
+                        const filename = baseFilename.endsWith('.mp3') ? baseFilename : `${baseFilename}.mp3`;
+
+                        const audioFile = {
+                            id: fileId,
+                            url: trackUrl,
+                            filename: filename,
+                            size: track.size || track.fileSize
+                        };
+
+                        playlistManifest.audioFiles.push(audioFile);
+
+                        // Initialize file tracking
+                        manifest.files[fileId] = {
+                            type: 'audio',
+                            playlistId: playlistId,
+                            filename: audioFile.filename,
+                            stored: false
+                        };
+
+                        console.log(`[BulkExport] Added audio track ${i}-${j}: ${trackUrl.substring(0, 50)}...`);
+                    } else if (trackUrl && trackUrl.startsWith('yoto:#')) {
+                        console.log(`[BulkExport] Skipping protected track ${i}-${j} with yoto:# URL`);
+                    } else {
+                        console.log(`[BulkExport] No valid URL for track ${i}-${j}`);
+                    }
+
+                    // Track-level icon
+                    const trackIcon = track.display?.icon16x16 ||
+                                    track.display?.displayIcon?.imageL ||
+                                    track.icon?.imageL;
+
+                    if (trackIcon) {
+                        const iconId = `${playlistId}_icon_${i}_${j}`;
+                        const iconFilename = `${String(iconCounter).padStart(2, '0')}-icon.png`;
+
+                        playlistManifest.iconImages.push({
+                            id: iconId,
+                            url: trackIcon,
+                            filename: iconFilename
+                        });
+
+                        manifest.files[iconId] = {
+                            type: 'icon',
+                            playlistId: playlistId,
+                            filename: iconFilename,
+                            stored: false
+                        };
+
+                        iconCounter++;
+                    }
+                }
+            } else {
+                const chapterUrl = chapter.trackUrl || chapter.url || chapter.audioUrl || chapter.mediaUrl || chapter.downloadUrl;
+
+                if (chapterUrl && (chapterUrl.startsWith('http://') || chapterUrl.startsWith('https://'))) {
+                    const fileId = `${playlistId}_audio_${i}`;
+                    const baseFilename = sanitizeFilename(chapter.title || `chapter-${i}`);
+                    const filename = baseFilename.endsWith('.mp3') ? baseFilename : `${baseFilename}.mp3`;
+
+                    const audioFile = {
+                        id: fileId,
+                        url: chapterUrl,
+                        filename: filename,
+                        size: chapter.size || chapter.fileSize
+                    };
+
+                    playlistManifest.audioFiles.push(audioFile);
+
+                    manifest.files[fileId] = {
+                        type: 'audio',
+                        playlistId: playlistId,
+                        filename: audioFile.filename,
+                        stored: false
+                    };
+
+                    console.log(`[BulkExport] Added audio chapter ${i}: ${chapterUrl.substring(0, 50)}...`);
+                } else if (chapterUrl && chapterUrl.startsWith('yoto:#')) {
+                    console.log(`[BulkExport] Skipping protected chapter ${i} with yoto:# URL`);
+                } else {
+                    console.log(`[BulkExport] No valid URL for chapter ${i}`);
+                }
+
+                const chapterIcon = chapter.display?.icon16x16 ||
+                                  chapter.display?.displayIcon?.imageL ||
+                                  chapter.icon?.imageL;
+
+                if (chapterIcon) {
+                    const iconId = `${playlistId}_icon_${i}`;
+                    const iconFilename = `${String(iconCounter).padStart(2, '0')}-icon.png`;
+
+                    playlistManifest.iconImages.push({
+                        id: iconId,
+                        url: chapterIcon,
+                        filename: iconFilename
+                    });
+
+                    manifest.files[iconId] = {
+                        type: 'icon',
+                        playlistId: playlistId,
+                        filename: iconFilename,
+                        stored: false
+                    };
+
+                    iconCounter++;
+                }
+            }
+        }
+
+        // Extract cover image
+        const coverUrl = resolvedData?.card?.metadata?.cover?.imageL ||
+                        resolvedData?.coverImageL ||
+                        playlist.coverImageL;
+
+        if (coverUrl) {
+            const coverId = `${playlistId}_cover`;
+            playlistManifest.coverImage = {
+                id: coverId,
+                url: coverUrl,
+                filename: 'cover.jpg'
+            };
+
+            manifest.files[coverId] = {
+                type: 'image',
+                playlistId: playlistId,
+                filename: 'cover.jpg',
+                stored: false
+            };
+        }
+
+        manifest.playlists.push(playlistManifest);
+    }
+
+    // Update total count
+    manifest.progress.total = Object.keys(manifest.files).length;
+
+    console.log(`[BulkExport] Manifest created with ${manifest.progress.total} files`);
+    return manifest;
+}
+
+function getTotalFileCount(manifest) {
+    return Object.keys(manifest.files || {}).length;
+}
+
+function sanitizeFilename(name) {
+    return String(name)
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 200) || 'untitled';
+}
+
+async function resumeBulkExport(manifestId) {
+    console.log(`[BulkExport] Resuming export for manifest: ${manifestId}`);
+
+    try {
+        // Ensure offscreen document exists
+        const offscreenReady = await ensureOffscreenDocument();
+        if (!offscreenReady) {
+            return { error: 'Failed to initialize background downloader' };
+        }
+
+        // Send resume message to offscreen document
+        await chrome.runtime.sendMessage({
+            type: 'RESUME_DOWNLOADS',
+            manifestId: manifestId
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('[BulkExport] Failed to resume export:', error);
+        return { error: error.message };
+    }
+}
+
+async function cancelBulkExport(manifestId) {
+    console.log(`[BulkExport] Cancelling export for manifest: ${manifestId}`);
+
+    try {
+        // Ensure offscreen document exists
+        const offscreenReady = await ensureOffscreenDocument();
+        if (!offscreenReady) {
+            return { error: 'Failed to initialize background downloader' };
+        }
+
+        await chrome.runtime.sendMessage({
+            type: 'CANCEL_DOWNLOADS',
+            manifestId: manifestId
+        });
+
+        await chrome.storage.local.remove(`manifest_${manifestId}`);
+        exportManifests.delete(manifestId);
+
+        return { success: true };
+    } catch (error) {
+        console.error('[BulkExport] Failed to cancel export:', error);
+        return { error: error.message };
+    }
+}
+
+async function getExportStatus(manifestId) {
+    console.log(`[BulkExport] Getting status for manifest: ${manifestId}`);
+
+    try {
+        let manifest = exportManifests.get(manifestId);
+
+        if (!manifest) {
+            const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
+            manifest = stored[`manifest_${manifestId}`];
+        }
+        if (!manifest) {
+            return { error: 'Manifest not found' };
+        }
+
+        // Calculate progress
+        const totalFiles = getTotalFileCount(manifest);
+        const completedFiles = Object.values(manifest.files || {})
+            .filter(f => f.stored || f.failed).length;
+
+        return {
+            success: true,
+            status: manifest.status,
+            progress: {
+                total: totalFiles,
+                completed: completedFiles,
+                percentage: totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0
+            },
+            manifest: manifest
+        };
+    } catch (error) {
+        console.error('[BulkExport] Failed to get status:', error);
+        return { error: error.message };
+    }
+}
+
+async function downloadExportZip(manifestId, playlistIds) {
+    console.log(`[BulkExport] downloadExportZip called with manifestId: ${manifestId}`);
+    console.log(`[BulkExport] Creating ZIP for manifest: ${manifestId}`);
+    console.log(`[BulkExport] Playlist IDs: ${playlistIds ? playlistIds.join(', ') : 'all'}`);
+
+    try {
+        // Ensure offscreen document exists
+        console.log('[BulkExport] Ensuring offscreen document exists...');
+        const offscreenReady = await ensureOffscreenDocument();
+        if (!offscreenReady) {
+            console.error('[BulkExport] Failed to initialize offscreen document');
+            return { error: 'Failed to initialize background downloader' };
+        }
+
+        console.log(`[BulkExport] Retrieving manifest from storage: manifest_${manifestId}`);
+        const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
+        const manifest = stored[`manifest_${manifestId}`];
+
+        if (!manifest) {
+            console.error(`[BulkExport] Manifest not found in storage for ID: ${manifestId}`);
+            const memoryManifest = exportManifests.get(manifestId);
+            if (!memoryManifest) {
+                console.error('[BulkExport] Manifest not found in memory either');
+                return { error: 'Export manifest not found' };
+            }
+            console.log('[BulkExport] Using manifest from memory');
+            manifest = memoryManifest;
+        }
+
+        console.log(`[BulkExport] Manifest found with ${manifest.playlists?.length || 0} playlists`);
+
+        // Check if files have been downloaded
+        const totalFiles = getTotalFileCount(manifest);
+        const downloadedFiles = Object.values(manifest.files || {})
+            .filter(f => f.stored).length;
+        const failedFiles = Object.values(manifest.files || {})
+            .filter(f => f.failed).length;
+
+        console.log(`[BulkExport] File status: ${downloadedFiles} downloaded, ${failedFiles} failed, ${totalFiles} total`);
+
+        if (downloadedFiles === 0 && failedFiles === 0) {
+            console.warn('[BulkExport] No files have been processed yet');
+            return { error: 'No files have been downloaded yet. Please wait for downloads to complete.' };
+        }
+
+        if (downloadedFiles === 0 && failedFiles > 0) {
+            console.error('[BulkExport] All file downloads failed');
+            return { error: `All file downloads failed (${failedFiles} files). Please try again.` };
+        }
+
+        console.log(`[BulkExport] Creating ZIP with ${downloadedFiles}/${totalFiles} files (${failedFiles} failed)`);
+
+        // Send message to offscreen document to create and download ZIP
+        // Pass the manifest since offscreen can't access chrome.storage
+        console.log('[BulkExport] Sending CREATE_ZIP message to offscreen document');
+        const response = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({
+                type: 'CREATE_ZIP',
+                manifestId: manifestId,
+                playlistIds: playlistIds,
+                manifest: manifest  // Include manifest data
+            }, (response) => {
+                if (chrome.runtime.lastError) {
+                    console.error('[BulkExport] Error sending CREATE_ZIP message:', chrome.runtime.lastError);
+                    resolve({ success: false, error: chrome.runtime.lastError.message });
+                } else {
+                    console.log('[BulkExport] CREATE_ZIP message sent successfully');
+                    resolve(response || { success: true });
+                }
+            });
+        });
+
+        if (response && !response.success) {
+            console.error('[BulkExport] CREATE_ZIP failed:', response.error);
+            return { error: response.error || 'Failed to create ZIP file' };
+        }
+
+        console.log('[BulkExport] ZIP creation initiated successfully');
+        return { success: true, downloadedFiles, totalFiles };
+    } catch (error) {
+        console.error('[BulkExport] Failed to create/download ZIP:', error);
+        console.error('[BulkExport] Error stack:', error.stack);
+        return { error: error.message };
+    }
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Handle proxy download requests from offscreen document
+    if (request.type === 'PROXY_DOWNLOAD') {
+        (async () => {
+            try {
+                console.log(`[BulkExport] Proxying download for: ${request.filename}`);
+                const response = await fetch(request.url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const buffer = await response.arrayBuffer();
+
+                const bytes = new Uint8Array(buffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                const base64 = btoa(binary);
+
+                sendResponse({
+                    success: true,
+                    data: base64
+                });
+            } catch (error) {
+                console.error(`[BulkExport] Proxy download failed:`, error);
+                sendResponse({
+                    success: false,
+                    error: error.message
+                });
+            }
+        })();
+        return true; // Keep message channel open for async response
+    }
+
+    // Handle manifest updates from offscreen document
+    if (request.type === 'MANIFEST_UPDATE') {
+        (async () => {
+            const { manifestId, updates } = request;
+
+            let manifest = exportManifests.get(manifestId);
+            if (!manifest) {
+                // Try to get from storage
+                const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
+                manifest = stored[`manifest_${manifestId}`];
+                if (manifest) {
+                    exportManifests.set(manifestId, manifest);
+                }
+            }
+
+            if (manifest && updates) {
+                if (updates.files) {
+                    if (!manifest.files) manifest.files = {};
+
+                    Object.keys(updates.files).forEach(fileId => {
+                        if (!manifest.files[fileId]) {
+                            manifest.files[fileId] = updates.files[fileId];
+                        } else {
+                            // Deep merge file properties
+                            manifest.files[fileId] = {
+                                ...manifest.files[fileId],
+                                ...updates.files[fileId]
+                            };
+                        }
+                    });
+
+                    delete updates.files;
+                }
+
+                Object.assign(manifest, updates);
+
+                // Update progress stats
+                if (manifest.files) {
+                    manifest.progress = {
+                        total: Object.keys(manifest.files).length,
+                        completed: Object.values(manifest.files).filter(f => f.stored).length,
+                        failed: Object.values(manifest.files).filter(f => f.failed).length
+                    };
+                }
+
+                console.log(`[BulkExport] Manifest updated: ${manifest.progress.completed}/${manifest.progress.total} files stored`);
+
+                // Save back to memory and storage
+                exportManifests.set(manifestId, manifest);
+                await chrome.storage.local.set({ [`manifest_${manifestId}`]: manifest });
+            }
+        })();
+        return false;
+    }
+
+    // Handle ZIP download with blob URL from offscreen document
+    if (request.type === 'DOWNLOAD_ZIP_BLOB_URL') {
+        console.log(`[BulkExport] Received blob URL for download: ${request.filename}`);
+        console.log(`[BulkExport] ZIP file size: ${request.size} bytes (${(request.size / 1024 / 1024).toFixed(2)} MB)`);
+        console.log(`[BulkExport] Blob URL: ${request.blobUrl}`);
+
+        (async () => {
+            try {
+                const sanitizedFilename = request.filename
+                    .replace(/[<>:"|?*]/g, '_')
+                    .replace(/\\/g, '/')
+                    .replace(/\.{2,}/g, '.');
+
+                console.log(`[BulkExport] Downloading file: ${sanitizedFilename}`);
+
+                const downloadId = await chrome.downloads.download({
+                    url: request.blobUrl,
+                    filename: sanitizedFilename,
+                    saveAs: false,
+                    conflictAction: 'uniquify'
+                });
+
+                console.log(`[BulkExport] Download initiated successfully with ID: ${downloadId}`);
+
+                chrome.downloads.onChanged.addListener(function downloadListener(delta) {
+                    if (delta.id === downloadId && delta.state) {
+                        if (delta.state.current === 'complete') {
+                            console.log(`[BulkExport] Download completed: ${sanitizedFilename}`);
+                            chrome.downloads.onChanged.removeListener(downloadListener);
+
+                            // Notify content script
+                            chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                                tabs.forEach(tab => {
+                                    chrome.tabs.sendMessage(tab.id, {
+                                        type: 'ZIP_DOWNLOADED',
+                                        manifestId: request.manifestId,
+                                        filename: sanitizedFilename
+                                    }).catch(() => {});
+                                });
+                            });
+                        } else if (delta.state.current === 'interrupted') {
+                            console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
+                            chrome.downloads.onChanged.removeListener(downloadListener);
+
+                            chrome.downloads.search({id: downloadId}, (results) => {
+                                const error = results[0]?.error || 'Download was interrupted';
+                                console.error(`[BulkExport] Download error details: ${error}`);
+
+                                // Notify content script
+                                chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                                    tabs.forEach(tab => {
+                                        chrome.tabs.sendMessage(tab.id, {
+                                            type: 'ZIP_DOWNLOAD_ERROR',
+                                            manifestId: request.manifestId,
+                                            error: `Download interrupted: ${error}`
+                                        }).catch(() => {});
+                                    });
+                                });
+                            });
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error('[BulkExport] Failed to download ZIP:', error);
+
+                // Notify content script
+                chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                    tabs.forEach(tab => {
+                        chrome.tabs.sendMessage(tab.id, {
+                            type: 'ZIP_DOWNLOAD_ERROR',
+                            manifestId: request.manifestId,
+                            error: error.message
+                        }).catch(() => {});
+                    });
+                });
+            }
+        })();
+
+        return false;
+    }
+
+    // Handle ZIP download from offscreen document (for small files)
+    if (request.type === 'DOWNLOAD_ZIP') {
+        console.log(`[BulkExport] Received ZIP data for download: ${request.filename}`);
+        console.log(`[BulkExport] ZIP file size: ${request.size} bytes (${(request.size / 1024 / 1024).toFixed(2)} MB)`);
+
+        (async () => {
+            try {
+                if (!request.dataUrl) {
+                    throw new Error('No data URL received from offscreen document');
+                }
+
+                console.log('[BulkExport] Data URL received, initiating download...');
+
+                const sanitizedFilename = request.filename
+                    .replace(/[<>:"|?*]/g, '_')  // Replace invalid characters
+                    .replace(/\\/g, '/')          // Ensure forward slashes
+                    .replace(/\.{2,}/g, '.');     // Remove multiple dots
+
+                console.log(`[BulkExport] Downloading file: ${sanitizedFilename}`);
+
+                const downloadId = await chrome.downloads.download({
+                    url: request.dataUrl,
+                    filename: sanitizedFilename,
+                    saveAs: false, // Automatically save to Downloads folder
+                    conflictAction: 'uniquify' // Add number if file exists
+                });
+
+                console.log(`[BulkExport] Download initiated successfully with ID: ${downloadId}`);
+
+                // Monitor download progress
+                chrome.downloads.onChanged.addListener(function downloadListener(delta) {
+                    if (delta.id === downloadId) {
+                        if (delta.state) {
+                            console.log(`[BulkExport] Download ${downloadId} state changed to: ${delta.state.current}`);
+
+                            if (delta.state.current === 'complete') {
+                                console.log(`[BulkExport] Download completed successfully: ${sanitizedFilename}`);
+                                chrome.downloads.onChanged.removeListener(downloadListener);
+
+                                // Notify content script that ZIP was downloaded
+                                chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                                    tabs.forEach(tab => {
+                                        chrome.tabs.sendMessage(tab.id, {
+                                            type: 'ZIP_DOWNLOADED',
+                                            manifestId: request.manifestId,
+                                            filename: sanitizedFilename,
+                                            downloadId: downloadId
+                                        }).catch((error) => {
+                                            console.log(`[BulkExport] Could not notify tab ${tab.id}:`, error.message);
+                                        });
+                                    });
+                                });
+                            } else if (delta.state.current === 'interrupted') {
+                                console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
+                                chrome.downloads.onChanged.removeListener(downloadListener);
+
+                                // Get error details
+                                chrome.downloads.search({id: downloadId}, (results) => {
+                                    const error = results[0]?.error || 'Download was interrupted';
+                                    console.error(`[BulkExport] Download error details: ${error}`);
+
+                                    // Notify content script of error
+                                    chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                                        tabs.forEach(tab => {
+                                            chrome.tabs.sendMessage(tab.id, {
+                                                type: 'ZIP_DOWNLOAD_ERROR',
+                                                manifestId: request.manifestId,
+                                                error: `Download interrupted: ${error}`
+                                            }).catch(() => {});
+                                        });
+                                    });
+                                });
+                            }
+                        }
+
+                        if (delta.error) {
+                            console.error(`[BulkExport] Download error: ${delta.error.current}`);
+                        }
+                    }
+                });
+
+            } catch (error) {
+                console.error('[BulkExport] Failed to download ZIP:', error);
+                console.error('[BulkExport] Error stack:', error.stack);
+
+                // Notify content script of error
+                chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+                    tabs.forEach(tab => {
+                        chrome.tabs.sendMessage(tab.id, {
+                            type: 'ZIP_DOWNLOAD_ERROR',
+                            manifestId: request.manifestId,
+                            error: error.message
+                        }).catch(() => {});
+                    });
+                });
+            }
+        })();
+
+        return false;
+    }
+
+    // Forward progress updates from offscreen document to content script
+    if (request.type === 'DOWNLOAD_PROGRESS' ||
+        request.type === 'DOWNLOAD_COMPLETED' ||
+        request.type === 'DOWNLOAD_FAILED' ||
+        request.type === 'DOWNLOAD_STARTED' ||
+        request.type === 'EXPORT_COMPLETED' ||
+        request.type === 'DOWNLOADS_STARTED' ||
+        request.type === 'ZIP_CREATED' ||
+        request.type === 'EXPORT_ERROR') {
+
+        console.log(`[BulkExport] Forwarding message to content script:`, request.type);
+
+        // Forward to all Yoto tabs
+        chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+            tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, request).catch((error) => {
+                    // Tab might not have content script loaded, that's okay
+                    console.log(`[BulkExport] Could not send to tab ${tab.id}:`, error.message);
+                });
+            });
+        });
+    }
+
+    // Don't send response for these forwarded messages
+    return false;
 });
 
