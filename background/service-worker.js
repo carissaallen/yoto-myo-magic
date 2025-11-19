@@ -3895,6 +3895,22 @@ async function ensureOffscreenDocument() {
     }
 }
 
+async function closeOffscreenDocument() {
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT']
+    });
+
+    if (existingContexts.length > 0) {
+        try {
+            await chrome.offscreen.closeDocument();
+            console.log('[BulkExport] Offscreen document closed');
+            offscreenDocument = false;
+        } catch (error) {
+            console.error('[BulkExport] Failed to close offscreen document:', error);
+        }
+    }
+}
+
 /**
  * Start bulk export process
  */
@@ -3924,15 +3940,23 @@ async function startBulkExport(request) {
             fileCount: Object.keys(manifest.files || {}).length
         });
 
-        // Save manifest to chrome.storage
-        console.log(`[BulkExport] Saving manifest to storage with key: manifest_${manifestId}`);
+        // Save only essential manifest metadata to chrome.storage to avoid quota issues
+        console.log(`[BulkExport] Saving manifest metadata to storage with key: manifest_${manifestId}`);
+        const manifestMetadata = {
+            id: manifest.id,
+            createdAt: manifest.createdAt,
+            status: manifest.status,
+            playlistCount: manifest.playlists.length,
+            fileCount: Object.keys(manifest.files || {}).length,
+            progress: manifest.progress
+        };
         await chrome.storage.local.set({
-            [`manifest_${manifestId}`]: manifest
+            [`manifest_${manifestId}`]: manifestMetadata
         });
 
-        // Verify it was saved
+        // Verify metadata was saved
         const saved = await chrome.storage.local.get(`manifest_${manifestId}`);
-        console.log('[BulkExport] Manifest saved to storage:', !!saved[`manifest_${manifestId}`]);
+        console.log('[BulkExport] Manifest metadata saved to storage:', !!saved[`manifest_${manifestId}`]);
 
         // Store reference locally
         exportManifests.set(manifestId, manifest);
@@ -4237,6 +4261,8 @@ async function cancelBulkExport(manifestId) {
         await chrome.storage.local.remove(`manifest_${manifestId}`);
         exportManifests.delete(manifestId);
 
+        await closeOffscreenDocument();
+
         return { success: true };
     } catch (error) {
         console.error('[BulkExport] Failed to cancel export:', error);
@@ -4252,13 +4278,19 @@ async function getExportStatus(manifestId) {
 
         if (!manifest) {
             const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
-            manifest = stored[`manifest_${manifestId}`];
-        }
-        if (!manifest) {
-            return { error: 'Manifest not found' };
+            const manifestMetadata = stored[`manifest_${manifestId}`];
+            if (!manifestMetadata) {
+                return { error: 'Manifest not found' };
+            }
+            // Return status based on metadata only
+            return {
+                success: true,
+                status: manifestMetadata.status || 'unknown',
+                progress: manifestMetadata.progress || { total: 0, completed: 0, failed: 0 }
+            };
         }
 
-        // Calculate progress
+        // Calculate progress from full manifest
         const totalFiles = getTotalFileCount(manifest);
         const completedFiles = Object.values(manifest.files || {})
             .filter(f => f.stored || f.failed).length;
@@ -4293,19 +4325,19 @@ async function downloadExportZip(manifestId, playlistIds) {
             return { error: 'Failed to initialize background downloader' };
         }
 
-        console.log(`[BulkExport] Retrieving manifest from storage: manifest_${manifestId}`);
-        const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
-        const manifest = stored[`manifest_${manifestId}`];
+        console.log(`[BulkExport] Retrieving manifest from memory: ${manifestId}`);
+        let manifest = exportManifests.get(manifestId);
 
         if (!manifest) {
-            console.error(`[BulkExport] Manifest not found in storage for ID: ${manifestId}`);
-            const memoryManifest = exportManifests.get(manifestId);
-            if (!memoryManifest) {
-                console.error('[BulkExport] Manifest not found in memory either');
+            console.error(`[BulkExport] Manifest not found in memory for ID: ${manifestId}`);
+            const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
+            const manifestMetadata = stored[`manifest_${manifestId}`];
+            if (!manifestMetadata) {
+                console.error('[BulkExport] Manifest metadata not found in storage either');
                 return { error: 'Export manifest not found' };
             }
-            console.log('[BulkExport] Using manifest from memory');
-            manifest = memoryManifest;
+            console.error('[BulkExport] Only metadata available in storage - full manifest required for ZIP creation');
+            return { error: 'Export manifest data not available - please try exporting again' };
         }
 
         console.log(`[BulkExport] Manifest found with ${manifest.playlists?.length || 0} playlists`);
@@ -4408,12 +4440,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
             let manifest = exportManifests.get(manifestId);
             if (!manifest) {
-                // Try to get from storage
-                const stored = await chrome.storage.local.get(`manifest_${manifestId}`);
-                manifest = stored[`manifest_${manifestId}`];
-                if (manifest) {
-                    exportManifests.set(manifestId, manifest);
-                }
+                // Cannot update manifest if not in memory
+                console.warn(`[BulkExport] Cannot update manifest - not found in memory: ${manifestId}`);
+                return;
             }
 
             if (manifest && updates) {
@@ -4448,9 +4477,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
                 console.log(`[BulkExport] Manifest updated: ${manifest.progress.completed}/${manifest.progress.total} files stored`);
 
-                // Save back to memory and storage
+                // Save back to memory and only metadata to storage to avoid quota issues
                 exportManifests.set(manifestId, manifest);
-                await chrome.storage.local.set({ [`manifest_${manifestId}`]: manifest });
+                const manifestMetadata = {
+                    id: manifest.id,
+                    createdAt: manifest.createdAt,
+                    status: manifest.status,
+                    playlistCount: manifest.playlists ? manifest.playlists.length : 0,
+                    fileCount: manifest.files ? Object.keys(manifest.files).length : 0,
+                    progress: manifest.progress
+                };
+                await chrome.storage.local.set({ [`manifest_${manifestId}`]: manifestMetadata });
             }
         })();
         return false;
@@ -4496,6 +4533,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                     }).catch(() => {});
                                 });
                             });
+
+                            setTimeout(async () => {
+                                await closeOffscreenDocument();
+                                if (request.manifestId && exportManifests.has(request.manifestId)) {
+                                    exportManifests.delete(request.manifestId);
+                                    console.log(`[BulkExport] Cleaned up manifest ${request.manifestId} from memory`);
+                                }
+                            }, 5000);
                         } else if (delta.state.current === 'interrupted') {
                             console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
                             chrome.downloads.onChanged.removeListener(downloadListener);
@@ -4590,6 +4635,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                         });
                                     });
                                 });
+
+                                setTimeout(async () => {
+                                    await closeOffscreenDocument();
+                                    if (request.manifestId && exportManifests.has(request.manifestId)) {
+                                        exportManifests.delete(request.manifestId);
+                                        console.log(`[BulkExport] Cleaned up manifest ${request.manifestId} from memory`);
+                                    }
+                                }, 5000);
                             } else if (delta.state.current === 'interrupted') {
                                 console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
                                 chrome.downloads.onChanged.removeListener(downloadListener);
