@@ -204,7 +204,7 @@
     "description": "Status when uploading cover"
   },
   "status_creatingCard": {
-    "message": "Creating timer card...",
+    "message": "Creating card...",
     "description": "Status when creating card"
   },
   "status_importing": {
