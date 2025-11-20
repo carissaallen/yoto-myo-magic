@@ -8351,6 +8351,9 @@ function showBulkImportModal(playlists, importMode = 'separate') {
 }
 
 async function processUpdateFiles(files, sourceName, cardId) {
+  // Remove common file extensions from sourceName for cleaner playlist titles
+  const cleanSourceName = sourceName.replace(/\.(zip|rar|7z|tar|gz)$/i, '');
+
   const audioFiles = [];
   const iconFiles = [];
 
@@ -8453,17 +8456,36 @@ async function processUpdateFiles(files, sourceName, cardId) {
   iconFiles.length = 0;
   iconFiles.push(...numericIcons, ...nonNumericIcons);
 
-  showUpdateProgressModal(audioFiles, iconFiles, cardId);
+  showUpdateProgressModal(audioFiles, iconFiles, cardId, cleanSourceName);
 }
 
-async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
+async function showUpdateProgressModal(audioFiles, iconFiles, cardId, sourceName) {
+  // Try to get the card title for existing cards
+  let cardTitle = state.updateCardTitle || sourceName || 'Untitled';
+
+  // If we have a card ID and it looks valid, try to get the actual card title
+  if (cardId && cardId !== 'new' && !cardId.startsWith('temp-')) {
+    try {
+      const cardContent = await chrome.runtime.sendMessage({
+        action: 'GET_CARD_CONTENT',
+        cardId: cardId
+      });
+
+      if (!cardContent.error && cardContent.card && cardContent.card.title) {
+        cardTitle = cardContent.card.title;
+      }
+    } catch (e) {
+      // If we can't get the card title, use what we have
+    }
+  }
+
   const largeFiles = checkAudioFileSizes(audioFiles.map(af => af.file));
 
   if (largeFiles.length > 0) {
     const shouldContinue = await showLargeFilesWarningModal(
       largeFiles,
       audioFiles.length,
-      state.updateCardTitle || 'this playlist'
+      cardTitle
     );
 
     if (!shouldContinue) {
@@ -8518,7 +8540,7 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
 
   content.innerHTML = `
     <h2 style="margin: 0 0 16px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
-      Update Card: ${state.updateCardTitle || 'Untitled'}
+      Update Card: ${cardTitle}
     </h2>
 
     <div style="margin-bottom: 20px; color: #666;">
@@ -8568,7 +8590,7 @@ async function showUpdateProgressModal(audioFiles, iconFiles, cardId) {
   modal.appendChild(content);
   document.body.appendChild(modal);
 
-  performCardUpdate(audioFiles, iconFiles, cardId, modal);
+  performCardUpdate(audioFiles, iconFiles, cardId, modal, sourceName);
 
   document.getElementById('cancel-update').addEventListener('click', () => {
     modal.remove();
@@ -8583,7 +8605,7 @@ function isZeroBasedIconNumbering(iconFiles) {
   return firstNumberedIcon && firstNumberedIcon.extractedNumber === 0;
 }
 
-async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
+async function performCardUpdate(audioFiles, iconFiles, cardId, modal, sourceName) {
   const statusText = document.getElementById('update-status');
   const progressBar = document.getElementById('update-progress-bar');
   const percentageText = document.getElementById('update-percentage');
@@ -8594,29 +8616,44 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
   cancelBtn.style.cursor = 'not-allowed';
 
   try {
-    statusText.textContent = chrome.i18n.getMessage('status_fetchingCardContent');
-    progressBar.style.width = '10%';
-    percentageText.textContent = '10%';
+    let isNewCard = false;
+    let cardContent = null;
+    let existingChapters = [];
+    let existingMetadata = {};
+    // For new cards, use folder name if available, otherwise 'Untitled'
+    // For existing cards, this will be overwritten with the actual title
+    let existingTitle = state.updateCardTitle || sourceName || 'Untitled';
 
-    const cardContent = await chrome.runtime.sendMessage({
-      action: 'GET_CARD_CONTENT',
-      cardId: cardId
-    });
+    if (cardId && cardId !== 'new' && !cardId.startsWith('temp-')) {
+      statusText.textContent = chrome.i18n.getMessage('status_fetchingCardContent');
+      progressBar.style.width = '10%';
+      percentageText.textContent = '10%';
 
-    if (cardContent.error) {
-      throw new Error(cardContent.error);
+      cardContent = await chrome.runtime.sendMessage({
+        action: 'GET_CARD_CONTENT',
+        cardId: cardId
+      });
+
+      // Check if we got a 404 error (card doesn't exist)
+      if (cardContent.error && cardContent.error.includes('not-found')) {
+        isNewCard = true;
+      } else if (cardContent.error) {
+        throw new Error(cardContent.error);
+      } else {
+        // Card exists, preserve existing content
+        existingChapters = cardContent.card?.content?.chapters || [];
+        existingMetadata = cardContent.card?.metadata || {};
+        existingTitle = cardContent.card?.title || state.updateCardTitle;
+      }
+    } else {
+      isNewCard = true;
     }
-
-    // Preserve existing content
-    const existingChapters = cardContent.card?.content?.chapters || [];
-    const existingMetadata = cardContent.card?.metadata || {};
-    const existingTitle = cardContent.card?.title || state.updateCardTitle;
 
     const uploadedTracks = [];
 
     // Only upload audio files if we have any
     if (audioFiles.length > 0) {
-      statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFilesPercent', ['0']);
+      statusText.textContent = chrome.i18n.getMessage('status_uploadingFiles');
       progressBar.style.width = '30%';
       percentageText.textContent = '30%';
 
@@ -8767,29 +8804,29 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
           const progressPercent = 30 + (completed / total) * 40;
           progressBar.style.width = `${progressPercent}%`;
           percentageText.textContent = `${Math.round(progressPercent)}%`;
-          const uploadPercent = Math.round((completed / total) * 100);
-          statusText.textContent = chrome.i18n.getMessage('status_uploadingAudioFilesPercent', [uploadPercent.toString()]);
+          statusText.textContent = chrome.i18n.getMessage('status_uploadingFiles');
         }
       );
 
       audioResults.forEach((result) => {
         if (result.status === 'fulfilled' && result.value.uploadResult.success) {
           const { uploadResult, audio, index } = result.value;
-          let trackKey = uploadResult.transcodedAudio?.key || uploadResult.uploadId || '';
+          const transcodedAudio = uploadResult?.transcodedAudio || uploadResult;
+          let trackKey = transcodedAudio?.key || uploadResult?.uploadId || '';
           if (trackKey.length > 20) {
             trackKey = trackKey.substring(trackKey.length - 20);
           }
 
-          const trackUrl = uploadResult.transcodedAudio?.transcodedSha256 ?
-            `yoto:#${uploadResult.transcodedAudio.transcodedSha256}` :
+          const trackUrl = transcodedAudio?.transcodedSha256 ?
+            `yoto:#${transcodedAudio.transcodedSha256}` :
             `yoto:#${trackKey}`;
 
           uploadedTracks[index] = {
             title: cleanTrackTitle(audio.name),
-            duration: uploadResult.transcodedAudio?.duration || 0,
+            duration: transcodedAudio?.duration || transcodedAudio?.transcodedInfo?.duration || 0,
             key: trackKey,
             trackUrl: trackUrl,
-            format: uploadResult.transcodedAudio?.transcodedInfo?.format || 'mp3'
+            format: transcodedAudio?.transcodedInfo?.format || 'mp3'
           };
         }
       });
@@ -8890,21 +8927,22 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
       results.forEach((result) => {
         if (result.status === 'fulfilled' && result.value.uploadResult.success) {
           const { uploadResult, audio, index } = result.value;
-          let trackKey = uploadResult.transcodedAudio?.key || uploadResult.uploadId || '';
+          const transcodedAudio = uploadResult?.transcodedAudio || uploadResult;
+          let trackKey = transcodedAudio?.key || uploadResult?.uploadId || '';
           if (trackKey.length > 20) {
             trackKey = trackKey.substring(trackKey.length - 20);
           }
 
-          const trackUrl = uploadResult.transcodedAudio?.transcodedSha256 ?
-            `yoto:#${uploadResult.transcodedAudio.transcodedSha256}` :
+          const trackUrl = transcodedAudio?.transcodedSha256 ?
+            `yoto:#${transcodedAudio.transcodedSha256}` :
             `yoto:#${trackKey}`;
 
           uploadedTracks[index] = {
             title: cleanTrackTitle(audio.name),
-            duration: uploadResult.transcodedAudio?.duration || 0,
+            duration: transcodedAudio?.duration || transcodedAudio?.transcodedInfo?.duration || 0,
             key: trackKey,
             trackUrl: trackUrl,
-            format: uploadResult.transcodedAudio?.transcodedInfo?.format || 'mp3'
+            format: transcodedAudio?.transcodedInfo?.format || 'mp3'
           };
         }
       });
@@ -8952,43 +8990,99 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal) {
       }
     }
 
-    statusText.textContent = chrome.i18n.getMessage('status_updatingCard');
-    progressBar.style.width = '90%';
-    percentageText.textContent = '90%';
+    let result;
+    if (isNewCard) {
+      // For new cards, use CREATE_PLAYLIST workflow
+      statusText.textContent = chrome.i18n.getMessage('status_creatingCard');
+      progressBar.style.width = '90%';
+      percentageText.textContent = '90%';
 
-    const updateResult = await chrome.runtime.sendMessage({
-      action: 'UPDATE_PLAYLIST',
-      cardId: cardId,
-      existingChapters: existingChapters,
-      newTracks: validTracks,
-      newIcons: uploadedIcons,
-      metadata: existingMetadata,
-      title: existingTitle
-    });
+      // Transform tracks to match the structure expected by CREATE_PLAYLIST
+      const finalTracks = validTracks.map((track, index) => {
+        const sha256Match = track.trackUrl?.match(/^yoto:#(.+)$/);
+        const sha256 = sha256Match ? sha256Match[1] : track.key || '';
 
-    if (updateResult.error) {
-      throw new Error(updateResult.error);
+        return {
+          title: track.title,
+          transcodedAudio: {
+            transcodedSha256: sha256,
+            transcodedInfo: {
+              duration: track.duration || 0,
+              format: track.format || 'mp3',
+              fileSize: track.fileSize || 0,
+              channels: track.channels === 1 ? 'mono' : 'stereo'
+            }
+          }
+        };
+      });
+
+      result = await chrome.runtime.sendMessage({
+        action: 'CREATE_PLAYLIST',
+        title: existingTitle,
+        audioTracks: finalTracks,
+        iconIds: uploadedIcons.filter(icon => icon),
+        coverUrl: null
+      });
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+    } else {
+      // For existing cards, use UPDATE_PLAYLIST workflow
+      statusText.textContent = chrome.i18n.getMessage('status_updatingCard');
+      progressBar.style.width = '90%';
+      percentageText.textContent = '90%';
+
+      result = await chrome.runtime.sendMessage({
+        action: 'UPDATE_PLAYLIST',
+        cardId: cardId,
+        existingChapters: existingChapters,
+        newTracks: validTracks,
+        newIcons: uploadedIcons,
+        metadata: existingMetadata,
+        title: existingTitle
+      });
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
     }
 
-    statusText.textContent = chrome.i18n.getMessage('status_cardUpdatedSuccess');
+    statusText.textContent = isNewCard ?
+      chrome.i18n.getMessage('status_cardCreatedSuccess') || 'Card created successfully!' :
+      chrome.i18n.getMessage('status_cardUpdatedSuccess');
     progressBar.style.width = '100%';
     percentageText.textContent = '100%';
     progressBar.style.background = '#10b981';
 
-    let successMessage = `Successfully updated "${existingTitle}"`;
+    let successMessage = isNewCard ?
+      `Successfully created "${existingTitle}"` :
+      `Successfully updated "${existingTitle}"`;
     if (validTracks.length > 0 && uploadedIcons.length > 0) {
       successMessage += ` with ${validTracks.length} new tracks and ${uploadedIcons.filter(icon => icon).length} icons`;
     } else if (validTracks.length > 0) {
       successMessage += ` with ${validTracks.length} new tracks`;
-    } else if (updateResult.updatedIcons > 0) {
-      successMessage += ` with ${updateResult.updatedIcons} new icons`;
+    } else if (result.updatedIcons > 0) {
+      successMessage += ` with ${result.updatedIcons} new icons`;
     }
 
     showNotification(successMessage, 'success');
 
     setTimeout(() => {
       modal.remove();
-      window.location.reload();
+
+      // Try to find the card ID from various possible locations in the response
+      const cardId = result.cardId || result.id || result.card?.id || result.card?.cardId;
+
+      // For new cards, navigate to the newly created card's URL
+      if (isNewCard && cardId) {
+        // Redirect to the newly created card's edit page
+        const newCardUrl = `https://my.yotoplay.com/card/${cardId}/edit`;
+        window.location.href = newCardUrl;
+      } else {
+        // For existing cards, just reload the page
+        window.location.reload();
+      }
     }, 2000);
 
   } catch (error) {
@@ -9575,7 +9669,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     delayBetweenBatches = 50;  // Reduced from 100
   }
 
-  progressCallback(10, chrome.i18n.getMessage('status_uploadingAudioFilesPercent', ['0']));
+  progressCallback(10, chrome.i18n.getMessage('status_uploadingFiles'));
 
   const uploadedTracks = [];
   

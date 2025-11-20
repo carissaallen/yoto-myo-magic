@@ -2033,7 +2033,7 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
                     trackUrl: `yoto:#${audio.transcodedAudio.transcodedSha256}`,
                     duration: audio.transcodedAudio.transcodedInfo?.duration,
                     fileSize: audio.transcodedAudio.transcodedInfo?.fileSize,
-                    channels: audio.transcodedAudio.transcodedInfo?.channels,
+                    channels: audio.transcodedAudio.transcodedInfo?.channels === 1 ? 'mono' : 'stereo',
                     format: audio.transcodedAudio.transcodedInfo?.format,
                     type: 'audio',
                     display: {
@@ -2164,7 +2164,7 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
                 // Verification failed, but card was created successfully
             }
         }
-        
+
         return createResponse;
     } catch (error) {
         return { error: error.message };

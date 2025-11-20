@@ -3160,24 +3160,26 @@ async function showUpdateFileSelectionModal(cardId, ignoreAudio = false) {
   const existingModal = document.getElementById('yoto-update-file-selection-modal');
   if (existingModal) existingModal.remove();
 
-  // Fetch the card content to get the title (same way we do for update)
+  // First try to get the title from the input field on the page (for new cards)
   let cardTitle = chrome.i18n.getMessage('label_untitledCard') || 'Untitled Card';
+  const inputTitle = document.querySelector('input[placeholder="Give me a name"]')?.value;
+  if (inputTitle && inputTitle.trim() !== '') {
+    cardTitle = inputTitle;
+  }
 
-  try {
-    const cardContent = await chrome.runtime.sendMessage({
-      action: 'GET_CARD_CONTENT',
-      cardId: cardId
-    });
+  // Only fetch card content if it's an existing playlist
+  if (cardId && cardId !== 'new' && !cardId.startsWith('temp-')) {
+    try {
+      const cardContent = await chrome.runtime.sendMessage({
+        action: 'GET_CARD_CONTENT',
+        cardId: cardId
+      });
 
-    if (cardContent && cardContent.card && cardContent.card.title) {
-      cardTitle = cardContent.card.title;
-    }
-  } catch (error) {
-    console.error('Failed to fetch card content for title:', error);
-    // Fallback: try to get from input field
-    const inputTitle = document.querySelector('input[placeholder="Give me a name"]')?.value;
-    if (inputTitle && inputTitle.trim() !== '') {
-      cardTitle = inputTitle;
+      if (cardContent && !cardContent.error && cardContent.card && cardContent.card.title) {
+        cardTitle = cardContent.card.title;
+      }
+    } catch (error) {
+      console.error('Failed to fetch card content for title:', error);
     }
   }
 
@@ -4004,11 +4006,31 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
       
       statusText.textContent = chrome.i18n.getMessage('status_creatingPlaylist');
       progressBar.style.width = '80%';
-      
+
+      // Transform audioTracks to the expected format for createPlaylistContent
+      const formattedAudioTracks = audioTracks.map(track => {
+        // Extract SHA256 from trackUrl (format: "yoto:#<sha256>")
+        const sha256Match = track.trackUrl?.match(/^yoto:#(.+)$/);
+        const sha256 = sha256Match ? sha256Match[1] : '';
+
+        return {
+          title: track.title,
+          transcodedAudio: {
+            transcodedSha256: sha256,
+            transcodedInfo: {
+              duration: track.duration || 0,
+              format: track.format || 'mp3',
+              fileSize: track.fileSize || 0,
+              channels: track.channels === 1 ? 'mono' : 'stereo'
+            }
+          }
+        };
+      });
+
       const createResponse = await chrome.runtime.sendMessage({
         action: 'CREATE_PLAYLIST_CONTENT',
         title: playlistName,
-        audioTracks: audioTracks,
+        audioTracks: formattedAudioTracks,
         iconIds: iconIds,
         cardId: cardId,
         coverUrl: coverUrl
