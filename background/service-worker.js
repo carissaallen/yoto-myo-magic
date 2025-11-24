@@ -3706,12 +3706,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'DOWNLOAD_EXPORT_ZIP':
-                    console.log('[BulkExport] Received DOWNLOAD_EXPORT_ZIP request with manifestId:', request.manifestId);
                     // Send immediate response to prevent timeout
                     sendResponse({ success: true, message: 'Download initiated' });
                     // Process download asynchronously
                     downloadExportZip(request.manifestId, request.playlistIds).then(result => {
-                        console.log('[BulkExport] downloadExportZip completed:', result);
                         if (result.error) {
                             // Notify content script of error
                             chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
@@ -3743,7 +3741,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     // Handle proxy download for offscreen document
                     (async () => {
                         try {
-                            console.log(`[BulkExport] Proxying download for: ${request.filename}`);
                             const response = await fetch(request.url);
 
                             if (!response.ok) {
@@ -3862,7 +3859,6 @@ async function ensureOffscreenDocument() {
     });
 
     if (existingContexts.length > 0) {
-        console.log('[BulkExport] Offscreen document already exists');
         return true;
     }
 
@@ -3873,7 +3869,6 @@ async function ensureOffscreenDocument() {
             justification: 'Background download and ZIP creation for bulk export'
         });
 
-        console.log('[BulkExport] Offscreen document created');
 
         // Wait for the offscreen document to be fully loaded and ready
         // This ensures the message listener is set up before we send messages
@@ -3882,9 +3877,7 @@ async function ensureOffscreenDocument() {
         // Verify the offscreen document is ready by sending a keep-alive message
         try {
             await chrome.runtime.sendMessage({ type: 'KEEP_ALIVE' });
-            console.log('[BulkExport] Offscreen document is ready');
         } catch (error) {
-            console.warn('[BulkExport] Keep-alive check failed, but continuing:', error);
         }
 
         offscreenDocument = true;
@@ -3903,7 +3896,6 @@ async function closeOffscreenDocument() {
     if (existingContexts.length > 0) {
         try {
             await chrome.offscreen.closeDocument();
-            console.log('[BulkExport] Offscreen document closed');
             offscreenDocument = false;
         } catch (error) {
             console.error('[BulkExport] Failed to close offscreen document:', error);
@@ -3917,31 +3909,20 @@ async function closeOffscreenDocument() {
 async function startBulkExport(request) {
     const { playlists } = request;
 
-    console.log(`[BulkExport] Starting export for ${playlists.length} playlists`);
-    console.log('[BulkExport] First playlist:', playlists[0]);
 
     try {
         // Ensure offscreen document exists
-        console.log('[BulkExport] Ensuring offscreen document exists...');
         const offscreenReady = await ensureOffscreenDocument();
         if (!offscreenReady) {
             console.error('[BulkExport] Failed to create offscreen document');
             return { error: 'Failed to initialize background downloader' };
         }
-        console.log('[BulkExport] Offscreen document ready');
 
         // Create export manifest
         const manifestId = crypto.randomUUID();
-        console.log(`[BulkExport] Creating manifest with ID: ${manifestId}`);
         const manifest = await createExportManifest(playlists, manifestId);
-        console.log('[BulkExport] Manifest created:', {
-            id: manifest.id,
-            playlistCount: manifest.playlists.length,
-            fileCount: Object.keys(manifest.files || {}).length
-        });
 
         // Save only essential manifest metadata to chrome.storage to avoid quota issues
-        console.log(`[BulkExport] Saving manifest metadata to storage with key: manifest_${manifestId}`);
         const manifestMetadata = {
             id: manifest.id,
             createdAt: manifest.createdAt,
@@ -3956,14 +3937,12 @@ async function startBulkExport(request) {
 
         // Verify metadata was saved
         const saved = await chrome.storage.local.get(`manifest_${manifestId}`);
-        console.log('[BulkExport] Manifest metadata saved to storage:', !!saved[`manifest_${manifestId}`]);
 
         // Store reference locally
         exportManifests.set(manifestId, manifest);
 
         // Send message to offscreen document to start downloads
         // Pass the full manifest since offscreen can't access chrome.storage
-        console.log('[BulkExport] Sending START_DOWNLOADS message to offscreen document with full manifest');
         try {
             const offscreenResponse = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage({
@@ -3976,23 +3955,19 @@ async function startBulkExport(request) {
                         // Resolve anyway - the offscreen document might still be processing
                         resolve({ success: false, error: chrome.runtime.lastError.message });
                     } else {
-                        console.log('[BulkExport] Got response from offscreen:', response);
                         resolve(response);
                     }
                 });
             });
 
             if (offscreenResponse && offscreenResponse.success) {
-                console.log(`[BulkExport] Offscreen confirmed start:`, offscreenResponse);
             } else {
-                console.warn('[BulkExport] Offscreen response indicates issue, but continuing:', offscreenResponse);
             }
         } catch (error) {
             console.error('[BulkExport] Failed to communicate with offscreen document:', error);
             // Continue anyway, the offscreen document is likely still processing
         }
 
-        console.log(`[BulkExport] Export started with manifest ID: ${manifestId}`);
 
         return {
             success: true,
@@ -4009,7 +3984,6 @@ async function startBulkExport(request) {
  * Create export manifest from playlists
  */
 async function createExportManifest(playlists, manifestId) {
-    console.log(`[BulkExport] Creating manifest ${manifestId} for ${playlists.length} playlists`);
 
     const manifest = {
         id: manifestId,
@@ -4033,7 +4007,6 @@ async function createExportManifest(playlists, manifestId) {
     // Process each playlist
     for (const playlist of playlists) {
         const playlistId = playlist.cardId || playlist.id || playlist._id;
-        console.log(`[BulkExport] Processing playlist: ${playlist.title} (${playlistId})`);
 
         // Resolve playlist to get full details
         const resolvedResult = await resolvePlaylist(playlistId);
@@ -4088,11 +4061,8 @@ async function createExportManifest(playlists, manifestId) {
                             stored: false
                         };
 
-                        console.log(`[BulkExport] Added audio track ${i}-${j}: ${trackUrl.substring(0, 50)}...`);
                     } else if (trackUrl && trackUrl.startsWith('yoto:#')) {
-                        console.log(`[BulkExport] Skipping protected track ${i}-${j} with yoto:# URL`);
                     } else {
-                        console.log(`[BulkExport] No valid URL for track ${i}-${j}`);
                     }
 
                     // Track-level icon
@@ -4144,11 +4114,8 @@ async function createExportManifest(playlists, manifestId) {
                         stored: false
                     };
 
-                    console.log(`[BulkExport] Added audio chapter ${i}: ${chapterUrl.substring(0, 50)}...`);
                 } else if (chapterUrl && chapterUrl.startsWith('yoto:#')) {
-                    console.log(`[BulkExport] Skipping protected chapter ${i} with yoto:# URL`);
                 } else {
-                    console.log(`[BulkExport] No valid URL for chapter ${i}`);
                 }
 
                 const chapterIcon = chapter.display?.icon16x16 ||
@@ -4204,7 +4171,6 @@ async function createExportManifest(playlists, manifestId) {
     // Update total count
     manifest.progress.total = Object.keys(manifest.files).length;
 
-    console.log(`[BulkExport] Manifest created with ${manifest.progress.total} files`);
     return manifest;
 }
 
@@ -4221,7 +4187,6 @@ function sanitizeFilename(name) {
 }
 
 async function resumeBulkExport(manifestId) {
-    console.log(`[BulkExport] Resuming export for manifest: ${manifestId}`);
 
     try {
         // Ensure offscreen document exists
@@ -4244,7 +4209,6 @@ async function resumeBulkExport(manifestId) {
 }
 
 async function cancelBulkExport(manifestId) {
-    console.log(`[BulkExport] Cancelling export for manifest: ${manifestId}`);
 
     try {
         // Ensure offscreen document exists
@@ -4271,7 +4235,6 @@ async function cancelBulkExport(manifestId) {
 }
 
 async function getExportStatus(manifestId) {
-    console.log(`[BulkExport] Getting status for manifest: ${manifestId}`);
 
     try {
         let manifest = exportManifests.get(manifestId);
@@ -4312,20 +4275,15 @@ async function getExportStatus(manifestId) {
 }
 
 async function downloadExportZip(manifestId, playlistIds) {
-    console.log(`[BulkExport] downloadExportZip called with manifestId: ${manifestId}`);
-    console.log(`[BulkExport] Creating ZIP for manifest: ${manifestId}`);
-    console.log(`[BulkExport] Playlist IDs: ${playlistIds ? playlistIds.join(', ') : 'all'}`);
 
     try {
         // Ensure offscreen document exists
-        console.log('[BulkExport] Ensuring offscreen document exists...');
         const offscreenReady = await ensureOffscreenDocument();
         if (!offscreenReady) {
             console.error('[BulkExport] Failed to initialize offscreen document');
             return { error: 'Failed to initialize background downloader' };
         }
 
-        console.log(`[BulkExport] Retrieving manifest from memory: ${manifestId}`);
         let manifest = exportManifests.get(manifestId);
 
         if (!manifest) {
@@ -4340,7 +4298,6 @@ async function downloadExportZip(manifestId, playlistIds) {
             return { error: 'Export manifest data not available - please try exporting again' };
         }
 
-        console.log(`[BulkExport] Manifest found with ${manifest.playlists?.length || 0} playlists`);
 
         // Check if files have been downloaded
         const totalFiles = getTotalFileCount(manifest);
@@ -4349,10 +4306,8 @@ async function downloadExportZip(manifestId, playlistIds) {
         const failedFiles = Object.values(manifest.files || {})
             .filter(f => f.failed).length;
 
-        console.log(`[BulkExport] File status: ${downloadedFiles} downloaded, ${failedFiles} failed, ${totalFiles} total`);
 
         if (downloadedFiles === 0 && failedFiles === 0) {
-            console.warn('[BulkExport] No files have been processed yet');
             return { error: 'No files have been downloaded yet. Please wait for downloads to complete.' };
         }
 
@@ -4361,11 +4316,9 @@ async function downloadExportZip(manifestId, playlistIds) {
             return { error: `All file downloads failed (${failedFiles} files). Please try again.` };
         }
 
-        console.log(`[BulkExport] Creating ZIP with ${downloadedFiles}/${totalFiles} files (${failedFiles} failed)`);
 
         // Send message to offscreen document to create and download ZIP
         // Pass the manifest since offscreen can't access chrome.storage
-        console.log('[BulkExport] Sending CREATE_ZIP message to offscreen document');
         const response = await new Promise((resolve) => {
             chrome.runtime.sendMessage({
                 type: 'CREATE_ZIP',
@@ -4377,7 +4330,6 @@ async function downloadExportZip(manifestId, playlistIds) {
                     console.error('[BulkExport] Error sending CREATE_ZIP message:', chrome.runtime.lastError);
                     resolve({ success: false, error: chrome.runtime.lastError.message });
                 } else {
-                    console.log('[BulkExport] CREATE_ZIP message sent successfully');
                     resolve(response || { success: true });
                 }
             });
@@ -4388,7 +4340,6 @@ async function downloadExportZip(manifestId, playlistIds) {
             return { error: response.error || 'Failed to create ZIP file' };
         }
 
-        console.log('[BulkExport] ZIP creation initiated successfully');
         return { success: true, downloadedFiles, totalFiles };
     } catch (error) {
         console.error('[BulkExport] Failed to create/download ZIP:', error);
@@ -4402,7 +4353,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'PROXY_DOWNLOAD') {
         (async () => {
             try {
-                console.log(`[BulkExport] Proxying download for: ${request.filename}`);
                 const response = await fetch(request.url);
 
                 if (!response.ok) {
@@ -4441,7 +4391,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             let manifest = exportManifests.get(manifestId);
             if (!manifest) {
                 // Cannot update manifest if not in memory
-                console.warn(`[BulkExport] Cannot update manifest - not found in memory: ${manifestId}`);
                 return;
             }
 
@@ -4475,7 +4424,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     };
                 }
 
-                console.log(`[BulkExport] Manifest updated: ${manifest.progress.completed}/${manifest.progress.total} files stored`);
 
                 // Save back to memory and only metadata to storage to avoid quota issues
                 exportManifests.set(manifestId, manifest);
@@ -4495,9 +4443,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Handle ZIP download with blob URL from offscreen document
     if (request.type === 'DOWNLOAD_ZIP_BLOB_URL') {
-        console.log(`[BulkExport] Received blob URL for download: ${request.filename}`);
-        console.log(`[BulkExport] ZIP file size: ${request.size} bytes (${(request.size / 1024 / 1024).toFixed(2)} MB)`);
-        console.log(`[BulkExport] Blob URL: ${request.blobUrl}`);
 
         (async () => {
             try {
@@ -4506,7 +4451,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     .replace(/\\/g, '/')
                     .replace(/\.{2,}/g, '.');
 
-                console.log(`[BulkExport] Downloading file: ${sanitizedFilename}`);
 
                 const downloadId = await chrome.downloads.download({
                     url: request.blobUrl,
@@ -4515,12 +4459,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     conflictAction: 'uniquify'
                 });
 
-                console.log(`[BulkExport] Download initiated successfully with ID: ${downloadId}`);
 
                 chrome.downloads.onChanged.addListener(function downloadListener(delta) {
                     if (delta.id === downloadId && delta.state) {
                         if (delta.state.current === 'complete') {
-                            console.log(`[BulkExport] Download completed: ${sanitizedFilename}`);
                             chrome.downloads.onChanged.removeListener(downloadListener);
 
                             // Notify content script
@@ -4534,13 +4476,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                 });
                             });
 
-                            setTimeout(async () => {
-                                await closeOffscreenDocument();
-                                if (request.manifestId && exportManifests.has(request.manifestId)) {
-                                    exportManifests.delete(request.manifestId);
-                                    console.log(`[BulkExport] Cleaned up manifest ${request.manifestId} from memory`);
-                                }
-                            }, 5000);
+                            // Only close offscreen document for non-progressive exports
+                            // Progressive exports handle their own cleanup
+                            if (!request.playlistTitle) {
+                                setTimeout(async () => {
+                                    await closeOffscreenDocument();
+                                    if (request.manifestId && exportManifests.has(request.manifestId)) {
+                                        exportManifests.delete(request.manifestId);
+                                    }
+                                }, 5000);
+                            } else {
+                            }
                         } else if (delta.state.current === 'interrupted') {
                             console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
                             chrome.downloads.onChanged.removeListener(downloadListener);
@@ -4585,8 +4531,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Handle ZIP download from offscreen document (for small files)
     if (request.type === 'DOWNLOAD_ZIP') {
-        console.log(`[BulkExport] Received ZIP data for download: ${request.filename}`);
-        console.log(`[BulkExport] ZIP file size: ${request.size} bytes (${(request.size / 1024 / 1024).toFixed(2)} MB)`);
 
         (async () => {
             try {
@@ -4594,14 +4538,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     throw new Error('No data URL received from offscreen document');
                 }
 
-                console.log('[BulkExport] Data URL received, initiating download...');
 
                 const sanitizedFilename = request.filename
                     .replace(/[<>:"|?*]/g, '_')  // Replace invalid characters
                     .replace(/\\/g, '/')          // Ensure forward slashes
                     .replace(/\.{2,}/g, '.');     // Remove multiple dots
 
-                console.log(`[BulkExport] Downloading file: ${sanitizedFilename}`);
 
                 const downloadId = await chrome.downloads.download({
                     url: request.dataUrl,
@@ -4610,16 +4552,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     conflictAction: 'uniquify' // Add number if file exists
                 });
 
-                console.log(`[BulkExport] Download initiated successfully with ID: ${downloadId}`);
 
                 // Monitor download progress
                 chrome.downloads.onChanged.addListener(function downloadListener(delta) {
                     if (delta.id === downloadId) {
                         if (delta.state) {
-                            console.log(`[BulkExport] Download ${downloadId} state changed to: ${delta.state.current}`);
 
                             if (delta.state.current === 'complete') {
-                                console.log(`[BulkExport] Download completed successfully: ${sanitizedFilename}`);
                                 chrome.downloads.onChanged.removeListener(downloadListener);
 
                                 // Notify content script that ZIP was downloaded
@@ -4631,18 +4570,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                                             filename: sanitizedFilename,
                                             downloadId: downloadId
                                         }).catch((error) => {
-                                            console.log(`[BulkExport] Could not notify tab ${tab.id}:`, error.message);
                                         });
                                     });
                                 });
 
-                                setTimeout(async () => {
-                                    await closeOffscreenDocument();
-                                    if (request.manifestId && exportManifests.has(request.manifestId)) {
-                                        exportManifests.delete(request.manifestId);
-                                        console.log(`[BulkExport] Cleaned up manifest ${request.manifestId} from memory`);
-                                    }
-                                }, 5000);
+                                // Only close offscreen document for non-progressive exports
+                                // Progressive exports handle their own cleanup
+                                if (!request.isProgressive) {
+                                    setTimeout(async () => {
+                                        await closeOffscreenDocument();
+                                        if (request.manifestId && exportManifests.has(request.manifestId)) {
+                                            exportManifests.delete(request.manifestId);
+                                        }
+                                    }, 5000);
+                                } else {
+                                }
                             } else if (delta.state.current === 'interrupted') {
                                 console.error(`[BulkExport] Download interrupted: ${sanitizedFilename}`);
                                 chrome.downloads.onChanged.removeListener(downloadListener);
@@ -4692,7 +4634,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return false;
     }
 
-    // Forward progress updates from offscreen document to content script
+    // Handle progressive export completion
+    if (request.type === 'PROGRESSIVE_EXPORT_COMPLETED') {
+
+        // Forward to all Yoto tabs first
+        chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
+            tabs.forEach(tab => {
+                chrome.tabs.sendMessage(tab.id, request).catch((error) => {
+                });
+            });
+        });
+
+        // Clean up offscreen document and manifest after a delay
+        setTimeout(async () => {
+            await closeOffscreenDocument();
+            if (request.manifestId && exportManifests.has(request.manifestId)) {
+                exportManifests.delete(request.manifestId);
+            }
+        }, 5000);
+
+        return false;
+    }
+
+    // Forward other progress updates from offscreen document to content script
     if (request.type === 'DOWNLOAD_PROGRESS' ||
         request.type === 'DOWNLOAD_COMPLETED' ||
         request.type === 'DOWNLOAD_FAILED' ||
@@ -4700,16 +4664,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         request.type === 'EXPORT_COMPLETED' ||
         request.type === 'DOWNLOADS_STARTED' ||
         request.type === 'ZIP_CREATED' ||
-        request.type === 'EXPORT_ERROR') {
+        request.type === 'EXPORT_ERROR' ||
+        request.type === 'PROGRESSIVE_EXPORT_STARTED' ||
+        request.type === 'PLAYLIST_EXPORT_STARTED' ||
+        request.type === 'PLAYLIST_EXPORT_COMPLETED' ||
+        request.type === 'PLAYLIST_EXPORT_FAILED') {
 
-        console.log(`[BulkExport] Forwarding message to content script:`, request.type);
 
         // Forward to all Yoto tabs
         chrome.tabs.query({ url: 'https://my.yotoplay.com/*' }, (tabs) => {
             tabs.forEach(tab => {
                 chrome.tabs.sendMessage(tab.id, request).catch((error) => {
                     // Tab might not have content script loaded, that's okay
-                    console.log(`[BulkExport] Could not send to tab ${tab.id}:`, error.message);
                 });
             });
         });
