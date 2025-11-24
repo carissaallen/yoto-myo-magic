@@ -70,6 +70,11 @@ function init() {
   checkWhenReady();
 
   // Check for active export on page load/refresh
+  // Also remove any stale modal from DOM
+  const staleModal = document.getElementById('yoto-bulk-export-modal');
+  if (staleModal) {
+    staleModal.remove();
+  }
   checkForActiveExport();
 
 
@@ -109,21 +114,34 @@ function init() {
       // Show notification to user
       showNotification(chrome.i18n.getMessage('bulkExport_exportError').replace('{{error}}', request.error), 'error');
     } else if (request.type === 'DOWNLOAD_PROGRESS') {
-      console.log('[Bulk Export] Progress:', request);
       handleDownloadProgress(request);
     } else if (request.type === 'DOWNLOAD_COMPLETED') {
-      console.log('[Bulk Export] File completed:', request.filename);
       handleDownloadCompleted(request);
     } else if (request.type === 'DOWNLOAD_FAILED') {
       console.warn('[Bulk Export] File failed:', request.filename, request.error);
       handleDownloadFailed(request);
     } else if (request.type === 'EXPORT_COMPLETED') {
-      console.log('[Bulk Export] Export completed!');
       handleExportCompleted(request);
-    } else if (request.type === 'ZIP_DOWNLOADED') {
-      console.log('[Bulk Export] ZIP downloaded:', request.filename);
+    }
+    // Progressive Export Handlers
+    else if (request.type === 'PROGRESSIVE_EXPORT_STARTED') {
+      handleProgressiveExportStarted(request);
+    } else if (request.type === 'PLAYLIST_EXPORT_STARTED') {
+      handlePlaylistExportStarted(request);
+    } else if (request.type === 'PLAYLIST_EXPORT_COMPLETED') {
+      handlePlaylistExportCompleted(request);
+    } else if (request.type === 'PLAYLIST_EXPORT_FAILED') {
+      handlePlaylistExportFailed(request);
+    } else if (request.type === 'PROGRESSIVE_EXPORT_COMPLETED') {
+      handleProgressiveExportCompleted(request);
+    }
+    else if (request.type === 'ZIP_DOWNLOADED') {
+      // Check if we're in progressive export mode
+      if (window.totalPlaylists && window.totalPlaylists > 0) {
+        return;
+      }
 
-      // Update status in the export modal
+      // Old single-ZIP behavior - only runs for non-progressive exports
       const status = document.getElementById('export-status');
       if (status) {
         status.textContent = chrome.i18n.getMessage('bulkExport_zipDownloaded');
@@ -169,17 +187,14 @@ function init() {
       // Show error notification
       showNotification(chrome.i18n.getMessage('bulkExport_exportError').replace('{{error}}', request.error), 'error');
     } else if (request.type === 'DOWNLOADS_STARTED') {
-      console.log('[Bulk Export] Downloads started:', request);
       handleDownloadsStarted(request);
     } else if (request.type === 'DOWNLOAD_STARTED') {
-      console.log('[Bulk Export] File started:', request.filename);
       // Clear timeout since downloads are working
       if (window.exportProgressTimeout) {
         clearTimeout(window.exportProgressTimeout);
         window.exportProgressTimeout = null;
       }
     } else if (request.type === 'DOWNLOADS_CANCELLED') {
-      console.log('[Bulk Export] Downloads cancelled');
       // Remove all UI elements
       const modal = document.getElementById('yoto-bulk-export-modal');
       if (modal) modal.remove();
@@ -1586,9 +1601,7 @@ async function loadUserPlaylists() {
     }
 
     const playlists = response.cards || [];
-    console.log('[Bulk Export] Loaded playlists:', playlists.length, 'items');
     if (playlists.length > 0) {
-      console.log('[Bulk Export] First playlist structure:', playlists[0]);
     }
 
     if (playlists.length === 0) {
@@ -1649,7 +1662,6 @@ function displaySortedPlaylists(sortType) {
   const listContainer = document.getElementById('playlists-list');
   listContainer.innerHTML = playlists.map((playlist) => {
     const playlistId = playlist.cardId || playlist.id || playlist._id;
-    console.log(`[Bulk Export] Playlist "${playlist.title}" has ID: ${playlistId}`);
     return `
       <label style="
         display: flex;
@@ -1674,7 +1686,6 @@ function displaySortedPlaylists(sortType) {
 }
 
 async function startBulkExport(allPlaylists) {
-  console.log('[Bulk Export] Starting export process with new architecture');
 
   const selectedCheckboxes = document.querySelectorAll('.playlist-checkbox:checked');
 
@@ -1684,14 +1695,12 @@ async function startBulkExport(allPlaylists) {
   }
 
   const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-  console.log('[Bulk Export] Selected IDs:', selectedIds);
 
   const selectedPlaylists = allPlaylists.filter(p => {
     const playlistId = p.cardId || p.id || p._id;
     return selectedIds.includes(playlistId);
   });
 
-  console.log(`[Bulk Export] Exporting ${selectedPlaylists.length} playlists:`, selectedPlaylists.map(p => p.title));
 
   // Disable UI controls
   document.getElementById('start-export').disabled = true;
@@ -1706,13 +1715,11 @@ async function startBulkExport(allPlaylists) {
 
   try {
     // Send request to service worker to start bulk export
-    console.log('[Bulk Export] Sending START_BULK_EXPORT to service worker with playlists:', selectedPlaylists);
     const response = await chrome.runtime.sendMessage({
       action: 'START_BULK_EXPORT',
       playlists: selectedPlaylists
     });
 
-    console.log('[Bulk Export] Service worker response:', response);
 
     if (response.error) {
       console.error('[Bulk Export] Service worker returned error:', response.error);
@@ -1733,7 +1740,6 @@ async function startBulkExport(allPlaylists) {
       if (window.exportCompletedFiles === 0 && window.exportFailedFiles === 0) {
         status.textContent = `⚠️ Downloads may be stalled. Check the browser console for errors.`;
         status.style.color = '#f59e0b';
-        console.warn('[Bulk Export] No progress received within 10 seconds');
       }
     }, 10000);
 
@@ -1816,7 +1822,6 @@ function handleDownloadProgress(request) {
 
   if (progressBar && status) {
     // Update individual file progress
-    console.log(`[Bulk Export] Download progress: ${request.filename} - ${request.progress}%`);
   }
 }
 
@@ -1850,6 +1855,11 @@ function handleDownloadFailed(request) {
 
 function handleDownloadsStarted(request) {
   if (!window.currentExportManifestId || request.manifestId !== window.currentExportManifestId) return;
+
+  // Don't update status if we're in progressive mode
+  if (window.totalPlaylists && window.totalPlaylists > 0) {
+    return;
+  }
 
   const status = document.getElementById('export-status');
   if (status) {
@@ -1888,21 +1898,17 @@ function handleExportCompleted(request) {
   }
 
   // Automatically download the ZIP
-  console.log('[Bulk Export] Automatically downloading ZIP for manifest:', manifestId);
 
   (async () => {
     try {
-      console.log('[Bulk Export] Sending DOWNLOAD_EXPORT_ZIP message to service worker...');
       const response = await chrome.runtime.sendMessage({
         action: 'DOWNLOAD_EXPORT_ZIP',
         manifestId: manifestId
       });
       if (response && response.error !== 'Unknown action') {
-        console.log('[Bulk Export] DOWNLOAD_EXPORT_ZIP response:', response);
       }
 
       if (response && response.success) {
-        console.log('[Bulk Export] ZIP creation initiated successfully');
       } else if (response && response.error && response.error !== 'Unknown action') {
         throw new Error(response.error);
       }
@@ -2157,13 +2163,26 @@ function updateExportStatusIndicator() {
   const indicator = document.getElementById('export-indicator-status');
   if (!indicator || !window.currentExportManifestId) return;
 
-  const completed = window.exportCompletedFiles || 0;
-  const failed = window.exportFailedFiles || 0;
-  const total = window.exportTotalFiles || 0;
-  const processed = completed + failed;
-  const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
+  // Check if we're in progressive mode
+  const isProgressive = window.totalPlaylists && window.totalPlaylists > 0;
 
-  indicator.textContent = `${percentage}% (${processed}/${total} files)`;
+  if (isProgressive) {
+    // Show playlist progress for progressive exports
+    const completedPlaylists = window.completedPlaylists || 0;
+    const totalPlaylists = window.totalPlaylists || 0;
+    const percentage = totalPlaylists > 0 ? Math.round((completedPlaylists / totalPlaylists) * 100) : 0;
+
+    indicator.textContent = `${percentage}% (${completedPlaylists}/${totalPlaylists} playlists)`;
+  } else {
+    // Show file progress for old-style exports
+    const completed = window.exportCompletedFiles || 0;
+    const failed = window.exportFailedFiles || 0;
+    const total = window.exportTotalFiles || 0;
+    const processed = completed + failed;
+    const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
+
+    indicator.textContent = `${percentage}% (${processed}/${total} files)`;
+  }
 }
 
 // Remove the status indicator
@@ -2179,28 +2198,43 @@ async function checkForActiveExport() {
   try {
     const storage = await chrome.storage.local.get(null);
 
+    // Clean up any stale manifests from previous sessions
+    // Only show indicator if there's a truly active export happening right now
+    let hasActiveExport = false;
+    const staleManifeststoClean = [];
+
     for (const key in storage) {
       if (key.startsWith('manifest_')) {
         const manifest = storage[key];
 
-        if (manifest && manifest.status !== 'completed' && manifest.status !== 'cancelled') {
+        // Check if this manifest is stale (older than 30 minutes)
+        const isStale = manifest && manifest.timestamp &&
+          (Date.now() - manifest.timestamp > 30 * 60 * 1000);
+
+        if (isStale || manifest?.status === 'completed' || manifest?.status === 'cancelled') {
+          // Mark for cleanup
+          staleManifeststoClean.push(key);
+        } else if (manifest && manifest.status === 'downloading' && !isStale) {
+          // Only consider it active if it's recent and actually downloading
           const manifestId = key.replace('manifest_', '');
 
-          window.currentExportManifestId = manifestId;
+          // For old-style exports only (has files property)
+          if (manifest.files) {
+            hasActiveExport = true;
+            window.currentExportManifestId = manifestId;
 
-          // Calculate progress
-          const files = Object.values(manifest.files || {});
-          const completed = files.filter(f => f.stored).length;
-          const failed = files.filter(f => f.failed).length;
-          const total = files.length;
+            // Calculate progress
+            const files = Object.values(manifest.files || {});
+            const completed = files.filter(f => f.stored).length;
+            const failed = files.filter(f => f.failed).length;
+            const total = files.length;
 
-          window.exportTotalFiles = total;
-          window.exportCompletedFiles = completed;
-          window.exportFailedFiles = failed;
+            window.exportTotalFiles = total;
+            window.exportCompletedFiles = completed;
+            window.exportFailedFiles = failed;
 
-          addExportStatusIndicator();
-
-          if (manifest.status === 'downloading') {
+            // Only add indicator for genuinely active exports
+            addExportStatusIndicator();
             showNotification('Bulk export is still running in the background', 'info');
           }
 
@@ -2208,8 +2242,34 @@ async function checkForActiveExport() {
         }
       }
     }
+
+    // Clean up stale manifests
+    if (staleManifeststoClean.length > 0) {
+      await chrome.storage.local.remove(staleManifeststoClean);
+    }
+
+    // Check for active progressive export based on window variables
+    // Consider it stale if older than 30 minutes
+    if (window.progressiveExportStartTime &&
+        (Date.now() - window.progressiveExportStartTime < 30 * 60 * 1000) &&
+        window.totalPlaylists && window.completedPlaylists < window.totalPlaylists) {
+      // There's an active progressive export - show indicator
+      addExportStatusIndicator();
+      hasActiveExport = true;
+    }
+
+    // Clear any stale window variables if no active export
+    if (!hasActiveExport) {
+      window.currentExportManifestId = null;
+      window.exportTotalFiles = null;
+      window.exportCompletedFiles = null;
+      window.exportFailedFiles = null;
+      window.totalPlaylists = null;
+      window.completedPlaylists = null;
+      window.failedPlaylistTitles = null;
+      window.progressiveExportStartTime = null;
+    }
   } catch (error) {
-    console.log('[Bulk Export] Error checking for active export:', error);
   }
 }
 
@@ -2245,6 +2305,12 @@ async function reopenExportModal() {
   const processed = completed + failed;
   const percentage = total > 0 ? Math.round((processed / total) * 100) : 0;
 
+  // Determine if we're in progressive mode
+  const isProgressive = window.totalPlaylists && window.totalPlaylists > 0;
+  const progressiveCompleted = window.completedPlaylists || 0;
+  const progressiveTotal = window.totalPlaylists || 0;
+  const progressivePercentage = progressiveTotal > 0 ? Math.round((progressiveCompleted / progressiveTotal) * 100) : 0;
+
   modal.innerHTML = `
     <div style="
       background-color: white;
@@ -2276,11 +2342,39 @@ async function reopenExportModal() {
         transition: all 0.2s;
       " onmouseover="this.style.backgroundColor='#f3f4f6'; this.style.color='#6b7280';" onmouseout="this.style.backgroundColor='transparent'; this.style.color='#9ca3af';">×</button>
 
+      <!-- Add export-progress container for progressive mode -->
+      <div id="export-progress" style="${isProgressive ? 'display: block;' : 'display: none;'} margin-bottom: 16px;">
+        <div style="
+          background-color: #f3f4f6;
+          border-radius: 6px;
+          padding: 12px;
+        ">
+          <p id="export-status" style="margin-bottom: 8px; font-size: 14px; color: #374151;">
+            ${isProgressive ? `Processing playlist ${progressiveCompleted} of ${progressiveTotal}` : ''}
+          </p>
+          <div style="
+            background-color: #e5e7eb;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+          ">
+            <div id="export-progress-bar" style="
+              height: 100%;
+              background-color: #3b82f6;
+              width: ${progressivePercentage}%;
+              transition: width 0.3s;
+            "></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Original status for non-progressive mode -->
       <div style="
         background-color: #f3f4f6;
         border-radius: 8px;
         padding: 16px;
         margin-bottom: 20px;
+        ${isProgressive ? 'display: none;' : 'display: block;'}
       ">
         <p style="margin-bottom: 12px; font-size: 14px; color: #374151;">
           <strong>${chrome.i18n.getMessage('bulkExport_statusLabel')}</strong> ${percentage === 100 ? chrome.i18n.getMessage('bulkExport_statusComplete') : chrome.i18n.getMessage('bulkExport_statusDownloading')}
@@ -2458,7 +2552,6 @@ async function reopenExportModal() {
 
 async function exportPlaylist(playlist) {
   const playlistId = playlist.cardId || playlist.id || playlist._id;
-  console.log(`[Bulk Export] Resolving playlist "${playlist.title}" with ID: ${playlistId}`);
 
   const response = await chrome.runtime.sendMessage({
     action: 'RESOLVE_PLAYLIST',
@@ -2476,18 +2569,7 @@ async function exportPlaylist(playlist) {
   }
 
   const resolvedData = response.data;
-  console.log('[Bulk Export] Playlist resolved successfully');
 
-  // Log structure for debugging
-  if (resolvedData.card?.content?.chapters?.[0]) {
-    const firstChapter = resolvedData.card.content.chapters[0];
-    console.log('[Bulk Export] Sample chapter structure:', {
-      hasTracksList: !!firstChapter.tracks,
-      tracksCount: firstChapter.tracks?.length || 0,
-      hasChapterIcon: !!firstChapter.display?.icon16x16,
-      hasTrackIcon: !!firstChapter.tracks?.[0]?.display?.icon16x16
-    });
-  }
 
   const folderName = sanitizeFolderName(playlist.title || 'Untitled');
 
@@ -2509,7 +2591,6 @@ async function exportPlaylist(playlist) {
   if (coverUrl && coverUrl.startsWith('yoto:#')) {
     const coverId = coverUrl.replace('yoto:#', '');
     coverUrl = `https://api.yotoplay.com/media/${coverId}`;
-    console.log(`[Bulk Export] Converted cover yoto:# URL to media URL: ${coverUrl}`);
   }
 
   if (coverUrl) {
@@ -2517,7 +2598,6 @@ async function exportPlaylist(playlist) {
       url: coverUrl,
       filename: 'cover.jpg'
     };
-    console.log('[Bulk Export] Found cover image:', coverUrl);
   }
 
   // Try to find chapters in different possible locations
@@ -2528,11 +2608,9 @@ async function exportPlaylist(playlist) {
                   [];
 
   if (chapters && chapters.length > 0) {
-    console.log(`[Bulk Export] Processing ${chapters.length} chapters`);
 
     for (let i = 0; i < chapters.length; i++) {
       const chapter = chapters[i];
-      console.log(`[Bulk Export] Processing chapter ${i}:`, chapter.title);
 
       // NEW: Check if chapter has tracks array (as shown in the actual data)
       if (chapter.tracks && chapter.tracks.length > 0) {
@@ -2548,15 +2626,6 @@ async function exportPlaylist(playlist) {
             trackUrl = track.contentUrl;
           }
 
-          console.log(`[Bulk Export] Track ${i}-${j} URL fields:`, {
-            trackUrl: track.trackUrl,
-            url: track.url,
-            audioUrl: track.audioUrl,
-            mediaUrl: track.mediaUrl,
-            downloadUrl: track.downloadUrl,
-            contentUrl: track.contentUrl
-          });
-
           if (trackUrl && (trackUrl.startsWith('http://') || trackUrl.startsWith('https://'))) {
             const trackNumber = String(i + 1).padStart(2, '0');
             const trackSubNumber = chapter.tracks.length > 1 ? `-${String(j + 1).padStart(2, '0')}` : '';
@@ -2565,12 +2634,9 @@ async function exportPlaylist(playlist) {
               url: trackUrl,
               filename: `${trackNumber}${trackSubNumber} - ${trackTitle}.mp3`
             });
-            console.log(`[Bulk Export] Found audio URL for track ${i}-${j}: ${trackUrl.substring(0, 50)}...`);
           } else if (trackUrl && trackUrl.startsWith('yoto:#')) {
-            console.log(`[Bulk Export] Track ${i}-${j} has yoto:# URL (internal reference): ${trackUrl}`);
             exportData.protectedTracks = (exportData.protectedTracks || 0) + 1;
           } else {
-            console.log(`[Bulk Export] No valid URL found for track ${i}-${j}`);
 
             // Use track's icon if available (preferred over chapter icon)
             let trackIconUrl = track.display?.icon16x16 ||
@@ -2581,7 +2647,6 @@ async function exportPlaylist(playlist) {
             if (trackIconUrl && trackIconUrl.startsWith('yoto:#')) {
               const iconId = trackIconUrl.replace('yoto:#', '');
               trackIconUrl = `https://api.yotoplay.com/media/${iconId}`;
-              console.log(`[Bulk Export] Converted icon yoto:# URL to media URL: ${trackIconUrl}`);
             }
 
             if (trackIconUrl) {
@@ -2590,7 +2655,6 @@ async function exportPlaylist(playlist) {
                 url: trackIconUrl,
                 filename: iconFilename
               });
-              console.log(`[Bulk Export] Found icon URL for track ${i}-${j}`);
             }
           }
         }
@@ -2606,18 +2670,6 @@ async function exportPlaylist(playlist) {
                       chapter.downloadUrl ||
                       chapter.contentUrl;
 
-        console.log(`[Bulk Export] Chapter ${i} URL fields:`, {
-          'track.trackUrl': chapter.track?.trackUrl,
-          'track.url': chapter.track?.url,
-          trackUrl: chapter.trackUrl,
-          url: chapter.url,
-          'audio.url': chapter.audio?.url,
-          audioUrl: chapter.audioUrl,
-          mediaUrl: chapter.mediaUrl,
-          downloadUrl: chapter.downloadUrl,
-          contentUrl: chapter.contentUrl
-        });
-
         // Process the URL if it's a valid http/https URL
         if (trackUrl && (trackUrl.startsWith('http://') || trackUrl.startsWith('https://'))) {
           const trackNumber = String(i + 1).padStart(2, '0');
@@ -2626,12 +2678,9 @@ async function exportPlaylist(playlist) {
             url: trackUrl,
             filename: `${trackNumber} - ${trackTitle}.mp3`
           });
-          console.log(`[Bulk Export] Found audio URL for chapter ${i}: ${trackUrl.substring(0, 50)}...`);
         } else if (trackUrl && trackUrl.startsWith('yoto:#')) {
-          console.log(`[Bulk Export] Chapter ${i} has yoto:# URL (internal reference): ${trackUrl}`);
           exportData.protectedTracks = (exportData.protectedTracks || 0) + 1;
         } else {
-          console.log(`[Bulk Export] No valid URL found for chapter ${i}`);
         }
       }
 
@@ -2649,7 +2698,6 @@ async function exportPlaylist(playlist) {
         if (iconUrl && iconUrl.startsWith('yoto:#')) {
           const iconId = iconUrl.replace('yoto:#', '');
           iconUrl = `https://api.yotoplay.com/media/${iconId}`;
-          console.log(`[Bulk Export] Converted icon yoto:# URL to media URL: ${iconUrl}`);
         }
 
         if (iconUrl) {
@@ -2657,7 +2705,6 @@ async function exportPlaylist(playlist) {
             url: iconUrl,
             filename: `icon-${i}.png`
           });
-          console.log(`[Bulk Export] Found icon URL for chapter ${i}`);
         }
       } else if (chapter.tracks && !chapter.tracks.some(t => t.display?.icon16x16)) {
         // If tracks don't have icons, fall back to chapter icon
@@ -2669,7 +2716,6 @@ async function exportPlaylist(playlist) {
         if (chapterIconUrl && chapterIconUrl.startsWith('yoto:#')) {
           const iconId = chapterIconUrl.replace('yoto:#', '');
           chapterIconUrl = `https://api.yotoplay.com/media/${iconId}`;
-          console.log(`[Bulk Export] Converted icon yoto:# URL to media URL: ${chapterIconUrl}`);
         }
 
         if (chapterIconUrl) {
@@ -2677,16 +2723,12 @@ async function exportPlaylist(playlist) {
             url: chapterIconUrl,
             filename: `icon-${i}.png`
           });
-          console.log(`[Bulk Export] Using chapter icon as fallback for chapter ${i}`);
         }
       }
     }
   } else {
-    console.log('[Bulk Export] No chapters found in resolved data');
-    console.log('[Bulk Export] Available keys in resolvedData:', Object.keys(resolvedData));
   }
 
-  console.log(`[Bulk Export] Export data prepared: ${exportData.audioFiles.length} audio files, ${exportData.iconImages.length} icons`);
 
   if (exportData.protectedTracks > 0) {
     const warningMsg = chrome.i18n.getMessage('bulkExport_protectedContent').replace('{{count}}', exportData.protectedTracks);
@@ -2709,7 +2751,6 @@ async function exportPlaylist(playlist) {
 }
 
 async function downloadExportData(exportData) {
-  console.log('[Bulk Export] Starting downloads for folder:', exportData.folderName);
 
   try {
     const zip = new JSZip();
@@ -2719,7 +2760,6 @@ async function downloadExportData(exportData) {
 
     const downloadFile = async (url, folder, filename) => {
       try {
-        console.log(`[Bulk Export] Downloading: ${filename}`);
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Failed to fetch ${filename}: ${response.status}`);
         const blob = await response.blob();
@@ -2745,15 +2785,11 @@ async function downloadExportData(exportData) {
       downloadPromises.push(downloadFile(icon.url, imagesFolder, icon.filename));
     }
 
-    console.log(`[Bulk Export] Downloading ${downloadPromises.length} files...`);
     const results = await Promise.all(downloadPromises);
     const successCount = results.filter(r => r).length;
-    console.log(`[Bulk Export] Downloaded ${successCount}/${downloadPromises.length} files successfully`);
 
-    console.log('[Bulk Export] Generating ZIP file...');
     const content = await zip.generateAsync({ type: 'blob' });
 
-    console.log('[Bulk Export] Creating download link...');
     const downloadUrl = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = downloadUrl;
@@ -2766,8 +2802,6 @@ async function downloadExportData(exportData) {
     document.body.removeChild(a);
     URL.revokeObjectURL(downloadUrl);
 
-    console.log('[Bulk Export] Download initiated for:', a.download);
-    console.log('[Bulk Export] File will be saved to your browser\'s default download folder');
   } catch (error) {
     console.error('[Bulk Export] Error in downloadExportData:', error);
     throw error;
@@ -7870,6 +7904,243 @@ function separateImagesIntelligently(imageFiles) {
   return { trackIcons, coverImage };
 }
 
+// Progressive Export Handlers
+function handleProgressiveExportStarted(request) {
+  window.currentExportManifestId = request.manifestId;
+  window.totalPlaylists = request.totalPlaylists;
+  window.completedPlaylists = 0;
+  window.failedPlaylistTitles = [];
+  window.progressiveExportStartTime = Date.now(); // Track when export started
+
+  // Clear the timeout since progressive export has started
+  if (window.exportProgressTimeout) {
+    clearTimeout(window.exportProgressTimeout);
+    window.exportProgressTimeout = null;
+  }
+
+  // Add the blue export status indicator
+  addExportStatusIndicator();
+
+  // Only try to update the modal if it actually exists
+  const modal = document.getElementById('yoto-bulk-export-modal');
+  if (modal) {
+    // Show the export progress container and update buttons
+    const exportProgressContainer = document.getElementById('export-progress');
+    if (exportProgressContainer) {
+      exportProgressContainer.style.display = 'block';
+    } else {
+    }
+  } else {
+  }
+
+  // Disable start button, enable cancel button
+  const startBtn = document.getElementById('start-export');
+  const cancelBtn = document.getElementById('cancel-export');
+  if (startBtn) startBtn.disabled = true;
+  if (cancelBtn) cancelBtn.disabled = false;
+
+  const status = document.getElementById('export-status');
+  const progressBar = document.getElementById('export-progress-bar');
+
+  if (status) {
+    status.textContent = `Starting export of ${request.totalPlaylists} playlists...`;
+    status.style.color = '#3b82f6';
+  }
+
+  if (progressBar) {
+    progressBar.style.width = '0%';
+  }
+}
+
+function handlePlaylistExportStarted(request) {
+  const status = document.getElementById('export-status');
+  const progressBar = document.getElementById('export-progress-bar');
+  const progressText = document.getElementById('export-progress-text');
+
+  if (status) {
+    // Add a pulsing animation to show activity
+    status.innerHTML = `
+      <span style="display: inline-flex; align-items: center;">
+        <span style="
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          background: #3b82f6;
+          border-radius: 50%;
+          margin-right: 8px;
+          animation: pulse 1.5s infinite;
+        "></span>
+        Downloading files for playlist ${request.playlistIndex} of ${request.totalPlaylists}: ${request.playlistTitle}
+      </span>
+    `;
+    status.style.color = '#3b82f6';
+
+    // Add pulse animation if not already present
+    if (!document.getElementById('pulse-animation-style')) {
+      const style = document.createElement('style');
+      style.id = 'pulse-animation-style';
+      style.textContent = `
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.4; }
+          100% { opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  // Show progress of playlists being processed
+  if (progressText) {
+    progressText.textContent = `Processing ${request.playlistIndex} of ${request.totalPlaylists} playlists`;
+  }
+
+  if (progressBar) {
+    // Show progress based on what's starting (but keep previous completions in mind)
+    const completedSoFar = window.completedPlaylists || 0;
+    const totalPlaylists = window.totalPlaylists || request.totalPlaylists || 1;
+    const percentage = (completedSoFar / totalPlaylists) * 100;
+    progressBar.style.width = `${percentage}%`;
+    // Force update with important flag
+    progressBar.style.cssText = `
+      height: 100%;
+      background-color: #3b82f6;
+      width: ${percentage}% !important;
+      transition: width 0.3s ease;
+    `;
+  } else {
+  }
+}
+
+function handlePlaylistExportCompleted(request) {
+  window.completedPlaylists = (window.completedPlaylists || 0) + 1;
+
+  const status = document.getElementById('export-status');
+  const progressBar = document.getElementById('export-progress-bar');
+
+  // Use window.totalPlaylists which was set at start, fallback to request if needed
+  const totalPlaylists = window.totalPlaylists || request.totalPlaylists || 1;
+
+  if (status) {
+    status.textContent = `Completed: ${request.playlistTitle} (${window.completedPlaylists}/${totalPlaylists})`;
+    status.style.color = '#10b981';
+  }
+
+  // Update progress bar to show completed percentage
+  if (progressBar) {
+    const percentage = (window.completedPlaylists / totalPlaylists) * 100;
+    progressBar.style.width = `${percentage}%`;
+    // Force update with important flag
+    progressBar.style.cssText = `
+      height: 100%;
+      background-color: #3b82f6;
+      width: ${percentage}% !important;
+      transition: width 0.3s ease;
+    `;
+  } else {
+  }
+
+  // Update the blue export status indicator as well
+  updateExportStatusIndicator();
+
+  // Show quick success notification for each playlist
+  showNotification(`Downloaded: ${request.playlistTitle}`, 'success');
+}
+
+function handlePlaylistExportFailed(request) {
+  window.failedPlaylistTitles = window.failedPlaylistTitles || [];
+  window.failedPlaylistTitles.push(request.playlistTitle);
+
+  const status = document.getElementById('export-status');
+
+  if (status) {
+    status.textContent = `Failed to export: ${request.playlistTitle}`;
+    status.style.color = '#ef4444';
+  }
+
+  // Show error notification
+  showNotification(`Failed to export: ${request.playlistTitle}`, 'error');
+}
+
+function handleProgressiveExportCompleted(request) {
+  const status = document.getElementById('export-status');
+  const progressBar = document.getElementById('export-progress-bar');
+  const stats = request.stats;
+
+  if (progressBar) {
+    progressBar.style.width = '100%';
+  }
+
+  // Build completion message
+  let message = `Export complete! ${stats.completed} of ${stats.total} playlists exported successfully.`;
+
+  if (stats.failed > 0) {
+    message = `Export finished with errors: ${stats.completed} succeeded, ${stats.failed} failed.`;
+  }
+
+  if (status) {
+    status.textContent = message;
+    status.style.color = stats.failed > 0 ? '#f59e0b' : '#10b981';
+  }
+
+  // Show failed playlists if any
+  if (stats.failedTitles && stats.failedTitles.length > 0) {
+    const failedList = document.createElement('div');
+    failedList.style.cssText = `
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 4px;
+      max-height: 150px;
+      overflow-y: auto;
+    `;
+
+    failedList.innerHTML = `
+      <div style="font-weight: bold; color: #dc2626; margin-bottom: 5px;">
+        Failed playlists (${stats.failedTitles.length}):
+      </div>
+      <ul style="margin: 0; padding-left: 20px; color: #7f1d1d;">
+        ${stats.failedTitles.map(title => `<li>${title}</li>`).join('')}
+      </ul>
+    `;
+
+    const exportProgress = document.getElementById('export-progress');
+    if (exportProgress) {
+      // Remove any existing failed list
+      const existingList = exportProgress.querySelector('div[style*="fef2f2"]');
+      if (existingList) existingList.remove();
+
+      exportProgress.appendChild(failedList);
+    }
+  }
+
+  // Show completion notification
+  showNotification(message, stats.failed > 0 ? 'warning' : 'success');
+
+  // Re-enable buttons
+  const startBtn = document.getElementById('start-export');
+  const cancelBtn = document.getElementById('cancel-export');
+
+  if (startBtn) startBtn.disabled = false;
+  if (cancelBtn) cancelBtn.disabled = true;
+
+  // Clean up after a delay
+  setTimeout(() => {
+    // Don't auto-close if there were failures - let user review them
+    if (stats.failed === 0) {
+      document.getElementById('yoto-bulk-export-modal')?.remove();
+    }
+    removeExportStatusIndicator();
+
+    // Clear export state
+    window.currentExportManifestId = null;
+    window.totalPlaylists = 0;
+    window.completedPlaylists = 0;
+    window.failedPlaylistTitles = [];
+  }, stats.failed > 0 ? 10000 : 3000);
+}
+
 function showNotification(message, type = 'info') {
   const existing = document.querySelector('.yoto-magic-notification');
   if (existing) existing.remove();
@@ -7877,7 +8148,10 @@ function showNotification(message, type = 'info') {
   const notification = document.createElement('div');
   notification.className = 'yoto-magic-notification';
   
-  const bgColor = type === 'error' ? 'bg-red-500' : type === 'success' ? 'bg-green-500' : 'bg-blue-500';
+  const bgColor = type === 'error' ? 'bg-red-500' :
+                  type === 'success' ? 'bg-green-500' :
+                  type === 'warning' ? 'bg-yellow-500' :
+                  'bg-blue-500';
   
   notification.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up`;
   notification.textContent = message;

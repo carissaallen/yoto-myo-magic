@@ -9,31 +9,32 @@ function sendMessage(message) {
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
         try {
             chrome.runtime.sendMessage(message).catch((error) => {
-                console.warn('[Offscreen] Failed to send message:', message.type, error);
             });
         } catch (error) {
-            console.warn('[Offscreen] Error sending message:', message.type, error);
         }
     } else {
-        console.warn('[Offscreen] Cannot send message - chrome.runtime not available:', message.type);
     }
 }
 
 async function initialize() {
-    console.log('[Offscreen] Initializing background downloader');
 
     // Check if chrome runtime is available
     if (typeof chrome === 'undefined' || !chrome.runtime) {
         console.error('[Offscreen] Chrome runtime not available!');
-        console.log('[Offscreen] typeof chrome:', typeof chrome);
         if (typeof chrome !== 'undefined') {
-            console.log('[Offscreen] chrome.runtime:', chrome.runtime);
         }
     }
 
     // Initialize managers
     storageManager = new StorageManager();
-    downloadManager = new DownloadManager(storageManager);
+
+    // Use progressive download manager for new exports
+    // Keep old download manager for backwards compatibility
+    if (typeof ProgressiveDownloadManager !== 'undefined') {
+        downloadManager = new ProgressiveDownloadManager(storageManager);
+    } else {
+        downloadManager = new DownloadManager(storageManager);
+    }
 
     // Setup message listener
     if (chrome && chrome.runtime && chrome.runtime.onMessage) {
@@ -45,17 +46,21 @@ async function initialize() {
     // Keep service worker alive
     startKeepAlive();
 
-    console.log('[Offscreen] Initialization complete');
 }
 
 async function handleMessage(request, sender, sendResponse) {
-    console.log('[Offscreen] Received message:', request.type || request.action);
 
     // Ensure we're initialized before processing any requests
     if (!storageManager || !downloadManager) {
-        console.warn('[Offscreen] Managers not initialized yet, initializing now');
         storageManager = new StorageManager();
-        downloadManager = new DownloadManager(storageManager);
+
+        // Use progressive download manager for new exports
+        // Keep old download manager for backwards compatibility
+        if (typeof ProgressiveDownloadManager !== 'undefined') {
+            downloadManager = new ProgressiveDownloadManager(storageManager);
+        } else {
+            downloadManager = new DownloadManager(storageManager);
+        }
     }
 
     // Handle the message asynchronously
@@ -80,7 +85,6 @@ async function handleMessage(request, sender, sendResponse) {
                     break;
 
                 case 'CREATE_ZIP':
-                    console.log('[Offscreen] Received CREATE_ZIP message with manifestId:', request.manifestId);
                     sendResponse({ success: true, message: 'Creating ZIP' });
                     await handleCreateZip(request);
                     break;
@@ -122,13 +126,11 @@ async function handleMessage(request, sender, sendResponse) {
 async function handleStartDownloads(request) {
     const { manifestId, manifest } = request;
 
-    console.log(`[Offscreen] Starting downloads for manifest: ${manifestId}`);
 
     try {
         // Store manifest in memory
         if (manifest) {
             manifests.set(manifestId, manifest);
-            console.log(`[Offscreen] Stored manifest in memory for ID: ${manifestId}`);
         }
 
         // Get manifest from memory or request
@@ -139,22 +141,12 @@ async function handleStartDownloads(request) {
         }
 
         // Store manifest in storage manager's memory first
-        console.log('[Offscreen] Storing manifest in StorageManager memory');
         storageManager.storeManifestInMemory(manifestId, activeManifest);
 
         // Initialize storage manager if needed
         if (!storageManager.initialized) {
-            console.log('[Offscreen] Initializing storage manager');
             await storageManager.initialize();
         }
-
-        console.log(`[Offscreen] Found manifest with ${activeManifest.playlists?.length || 0} playlists`);
-        console.log('[Offscreen] Manifest structure:', {
-            id: activeManifest.id,
-            status: activeManifest.status,
-            playlistCount: activeManifest.playlists?.length,
-            fileCount: Object.keys(activeManifest.files || {}).length
-        });
 
         // Estimate required space (rough estimate)
         const estimatedSize = activeManifest.playlists.reduce((total, playlist) => {
@@ -163,7 +155,6 @@ async function handleStartDownloads(request) {
             return total + audioSize + imageSize;
         }, 0);
 
-        console.log(`[Offscreen] Estimated download size: ${(estimatedSize / 1024 / 1024).toFixed(2)} MB`);
 
         const hasSpace = await storageManager.hasStorageSpace(estimatedSize);
         if (!hasSpace) {
@@ -171,8 +162,9 @@ async function handleStartDownloads(request) {
         }
 
         // Start processing - pass the manifest directly
-        console.log('[Offscreen] Starting download manager processing');
-        console.log('[Offscreen] First playlist in manifest:', activeManifest.playlists?.[0]);
+
+        // Check if we're using progressive manager
+        const isProgressive = downloadManager.constructor.name === 'ProgressiveDownloadManager';
 
         downloadManager.processManifest(manifestId, activeManifest).catch(error => {
             console.error('[Offscreen] Error processing manifest:', error);
@@ -183,14 +175,16 @@ async function handleStartDownloads(request) {
             });
         });
 
-        // Notify that downloads have started
-        sendMessage({
-            type: 'DOWNLOADS_STARTED',
-            manifestId: manifestId,
-            totalFiles: getTotalFileCount(activeManifest)
-        });
+        // Only send DOWNLOADS_STARTED for standard manager
+        // Progressive manager sends its own PROGRESSIVE_EXPORT_STARTED message
+        if (!isProgressive) {
+            sendMessage({
+                type: 'DOWNLOADS_STARTED',
+                manifestId: manifestId,
+                totalFiles: getTotalFileCount(activeManifest)
+            });
+        }
 
-        console.log('[Offscreen] Downloads initiated successfully');
     } catch (error) {
         console.error('[Offscreen] Failed to start downloads:', error);
         // Send error back to service worker
@@ -206,7 +200,6 @@ async function handleStartDownloads(request) {
 async function handleResumeDownloads(request) {
     const { manifestId } = request;
 
-    console.log(`[Offscreen] Resuming downloads for manifest: ${manifestId}`);
 
     try {
         await downloadManager.resumeManifest(manifestId);
@@ -224,7 +217,6 @@ async function handleResumeDownloads(request) {
 async function handleCancelDownloads(request) {
     const { manifestId } = request;
 
-    console.log(`[Offscreen] Cancelling downloads for manifest: ${manifestId}`);
 
     try {
         // Cancel active downloads
@@ -251,13 +243,10 @@ async function handleCancelDownloads(request) {
 async function handleCreateZip(request) {
     const { manifestId, playlistIds, manifest } = request;
 
-    console.log(`[Offscreen] Creating ZIP for manifest: ${manifestId}`);
-    console.log(`[Offscreen] Playlist IDs: ${playlistIds ? playlistIds.join(', ') : 'all playlists'}`);
 
     try {
         // Store manifest if provided (from service worker)
         if (manifest) {
-            console.log('[Offscreen] Storing manifest from service worker');
             manifests.set(manifestId, manifest);
             storageManager.storeManifestInMemory(manifestId, manifest);
         }
@@ -270,17 +259,13 @@ async function handleCreateZip(request) {
         }
 
         if (activeManifest && !manifest) {
-            console.log('[Offscreen] Using existing manifest from memory');
             storageManager.storeManifestInMemory(manifestId, activeManifest);
         }
 
-        console.log(`[Offscreen] Manifest has ${activeManifest.playlists?.length || 0} playlists`);
 
         // Pass in-memory files from downloadManager if available
         const inMemoryFiles = downloadManager ? downloadManager.inMemoryFiles : null;
-        console.log(`[Offscreen] In-memory files available: ${inMemoryFiles ? inMemoryFiles.size : 0} files`);
 
-        console.log('[Offscreen] Creating ZIP from manifest...');
         const blob = await storageManager.createZipFromManifest(manifestId, playlistIds, inMemoryFiles);
 
         if (!blob) {
@@ -288,7 +273,6 @@ async function handleCreateZip(request) {
         }
 
         const blobSizeMB = blob.size / 1024 / 1024;
-        console.log(`[Offscreen] ZIP blob created successfully, size: ${blob.size} bytes (${blobSizeMB.toFixed(2)} MB)`);
 
         if (blob.size === 0) {
             console.error('[Offscreen] ZIP blob is empty!');
@@ -306,17 +290,13 @@ async function handleCreateZip(request) {
 
         const filename = `yoto-${year}-${month}-${day}-${hours}${minutes}${seconds}.zip`;
 
-        console.log(`[Offscreen] Generated filename: ${filename}`);
 
         // Create a blob URL that can be accessed for download
         const blobUrl = URL.createObjectURL(blob);
-        console.log(`[Offscreen] Created blob URL: ${blobUrl}`);
-        console.log(`[Offscreen] ZIP size: ${blob.size} bytes (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
 
         // For Chrome extensions, we need to handle the download differently
         // Option 1: Try using chrome.downloads API if available in offscreen
         if (typeof chrome !== 'undefined' && chrome.downloads) {
-            console.log('[Offscreen] Using chrome.downloads API directly from offscreen');
             try {
                 const downloadId = await chrome.downloads.download({
                     url: blobUrl,
@@ -324,7 +304,6 @@ async function handleCreateZip(request) {
                     saveAs: false,
                     conflictAction: 'uniquify'
                 });
-                console.log(`[Offscreen] Download initiated with ID: ${downloadId}`);
 
                 // Notify service worker of successful download
                 sendMessage({
@@ -337,17 +316,14 @@ async function handleCreateZip(request) {
                 // Clean up blob URL after a delay
                 setTimeout(() => {
                     URL.revokeObjectURL(blobUrl);
-                    console.log('[Offscreen] Blob URL cleaned up');
                 }, 10000);
 
                 return blob;
             } catch (error) {
-                console.log('[Offscreen] chrome.downloads not available, falling back to alternative method');
             }
         }
 
         // Option 2: Send blob URL to service worker for download
-        console.log('[Offscreen] Sending blob URL to service worker for download...');
 
         // Keep the blob URL alive for download
         const blobUrls = window.blobUrls || new Map();
@@ -363,14 +339,12 @@ async function handleCreateZip(request) {
             size: blob.size
         });
 
-        console.log('[Offscreen] Sent blob URL to service worker for download');
 
         // Clean up blob URL after 60 seconds
         setTimeout(() => {
             if (blobUrls.has(manifestId)) {
                 URL.revokeObjectURL(blobUrls.get(manifestId));
                 blobUrls.delete(manifestId);
-                console.log('[Offscreen] Blob URL cleaned up for manifest:', manifestId);
             }
         }, 60000);
 
