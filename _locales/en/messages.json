@@ -464,15 +464,15 @@
     "description": "Status when processing bulk folder"
   },
   "notification_authSuccess": {
-    "message": "Authentication successful! You can now use icon matching.",
+    "message": "Authentication successful.",
     "description": "Success message after authentication"
   },
   "notification_authSuccessIconMatch": {
-    "message": "✓ Authentication successful! Icon matching enabled.",
+    "message": "✓ Authentication successful.",
     "description": "Success message with checkmark for icon matching"
   },
   "notification_authSuccessImport": {
-    "message": "✓ Authentication successful! You can now use import features.",
+    "message": "✓ Authentication successful.",
     "description": "Success message for import features"
   },
   "notification_authFailed": {
@@ -2506,5 +2506,45 @@
   "status_allIconsLoaded": {
     "message": "All icons loaded",
     "description": "Status text shown when all icon search is complete"
+  },
+  "bulkImport_funStatus1": {
+    "message": "Spinning up stories...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus2": {
+    "message": "Herding tracks into your library...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus3": {
+    "message": "Polishing pixels...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus4": {
+    "message": "Organizing audio adventures...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus5": {
+    "message": "Almost there! (Probably!)",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus6": {
+    "message": "Feel free to take a coffee break - we'll keep going...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus7": {
+    "message": "Wrangling wayward waveforms...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus8": {
+    "message": "Bringing your playlists to life...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus9": {
+    "message": "Filling up your Yoto library shelves...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus10": {
+    "message": "Making magic happen...",
+    "description": "Whimsical status message during bulk import"
   }
 }

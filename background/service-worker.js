@@ -1734,37 +1734,70 @@ async function uploadAudioFile(audioFileData) {
         const s3UploadStartTime = Date.now();
 
         while (uploadAttempts < maxUploadAttempts) {
-            uploadResponse = await fetch(upload.uploadUrl, {
-                method: 'PUT',
-                body: audioFileData.blob,
-                headers: {
-                    'Content-Type': audioFileData.type || 'audio/mpeg'
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
+
+                uploadResponse = await fetch(upload.uploadUrl, {
+                    method: 'PUT',
+                    body: audioFileData.blob,
+                    headers: {
+                        'Content-Type': audioFileData.type || 'audio/mpeg'
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                // Handle S3 rate limiting (429 or 503)
+                if (uploadResponse.status === 429 || uploadResponse.status === 503) {
+                    uploadAttempts++;
+                    const retryAfter = uploadResponse.headers.get('Retry-After');
+                    const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, uploadAttempts - 1), 10000);
+
+                    if (typeof YotoAnalytics !== 'undefined') {
+                        YotoAnalytics.trackRateLimitEvent('s3_upload', uploadAttempts, delay);
+                    }
+
+                    if (uploadAttempts >= maxUploadAttempts) {
+                        const errorMsg = `Upload rate limited after ${maxUploadAttempts} attempts. Please wait and try again.`;
+                        if (typeof YotoAnalytics !== 'undefined') {
+                            YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+                        }
+                        return { error: errorMsg };
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
                 }
-            });
 
-            // Handle S3 rate limiting (429 or 503)
-            if (uploadResponse.status === 429 || uploadResponse.status === 503) {
+                break; // Success or non-retryable error
+            } catch (fetchError) {
                 uploadAttempts++;
-                const retryAfter = uploadResponse.headers.get('Retry-After');
-                const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, uploadAttempts - 1), 10000);
 
-                if (typeof YotoAnalytics !== 'undefined') {
-                    YotoAnalytics.trackRateLimitEvent('s3_upload', uploadAttempts, delay);
+                const isTimeout = fetchError.name === 'AbortError';
+                const errorMsg = isTimeout ? 'Upload timed out after 5 minutes' : fetchError.message;
+
+                // Use warn for retries, error only for final failure
+                if (uploadAttempts >= maxUploadAttempts) {
+                    console.error(`[Upload] S3 fetch failed (attempt ${uploadAttempts}/${maxUploadAttempts}):`, errorMsg);
+                } else {
+                    console.warn(`[Upload] S3 fetch failed (attempt ${uploadAttempts}/${maxUploadAttempts}), retrying...`, errorMsg);
                 }
 
                 if (uploadAttempts >= maxUploadAttempts) {
-                    const errorMsg = `Upload rate limited after ${maxUploadAttempts} attempts. Please wait and try again.`;
+                    const finalError = `S3 upload failed after ${maxUploadAttempts} attempts: ${errorMsg}`;
                     if (typeof YotoAnalytics !== 'undefined') {
-                        YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+                        YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, finalError);
                     }
-                    return { error: errorMsg };
+                    return { error: finalError };
                 }
 
+                // Exponential backoff for retries
+                const delay = Math.min(2000 * Math.pow(2, uploadAttempts - 1), 10000);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 continue;
             }
-
-            break; // Success or non-retryable error
         }
 
         if (typeof YotoAnalytics !== 'undefined') {

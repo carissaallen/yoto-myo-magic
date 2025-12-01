@@ -1122,15 +1122,15 @@
     "description": "Info message for update features"
   },
   "notification_authSuccess": {
-    "message": "Avtentifikacija uspešna! Zdaj lahko uporabljate ujemanje ikon.",
+    "message": "Avtentifikacija uspešna.",
     "description": "Success message after authentication"
   },
   "notification_authSuccessIconMatch": {
-    "message": "✓ Avtentifikacija uspešna! Ujemanje ikon omogočeno.",
+    "message": "✓ Avtentifikacija uspešna.",
     "description": "Success message with checkmark for icon matching"
   },
   "notification_authSuccessImport": {
-    "message": "✓ Avtentifikacija uspešna! Zdaj lahko uporabljate funkcije uvoza.",
+    "message": "✓ Avtentifikacija uspešna.",
     "description": "Success message for import features"
   },
   "notification_connectionLost": {
@@ -2498,5 +2498,45 @@
   "bulkExport_floatingIndicator": {
     "message": "Množični Izvoz",
     "description": "Label on floating status indicator"
+  },
+  "bulkImport_funStatus1": {
+    "message": "Priprava zgodb...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus2": {
+    "message": "Urejanje skladb v vašo knjižnico...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus3": {
+    "message": "Poliranje pikslov...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus4": {
+    "message": "Organizacija avdio pustolovščin...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus5": {
+    "message": "Skoraj končano! (Verjetno!)",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus6": {
+    "message": "Vzemi si odmor za kavo - mi nadaljujemo...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus7": {
+    "message": "Ukrotitev valovnih oblik...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus8": {
+    "message": "Oživljanje vaših predvajanj...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus9": {
+    "message": "Polnjenje polic vaše Yoto knjižnice...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus10": {
+    "message": "Ustvarjanje čarov...",
+    "description": "Whimsical status message during bulk import"
   }
 }

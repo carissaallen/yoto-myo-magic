@@ -1128,15 +1128,15 @@
     "description": "Notification when auth is needed for update"
   },
   "notification_authSuccess": {
-    "message": "¡Autenticación exitosa! Ahora puede usar la coincidencia de iconos.",
+    "message": "Autenticación exitosa.",
     "description": "Success notification for authentication"
   },
   "notification_authSuccessIconMatch": {
-    "message": "✓ ¡Autenticación exitosa! Ahora puede usar la correspondencia de iconos.",
+    "message": "✓ Autenticación exitosa.",
     "description": "Success notification for auth with icon match"
   },
   "notification_authSuccessImport": {
-    "message": "✓ ¡Autenticación exitosa! Ahora puede importar contenido.",
+    "message": "✓ Autenticación exitosa.",
     "description": "Success notification for auth with import"
   },
   "notification_connectionLost": {
@@ -2528,5 +2528,45 @@
   "bulkExport_floatingIndicator": {
     "message": "Exportación Masiva",
     "description": "Label on floating status indicator"
+  },
+  "bulkImport_funStatus1": {
+    "message": "Preparando historias...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus2": {
+    "message": "Organizando pistas en tu biblioteca...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus3": {
+    "message": "Puliendo píxeles...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus4": {
+    "message": "Organizando aventuras de audio...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus5": {
+    "message": "¡Casi listo! (¡Probablemente!)",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus6": {
+    "message": "Tómate un café, nosotros continuaremos...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus7": {
+    "message": "Domesticando formas de onda...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus8": {
+    "message": "Dando vida a tus listas de reproducción...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus9": {
+    "message": "Llenando los estantes de tu biblioteca Yoto...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus10": {
+    "message": "Haciendo magia...",
+    "description": "Whimsical status message during bulk import"
   }
 }
