@@ -1128,15 +1128,15 @@
     "description": "Notification when auth is needed for update"
   },
   "notification_authSuccess": {
-    "message": "Authentifizierung erfolgreich! Sie können jetzt Icon-Zuordnung verwenden.",
+    "message": "Authentifizierung erfolgreich.",
     "description": "Success notification for authentication"
   },
   "notification_authSuccessIconMatch": {
-    "message": "✓ Authentifizierung erfolgreich! Sie können jetzt Icon-Übereinstimmung verwenden.",
+    "message": "✓ Authentifizierung erfolgreich.",
     "description": "Success notification for auth with icon match"
   },
   "notification_authSuccessImport": {
-    "message": "✓ Authentifizierung erfolgreich! Sie können jetzt Inhalte importieren.",
+    "message": "✓ Authentifizierung erfolgreich.",
     "description": "Success notification for auth with import"
   },
   "notification_connectionLost": {
@@ -2528,5 +2528,45 @@
   "bulkExport_floatingIndicator": {
     "message": "Massenexport",
     "description": "Label on floating status indicator"
+  },
+  "bulkImport_funStatus1": {
+    "message": "Geschichten werden vorbereitet...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus2": {
+    "message": "Tracks werden in Ihre Bibliothek sortiert...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus3": {
+    "message": "Pixel werden poliert...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus4": {
+    "message": "Audio-Abenteuer werden organisiert...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus5": {
+    "message": "Fast fertig! (Wahrscheinlich!)",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus6": {
+    "message": "Machen Sie ruhig eine Kaffeepause - wir arbeiten weiter...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus7": {
+    "message": "Wellenformen werden gezähmt...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus8": {
+    "message": "Ihre Playlists werden zum Leben erweckt...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus9": {
+    "message": "Ihre Yoto-Bibliotheksregale werden gefüllt...",
+    "description": "Whimsical status message during bulk import"
+  },
+  "bulkImport_funStatus10": {
+    "message": "Magie wird gewirkt...",
+    "description": "Whimsical status message during bulk import"
   }
 }

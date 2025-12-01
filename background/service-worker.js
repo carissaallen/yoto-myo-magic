@@ -1778,7 +1778,12 @@ async function uploadAudioFile(audioFileData) {
                 const isTimeout = fetchError.name === 'AbortError';
                 const errorMsg = isTimeout ? 'Upload timed out after 5 minutes' : fetchError.message;
 
-                console.error(`[Upload] S3 fetch failed (attempt ${uploadAttempts}/${maxUploadAttempts}):`, errorMsg);
+                // Use warn for retries, error only for final failure
+                if (uploadAttempts >= maxUploadAttempts) {
+                    console.error(`[Upload] S3 fetch failed (attempt ${uploadAttempts}/${maxUploadAttempts}):`, errorMsg);
+                } else {
+                    console.warn(`[Upload] S3 fetch failed (attempt ${uploadAttempts}/${maxUploadAttempts}), retrying...`, errorMsg);
+                }
 
                 if (uploadAttempts >= maxUploadAttempts) {
                     const finalError = `S3 upload failed after ${maxUploadAttempts} attempts: ${errorMsg}`;

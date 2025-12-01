@@ -8495,7 +8495,8 @@ function showBulkImportModal(playlists, importMode = 'separate') {
     
     <div id="bulk-import-progress" style="display: none; margin: 20px 0;">
       <div style="margin-bottom: 12px;">
-        <p id="current-playlist-status" style="color: #666; font-size: 14px; margin-bottom: 8px;">${importMode === 'merged' ? 'Upload Progress:' : 'Overall Progress:'}</p>
+        <p id="current-playlist-status" style="color: #666; font-size: 14px; margin-bottom: 4px;">${importMode === 'merged' ? 'Upload Progress:' : 'Overall Progress:'}</p>
+        <p id="current-track-status" style="color: #888; font-size: 12px; margin-bottom: 8px; font-style: italic; min-height: 18px;"></p>
         <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden;">
           <div id="current-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
@@ -9608,16 +9609,24 @@ async function showLargeFilesWarningModal(largeFiles, totalFiles, playlistName) 
   });
 }
 
+// Helper function to get random fun status message
+function getRandomFunStatus() {
+  const messageCount = 10; // We have 10 fun status messages
+  const randomIndex = Math.floor(Math.random() * messageCount) + 1;
+  return chrome.i18n.getMessage(`bulkImport_funStatus${randomIndex}`);
+}
+
 async function processBulkImport(playlists, modal, importMode = 'separate') {
   if (!chrome.runtime?.id) {
     showNotification(chrome.i18n.getMessage('notification_connectionLost'), 'error');
     modal.remove();
     return;
   }
-  
+
   const progressDiv = document.querySelector('#bulk-import-progress');
   const currentProgressBar = document.querySelector('#current-progress-bar');
   const currentStatus = document.querySelector('#current-playlist-status');
+  const currentTrackStatus = document.querySelector('#current-track-status');
   const importLog = document.querySelector('#import-log');
   const startButton = document.querySelector('#start-bulk-import');
   const cancelButton = document.querySelector('#cancel-bulk-import');
@@ -9662,8 +9671,21 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   function addLogEntry(message, type = 'info') {
     const entry = document.createElement('div');
     const timestamp = new Date().toLocaleTimeString();
-    const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6b7280';
-    entry.style.cssText = `color: ${color}; margin-bottom: 4px;`;
+    let color;
+
+    if (type === 'error') {
+      color = '#ef4444'; // Red
+    } else if (type === 'success') {
+      color = '#10b981'; // Green (reserved for success only)
+    } else if (type === 'fun') {
+      // Random fun colors from brand palette (excluding green - reserved for success)
+      const funColors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'];
+      color = funColors[Math.floor(Math.random() * funColors.length)];
+    } else {
+      color = '#6b7280'; // Gray
+    }
+
+    entry.style.cssText = `color: ${color}; margin-bottom: 4px;${type === 'fun' ? ' font-weight: 500;' : ''}`;
     entry.textContent = `[${timestamp}] ${message}`;
     importLog.appendChild(entry);
     importLog.scrollTop = importLog.scrollHeight;
@@ -9672,7 +9694,40 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   addLogEntry(`Starting bulk import of ${totalPlaylists} playlist${totalPlaylists > 1 ? 's' : ''}...`);
 
   const bulkImportStartTime = Date.now();
-  const CONCURRENT_PLAYLISTS = 10;
+  const CONCURRENT_PLAYLISTS = 2;
+
+  // Add activity spinner after progress bar
+  const spinner = document.createElement('span');
+  spinner.id = 'activity-spinner';
+  spinner.textContent = '⏳';
+  spinner.style.cssText = 'display: inline-block; margin-left: 8px; animation: pulse 2s ease-in-out infinite;';
+  currentStatus.appendChild(spinner);
+
+  // Add CSS animation for spinner
+  if (!document.querySelector('#bulk-import-animations')) {
+    const style = document.createElement('style');
+    style.id = 'bulk-import-animations';
+    style.textContent = `
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.1); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // Timer to occasionally show fun messages
+  let lastFunMessageTime = Date.now();
+  const FUN_MESSAGE_INTERVAL = 15000; // Show fun message every 15 seconds
+
+  const funMessageTimer = setInterval(() => {
+    // Show fun messages periodically during long imports
+    if (Date.now() - lastFunMessageTime > FUN_MESSAGE_INTERVAL && !isCancelled) {
+      const funMessage = getRandomFunStatus();
+      addLogEntry(funMessage, 'fun'); // Use 'fun' type for colorful messages
+      lastFunMessageTime = Date.now();
+    }
+  }, 1000);
 
   window.bulkImportActive = true;
 
@@ -9722,13 +9777,21 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
             playlist.trackIcons,
             playlist.coverImage,
             playlist.name,
-            (progress, status) => {
+            (progress, status, currentTrack) => {
               if (isFirstInBatch) {
                 const overallProgress = ((completedPlaylists / totalPlaylists) * 100) + (progress / totalPlaylists);
                 currentProgressBar.style.width = `${Math.min(overallProgress, 99)}%`;
                 if (status) {
-                  const batchInfo = totalBatches > 1 ? ` (Batch ${currentBatch}/${totalBatches})` : '';
-                  currentStatus.textContent = `${playlist.name}${batchInfo}: ${status}`;
+                  // Line 1: Batch info with status
+                  const batchInfo = totalBatches > 1 ? `Batch ${currentBatch}/${totalBatches}: ` : '';
+                  currentStatus.textContent = `${batchInfo}${status}`;
+
+                  // Line 2: Playlist name with current track (if provided)
+                  if (currentTrack) {
+                    currentTrackStatus.textContent = `Importing ${playlist.name}: ${currentTrack}`;
+                  } else {
+                    currentTrackStatus.textContent = `Importing ${playlist.name}`;
+                  }
                 }
               }
             }
@@ -9740,7 +9803,7 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
             hasDroppedFiles = true;
           }
 
-          return { success: true, playlist, result, duration: playlistDuration };
+          return { success: true, playlist, result, duration: playlistDuration, droppedFiles: result.droppedFiles || [] };
         } catch (error) {
           return { success: false, playlist, error };
         }
@@ -9762,7 +9825,19 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
         if (result.success) {
           successfulImports++;
           const durationText = result.duration ? ` (${result.duration.toFixed(2)}s)` : '';
-          addLogEntry(`✓ Successfully imported "${result.playlist.name}"${durationText}`, 'success');
+
+          // Check for dropped files and log them
+          if (result.droppedFiles && result.droppedFiles.length > 0) {
+            const totalTracks = result.result.createResponse?.trackCount || (result.droppedFiles.length + (result.playlist.audioFiles?.length || 0));
+            addLogEntry(`⚠ Imported "${result.playlist.name}" with ${result.droppedFiles.length} failed track${result.droppedFiles.length > 1 ? 's' : ''}${durationText}`, 'error');
+
+            // Log each dropped file
+            result.droppedFiles.forEach(dropped => {
+              addLogEntry(`  ✗ Track #${dropped.trackNumber}: ${dropped.audioName} (${dropped.audioSize}) - ${dropped.reason || 'Upload failed'}`, 'error');
+            });
+          } else {
+            addLogEntry(`✓ Successfully imported "${result.playlist.name}"${durationText}`, 'success');
+          }
         } else {
           failedImports++;
           const errorMessage = result.error.message || 'Unknown error';
@@ -9838,6 +9913,10 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
   const totalSeconds = totalDuration / 1000;
   const avgTimePerPlaylist = successfulImports > 0 ? (totalDuration / successfulImports / 1000).toFixed(2) : 0;
 
+  // Cleanup timer and spinner
+  clearInterval(funMessageTimer);
+  const spinnerElement = document.querySelector('#activity-spinner');
+  if (spinnerElement) spinnerElement.remove();
 
   window.bulkImportActive = false;
 
@@ -9952,38 +10031,44 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
 
   if (avgFileSize < 5 * 1024 * 1024) {
     if (audioFiles.length <= 10) {
-      parallelCount = 10;  // Increased from 8
-      delayBetweenBatches = 0;
+      parallelCount = 4;  // Reduced to prevent API overload
+      delayBetweenBatches = 100;
     } else {
-      parallelCount = 8;   // Increased from 6
-      delayBetweenBatches = 0;
+      parallelCount = 3;   // Reduced to prevent API overload
+      delayBetweenBatches = 150;
     }
   } else if (avgFileSize < 15 * 1024 * 1024) {
-    parallelCount = 6;     // Increased from 5
-    delayBetweenBatches = 25;  // Reduced from 50
+    parallelCount = 3;     // Reduced to prevent API overload
+    delayBetweenBatches = 200;
   } else {
-    parallelCount = 5;     // Increased from 4
-    delayBetweenBatches = 50;  // Reduced from 100
+    parallelCount = 2;     // Reduced to prevent API overload
+    delayBetweenBatches = 300;
   }
 
   progressCallback(10, chrome.i18n.getMessage('status_uploadingFiles'));
 
   const uploadedTracks = [];
-  
+  const failedUploads = []; // Track failed uploads for retry
+
   for (let batchStart = 0; batchStart < audioFiles.length; batchStart += parallelCount) {
     const batch = audioFiles.slice(batchStart, Math.min(batchStart + parallelCount, audioFiles.length));
     const batchPromises = [];
-    
+
     for (let i = 0; i < batch.length; i++) {
       const file = batch[i];
       const globalIndex = batchStart + i;
       const progress = 10 + (globalIndex / audioFiles.length) * 30; // Progress from 10% to 40%
       const uploadPercent = Math.round((globalIndex / audioFiles.length) * 100);
-      progressCallback(Math.round(progress), chrome.i18n.getMessage('status_uploadingAudioFilePercent', [uploadPercent.toString()]));
-      
-      
+
+      // Show file name being uploaded for better visibility
+      const fileName = file.name || `Track ${globalIndex + 1}`;
+      const uploadStatus = chrome.i18n.getMessage('status_uploadingAudioFilePercent', [uploadPercent.toString()]);
+      progressCallback(Math.round(progress), uploadStatus, fileName);
+
       const fileSize = file.size || file.fileSize || 0;
-      const timeoutMs = fileSize > 10 * 1024 * 1024 ? 120000 : 60000; // 2 min for files > 10MB, else 1 min
+      // More generous timeouts when bulk import is active
+      const baseTimeout = fileSize > 10 * 1024 * 1024 ? 180000 : 120000; // 3 min for files > 10MB, else 2 min
+      const timeoutMs = window.bulkImportActive ? baseTimeout * 1.5 : baseTimeout; // Extra time during bulk operations
       
       const uploadPromise = uploadWithRetry(async () => {
         if (!chrome.runtime?.id) {
@@ -10151,11 +10236,31 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     
     // Wait for all uploads in this batch to complete
     const batchResults = await Promise.all(batchPromises);
-    
-    for (const result of batchResults) {
+
+    for (let i = 0; i < batchResults.length; i++) {
+      const result = batchResults[i];
+      const file = batch[i];
+      const globalIndex = batchStart + i;
+
       if (result.status === 'fulfilled') {
         uploadedTracks[result.value.originalIndex] = result.value;
       } else {
+        // Log and track failed upload for retry
+        const fileName = file?.name || `Track ${globalIndex + 1}`;
+        const fileSize = file?.size || file?.fileSize || 0;
+        const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+        const errorMsg = result.reason?.message || 'Upload failed';
+
+        console.error(`[Bulk Import] Failed upload: ${fileName} (${fileSizeMB}MB) - ${errorMsg}`);
+
+        // Track for retry
+        failedUploads.push({
+          file: file,
+          originalIndex: globalIndex,
+          error: errorMsg,
+          fileName: fileName,
+          fileSize: fileSizeMB
+        });
       }
     }
     
@@ -10164,7 +10269,188 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
       await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
     }
   }
-  
+
+  // Automatic retry for failed uploads
+  if (failedUploads.length > 0) {
+    const retryCount = failedUploads.length;
+    progressCallback(35, `Retrying ${retryCount} failed upload${retryCount > 1 ? 's' : ''}...`);
+
+    console.log(`[Bulk Import] Retrying ${retryCount} failed uploads sequentially...`);
+
+    // Retry failed uploads sequentially (not in parallel) to avoid overwhelming the API
+    for (let retryIndex = 0; retryIndex < failedUploads.length; retryIndex++) {
+      const failedUpload = failedUploads[retryIndex];
+      const file = failedUpload.file;
+      const originalIndex = failedUpload.originalIndex;
+
+      const retryProgress = 35 + ((retryIndex + 1) / retryCount) * 5; // 35% to 40%
+      progressCallback(Math.round(retryProgress), `Retrying failed upload${retryCount > 1 ? 's' : ''} (${retryIndex + 1}/${retryCount})`, failedUpload.fileName);
+
+      try {
+        const fileSize = file.size || file.fileSize || 0;
+        // Use longer timeout for retries
+        const retryTimeoutMs = fileSize > 10 * 1024 * 1024 ? 240000 : 180000; // 4 min / 3 min
+
+        const retryResult = await uploadWithRetry(async () => {
+          if (!chrome.runtime?.id) {
+            throw new Error('Extension context lost during upload.');
+          }
+
+          let uploadResult;
+          const fileSize = file.size || file.fileSize || 0;
+          const MAX_SINGLE_FILE = 35 * 1024 * 1024;
+
+          if (fileSize > MAX_SINGLE_FILE) {
+            // Get presigned URL from service worker
+            const urlResult = await chrome.runtime.sendMessage({
+              action: 'GET_UPLOAD_URL'
+            });
+
+            if (urlResult.error) {
+              throw new Error(`Failed to get upload URL: ${urlResult.error}`);
+            }
+
+            const { uploadUrl, uploadId } = urlResult;
+
+            // Upload directly to S3 from content script
+            try {
+              const uploadResponse = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                  'Content-Type': file.type || 'audio/mpeg'
+                }
+              });
+
+              if (!uploadResponse.ok) {
+                throw new Error(`S3 upload failed: ${uploadResponse.status} ${uploadResponse.statusText}`);
+              }
+
+              // Poll for transcoding completion
+              let transcodedAudio = null;
+              let attempts = 0;
+              const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+
+              // Adaptive timeout based on file size
+              const baseAttempts = 60;
+              const additionalAttempts = fileSize > (35 * 1024 * 1024)
+                  ? Math.floor((fileSize / (1024 * 1024) - 35) * 2)
+                  : 0;
+              const maxAttempts = Math.min(baseAttempts + additionalAttempts, 600);
+
+              // Initial polling with exponential backoff
+              let pollDelay = 500;
+              const maxPollDelay = 3000;
+              let totalElapsed = 0;
+
+              while (attempts < maxAttempts && !transcodedAudio) {
+                attempts++;
+
+                await new Promise(resolve => setTimeout(resolve, pollDelay));
+                totalElapsed += pollDelay;
+
+                const transcodeResult = await chrome.runtime.sendMessage({
+                  action: 'CHECK_TRANSCODE_STATUS',
+                  uploadId: uploadId
+                });
+
+                if (transcodeResult.error) {
+                  if (transcodeResult.error.includes('403') ||
+                      transcodeResult.error.includes('forbidden') ||
+                      transcodeResult.error.includes('not allowed')) {
+                    throw new Error(`Upload rejected: ${transcodeResult.error}`);
+                  }
+                  if (transcodeResult.error.includes('404') ||
+                      transcodeResult.error.includes('not found')) {
+                    throw new Error(`Upload failed: ${transcodeResult.error}. Please try uploading again.`);
+                  }
+                } else if (transcodeResult.ready && transcodeResult.transcodedAudio) {
+                  transcodedAudio = transcodeResult.transcodedAudio;
+                  break;
+                }
+
+                pollDelay = Math.min(Math.floor(pollDelay * 1.5), maxPollDelay);
+              }
+
+              if (!transcodedAudio) {
+                const elapsedSeconds = Math.round(totalElapsed / 1000);
+                throw new Error(`Transcoding timeout after ${elapsedSeconds} seconds (${attempts} attempts). The file may be too large or complex.`);
+              }
+
+              uploadResult = {
+                success: true,
+                transcodedAudio: transcodedAudio,
+                uploadId: uploadId
+              };
+
+            } catch (uploadError) {
+              console.error(`[Bulk Import Retry] Direct upload failed:`, uploadError);
+              throw new Error(`Upload failed: ${uploadError.message}`);
+            }
+
+            if (uploadResult.error) {
+              throw new Error(uploadResult.error);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } else {
+            let base64Data;
+            try {
+              base64Data = await convertFileToBase64(file);
+            } catch (convError) {
+              const fileName = file.name || 'unknown';
+              throw new Error(`Failed to convert ${fileName}: ${convError.message}`);
+            }
+
+            uploadResult = await chrome.runtime.sendMessage({
+              action: 'UPLOAD_AUDIO',
+              file: base64Data
+            });
+          }
+
+          if (!uploadResult) {
+            throw new Error('No response from extension. Please refresh and try again.');
+          }
+
+          if (uploadResult.error) {
+            if (uploadResult.error.includes('Failed to fetch')) {
+              const fileSizeMB = (fileSize / (1024 * 1024)).toFixed(1);
+              throw new Error(chrome.i18n.getMessage('error_networkUploadFailed', [file.name, fileSizeMB]));
+            }
+            throw new Error(`Audio upload failed: ${uploadResult.error}`);
+          }
+
+          const fileName = file.name || 'Track';
+          const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+          const cleanedTitle = cleanTrackTitle(nameWithoutExt);
+
+          return {
+            title: cleanedTitle,
+            originalIndex: originalIndex,
+            transcodedAudio: uploadResult.transcodedAudio
+          };
+        }, 2, 2000, retryTimeoutMs); // 2 retries with 2s delay for retry attempts
+
+        if (retryResult.status === 'fulfilled') {
+          uploadedTracks[originalIndex] = retryResult.value;
+          console.log(`[Bulk Import] ✓ Retry successful: ${failedUpload.fileName}`);
+        } else {
+          console.error(`[Bulk Import] ✗ Retry failed: ${failedUpload.fileName} - ${retryResult.reason?.message}`);
+        }
+
+        // Add delay between retry attempts to prevent overwhelming API
+        if (retryIndex < failedUploads.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      } catch (retryError) {
+        console.error(`[Bulk Import] ✗ Retry exception: ${failedUpload.fileName}`, retryError);
+      }
+    }
+
+    const retriedSuccessCount = failedUploads.filter(fu => uploadedTracks[fu.originalIndex]).length;
+    console.log(`[Bulk Import] Retry complete: ${retriedSuccessCount}/${retryCount} succeeded`);
+  }
+
   const successfulUploads = uploadedTracks.filter(t => t).length;
   
   if (successfulUploads === 0) {
@@ -10203,7 +10489,8 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
           const file = batch[i];
           const globalIndex = batchStart + i;
           const iconProgress = 40 + (globalIndex / trackIcons.length) * 30;
-          progressCallback(Math.round(iconProgress), chrome.i18n.getMessage('status_uploadingIcons', [(globalIndex + 1).toString(), trackIcons.length.toString()]));
+          const iconFileName = file.name || `Icon ${globalIndex + 1}`;
+          progressCallback(Math.round(iconProgress), chrome.i18n.getMessage('status_uploadingIcons', [(globalIndex + 1).toString(), trackIcons.length.toString()]), iconFileName);
 
           const iconPromise = uploadWithRetry(async () => {
             if (!chrome.runtime?.id) {
@@ -10297,6 +10584,12 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
   const finalIconIds = [];
   const droppedFiles = [];
 
+  // Create a map of failed uploads by index for quick lookup
+  const failedUploadMap = new Map();
+  failedUploads.forEach(fu => {
+    failedUploadMap.set(fu.originalIndex, fu.error);
+  });
+
   uploadedTracks.forEach((track, index) => {
     if (track) {
       finalTracks.push(track);
@@ -10310,11 +10603,13 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
       const iconFile = trackIcons[index];
 
       if (audioFile) {
+        const errorReason = failedUploadMap.get(index) || 'Upload failed (retries exhausted)';
         const dropped = {
           audioName: audioFile.name,
           audioSize: `${(audioFile.size / 1024 / 1024).toFixed(1)}MB`,
           iconName: iconFile ? iconFile.name : 'N/A',
-          trackNumber: index + 1
+          trackNumber: index + 1,
+          reason: errorReason
         };
         droppedFiles.push(dropped);
 
@@ -10322,7 +10617,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
           `Dropped Track #${dropped.trackNumber}:`,
           `\n  Audio: ${dropped.audioName} (${dropped.audioSize})`,
           iconFile ? `\n  Icon: ${dropped.iconName} (not applied)` : '\n  Icon: None',
-          '\n  Reason: File too large or upload failed'
+          `\n  Reason: ${dropped.reason}`
         );
       }
     }
