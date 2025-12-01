@@ -6515,6 +6515,128 @@ function formatDuration(seconds) {
   return `${mins}m ${secs}s`;
 }
 
+function hasCoverKeywords(fileName) {
+  const lowerFileName = fileName.toLowerCase();
+  return lowerFileName.includes('cover') ||
+         lowerFileName.includes('image') ||
+         lowerFileName.includes('art') ||
+         lowerFileName.includes('card') ||
+         lowerFileName === 'folder.jpg' ||
+         lowerFileName === 'folder.png';
+}
+
+function findCoverImage(imageFiles, minSize = 50 * 1024) {
+  if (!imageFiles || imageFiles.length === 0) return null;
+
+  const potentialCovers = imageFiles.map(f => {
+    const fileName = f.name.split('/').pop();
+    const fileSize = f.fileSize || f.size || 0;
+    const hasKeyword = hasCoverKeywords(fileName);
+
+    return {
+      file: f,
+      size: fileSize,
+      hasKeyword: hasKeyword,
+      score: (hasKeyword ? 1000000 : 0) + fileSize
+    };
+  }).filter(c => c.size > minSize);
+
+  if (potentialCovers.length === 0) return null;
+
+  potentialCovers.sort((a, b) => b.score - a.score);
+  return potentialCovers[0].file;
+}
+
+function findCoverImageWithPriority(allImages, minSize = 50 * 1024) {
+  if (!allImages || allImages.length === 0) return null;
+
+  const rootImages = [];
+  const subfolderImages = [];
+
+  allImages.forEach(f => {
+    const path = f.webkitRelativePath || f.name;
+    const pathParts = path.split('/');
+
+    if (pathParts.length === 2) {
+      rootImages.push(f);
+    } else {
+      subfolderImages.push(f);
+    }
+  });
+
+  const rootCover = findCoverImage(rootImages, minSize);
+  if (rootCover) return rootCover;
+
+  const preferredFolders = ['/cover/', '/image/', '/images/', '/icon/', '/icons/', '/art/', '/artwork/'];
+  const preferredImages = subfolderImages.filter(f => {
+    const path = (f.webkitRelativePath || f.name).toLowerCase();
+    return preferredFolders.some(folder => path.includes(folder));
+  });
+
+  const preferredCover = findCoverImage(preferredImages, minSize);
+  if (preferredCover) return preferredCover;
+
+  return findCoverImage(subfolderImages, minSize);
+}
+
+function separateImagesIntelligently(imageFiles) {
+  const trackIcons = [];
+  const ICON_MAX_SIZE = 50 * 1024;
+  const numericImages = [];
+  const nonNumericImages = [];
+
+  imageFiles.forEach(f => {
+    const fileName = f.name.split('/').pop();
+    const fileSize = f.fileSize || f.size || 0;
+
+    let numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i);
+    if (!numberMatch) {
+      numberMatch = fileName.match(/^(\d+)[\s\-_.]/i);
+    }
+    if (!numberMatch) {
+      numberMatch = fileName.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i);
+    }
+
+    const isCoverName = hasCoverKeywords(fileName);
+
+    if (isCoverName && fileSize > ICON_MAX_SIZE) {
+      nonNumericImages.push(f);
+    } else if (numberMatch && fileSize <= ICON_MAX_SIZE) {
+      f.extractedNumber = parseInt(numberMatch[1]);
+      numericImages.push(f);
+    } else if (fileSize > ICON_MAX_SIZE) {
+      nonNumericImages.push(f);
+    } else if (numberMatch) {
+      f.extractedNumber = parseInt(numberMatch[1]);
+      numericImages.push(f);
+    } else {
+      nonNumericImages.push(f);
+    }
+  });
+
+  numericImages.sort((a, b) => (a.extractedNumber || 0) - (b.extractedNumber || 0));
+
+  const validIcons = numericImages.filter(f => {
+    const fileSize = f.fileSize || f.size || 0;
+    return fileSize <= ICON_MAX_SIZE;
+  });
+
+  if (validIcons.length > 0) {
+    trackIcons.push(...validIcons);
+  }
+
+  const coverImage = findCoverImage(nonNumericImages, ICON_MAX_SIZE);
+
+  if (coverImage) {
+    const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
+    if (coverIndex !== -1) {
+      trackIcons.splice(coverIndex, 1);
+    }
+  }
+
+  return { trackIcons, coverImage };
+}
+
 async function processFolderFiles(files) {
   let folderName = chrome.i18n.getMessage('label_importedPlaylist');
   if (files[0] && files[0].webkitRelativePath) {
@@ -6614,12 +6736,7 @@ async function processFolderFiles(files) {
   const rootCoverFiles = allImageFiles.filter(f => {
     const pathParts = f.webkitRelativePath.split('/');
     if (pathParts.length === 2) {
-      const fileName = f.name.toLowerCase();
-      return fileName.includes('cover') ||
-             fileName.includes('art') ||
-             fileName.includes('image') ||
-             fileName === 'folder.jpg' ||
-             fileName === 'folder.png';
+      return hasCoverKeywords(f.name);
     }
     return false;
   });
@@ -7372,29 +7489,26 @@ async function processBulkZipFile(file, importMode = 'separate') {
     if (importMode === 'merged' && playlists.length > 0) {
       let rootCoverImage = null;
       const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+      const allImageFiles = [];
 
-      for (const { path, zipEntry } of rootFiles) {
+      for (const { path, zipEntry } of allFiles) {
         const fileName = path.split('/').pop();
         const ext = fileName.split('.').pop().toLowerCase();
-        const lowerFileName = fileName.toLowerCase();
 
         if (imageExtensions.includes(ext)) {
-          const isCoverName = lowerFileName.includes('cover') ||
-                              lowerFileName.includes('image') ||
-                              lowerFileName.includes('art') ||
-                              lowerFileName === 'folder.jpg' ||
-                              lowerFileName === 'folder.png';
-
-          if (isCoverName) {
-            try {
-              const blob = await zipEntry.async('blob');
-              rootCoverImage = new File([blob], fileName, { type: `image/${ext}` });
-              rootCoverImage.fileSize = blob.size;
-              break;
-            } catch (err) {
-            }
+          try {
+            const blob = await zipEntry.async('blob');
+            const file = new File([blob], fileName, { type: `image/${ext}` });
+            file.fileSize = blob.size;
+            file.webkitRelativePath = path;
+            allImageFiles.push(file);
+          } catch (err) {
           }
         }
+      }
+
+      if (allImageFiles.length > 0) {
+        rootCoverImage = findCoverImageWithPriority(allImageFiles);
       }
 
       const mergedPlaylist = await mergePlaylists(playlists, file.name.replace(/\.zip$/i, ''), rootCoverImage);
@@ -7442,7 +7556,7 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
         // The first part is the root folder selected, subsequent parts are subfolders
         // We want to group by the immediate subfolder (second level)
         if (pathParts.length < 2) continue;
-        
+
         // If there's only one level (files directly in selected folder), use root as playlist
         const playlistFolder = pathParts.length === 2 ? pathParts[0] : pathParts[1];
         
@@ -7481,32 +7595,23 @@ async function processBulkFolderFiles(files, importMode = 'separate') {
 
       let rootCoverImage = null;
       const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+      const allImageFiles = [];
 
       for (const file of files) {
         if (file.webkitRelativePath) {
-          const pathParts = file.webkitRelativePath.split('/');
-          // Root-level files have exactly 2 parts: [rootFolder, filename]
-          // Subfolder files have 3+ parts: [rootFolder, subfolder, filename]
-          if (pathParts.length === 2) {
-            const fileName = pathParts[1];
-            const ext = fileName.split('.').pop().toLowerCase();
-            const lowerFileName = fileName.toLowerCase();
+          const fileName = file.name;
+          const ext = fileName.split('.').pop().toLowerCase();
 
-            if (imageExtensions.includes(ext)) {
-              const isCoverName = lowerFileName.includes('cover') ||
-                                  lowerFileName.includes('image') ||
-                                  lowerFileName.includes('art') ||
-                                  lowerFileName === 'folder.jpg' ||
-                                  lowerFileName === 'folder.png';
-
-              if (isCoverName) {
-                rootCoverImage = file;
-                rootCoverImage.fileSize = file.size;
-                break;
-              }
-            }
+          if (imageExtensions.includes(ext)) {
+            const imageFile = file;
+            imageFile.fileSize = file.size;
+            allImageFiles.push(imageFile);
           }
         }
+      }
+
+      if (allImageFiles.length > 0) {
+        rootCoverImage = findCoverImageWithPriority(allImageFiles);
       }
 
       const mergedPlaylist = await mergePlaylists(playlists, rootFolderName, rootCoverImage);
@@ -7541,11 +7646,11 @@ async function mergePlaylists(playlists, mergedName, rootCoverImage = null) {
       name: mergedName,
       audioFiles: [],
       trackIcons: [],
-      coverImage: rootCoverImage  // Use root cover if provided
+      coverImage: rootCoverImage
     };
 
-    // Combine all audio files and their corresponding icons
     let currentTrackIndex = 0;
+    const playlistCovers = [];
 
     for (const playlist of playlists) {
       if (playlist.audioFiles && playlist.audioFiles.length > 0) {
@@ -7562,9 +7667,13 @@ async function mergePlaylists(playlists, mergedName, rootCoverImage = null) {
         });
       }
 
-      if (!rootCoverImage && playlist.coverImage && !mergedPlaylist.coverImage) {
-        mergedPlaylist.coverImage = playlist.coverImage;
+      if (playlist.coverImage) {
+        playlistCovers.push(playlist.coverImage);
       }
+    }
+
+    if (!mergedPlaylist.coverImage && playlistCovers.length > 0) {
+      mergedPlaylist.coverImage = findCoverImage(playlistCovers);
     }
 
     return mergedPlaylist;
@@ -7787,121 +7896,6 @@ async function extractPlaylistFromFolderFiles(files, playlistName) {
     trackIcons,
     coverImage
   };
-}
-
-function separateImagesIntelligently(imageFiles) {
-
-  const trackIcons = [];
-  let coverImage = null;
-
-  const ICON_MAX_SIZE = 50 * 1024;  // Icons are typically < 50KB (16x16 pixels)
-  const COVER_MIN_SIZE = 100 * 1024; // Covers are typically > 100KB
-
-  // First, separate by naming pattern
-  const numericImages = [];
-  const nonNumericImages = [];
-
-  imageFiles.forEach(f => {
-    const fileName = f.name.split('/').pop();
-    const fileSize = f.fileSize || f.size || 0;
-
-    // - Files ending with number: "01.png", "icon01.png", "icn3.png"
-    // - Files starting with number: "1 Farmer Joe.png", "01 - Track Name.png", "1.Track.png"
-    // - Files with number in middle: "Icon 01.png", "icon_01.png", "Track 01 Name.png"
-    let numberMatch = fileName.match(/(\d+)\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Files ending with number
-    if (!numberMatch) {
-      numberMatch = fileName.match(/^(\d+)[\s\-_.]/i); // Files starting with number followed by separator
-    }
-    if (!numberMatch) {
-      numberMatch = fileName.match(/[\s\-_](\d+)[\s\-_.].*\.(png|jpg|jpeg|gif|webp|bmp)$/i); // Number in middle
-    }
-
-    const lowerFileName = fileName.toLowerCase();
-    const isCoverName = lowerFileName.includes('cover') ||
-                        lowerFileName.includes('image') ||
-                        lowerFileName.includes('art') ||
-                        lowerFileName === 'folder.jpg' ||
-                        lowerFileName === 'folder.png';
-
-    if (isCoverName && fileSize > ICON_MAX_SIZE) {
-      nonNumericImages.push(f);
-    } else if (numberMatch && fileSize <= ICON_MAX_SIZE) {
-      f.extractedNumber = parseInt(numberMatch[1]);
-      numericImages.push(f);
-    } else if (fileSize > COVER_MIN_SIZE) {
-      nonNumericImages.push(f);
-    } else if (numberMatch) {
-      f.extractedNumber = parseInt(numberMatch[1]);
-      numericImages.push(f);
-    } else {
-      nonNumericImages.push(f);
-    }
-  });
-
-  numericImages.sort((a, b) => {
-    return (a.extractedNumber || 0) - (b.extractedNumber || 0);
-  });
-
-  const validIcons = numericImages.filter(f => {
-    const fileSize = f.fileSize || f.size || 0;
-    return fileSize <= ICON_MAX_SIZE;
-  });
-
-  if (validIcons.length > 0) {
-    trackIcons.push(...validIcons);
-  }
-
-  if (nonNumericImages.length > 0) {
-    const namedCovers = nonNumericImages.filter(f => {
-      const name = f.name.toLowerCase();
-      const fileSize = f.fileSize || f.size || 0;
-      return (name.includes('cover') || name.includes('image') || name.includes('art') || name.includes('card'))
-             && fileSize > ICON_MAX_SIZE;
-    });
-
-    if (namedCovers.length > 0) {
-      coverImage = namedCovers.reduce((largest, current) => {
-        const largestSize = largest.fileSize || largest.size || 0;
-        const currentSize = current.fileSize || current.size || 0;
-        return (currentSize > largestSize) ? current : largest;
-      });
-    } else {
-      const potentialCovers = nonNumericImages.filter(f => {
-        const fileSize = f.fileSize || f.size || 0;
-        return fileSize > COVER_MIN_SIZE;
-      });
-
-      if (potentialCovers.length > 0) {
-        coverImage = potentialCovers.reduce((largest, current) => {
-          const largestSize = largest.fileSize || largest.size || 0;
-          const currentSize = current.fileSize || current.size || 0;
-          return (currentSize > largestSize) ? current : largest;
-        });
-      }
-    }
-  }
-
-  if (!coverImage && imageFiles.length > 0) {
-    const sortedBySize = [...imageFiles].sort((a, b) => {
-      const aSize = a.fileSize || a.size || 0;
-      const bSize = b.fileSize || b.size || 0;
-      return bSize - aSize;
-    });
-
-    const largestFile = sortedBySize[0];
-    const largestSize = largestFile.fileSize || largestFile.size || 0;
-
-    if (largestSize > COVER_MIN_SIZE) {
-      coverImage = largestFile;
-
-      const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
-      if (coverIndex !== -1) {
-        trackIcons.splice(coverIndex, 1);
-      }
-    }
-  }
-
-  return { trackIcons, coverImage };
 }
 
 // Progressive Export Handlers
@@ -8144,20 +8138,56 @@ function handleProgressiveExportCompleted(request) {
 function showNotification(message, type = 'info') {
   const existing = document.querySelector('.yoto-magic-notification');
   if (existing) existing.remove();
-  
+
   const notification = document.createElement('div');
   notification.className = 'yoto-magic-notification';
-  
-  const bgColor = type === 'error' ? 'bg-red-500' :
-                  type === 'success' ? 'bg-green-500' :
-                  type === 'warning' ? 'bg-yellow-500' :
-                  'bg-blue-500';
-  
-  notification.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up`;
+
+  const bgColor = type === 'error' ? '#ef4444' :
+                  type === 'success' ? '#10b981' :
+                  type === 'warning' ? '#f59e0b' :
+                  '#3b82f6';
+
+  notification.style.cssText = `
+    position: fixed;
+    top: 20vh;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${bgColor};
+    color: white;
+    padding: 16px 24px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    z-index: 10001;
+    max-width: 90%;
+    width: auto;
+    min-width: 280px;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 500;
+    animation: slideDown 0.3s ease-out;
+  `;
   notification.textContent = message;
-  
+
+  if (!document.getElementById('yoto-notification-animation')) {
+    const style = document.createElement('style');
+    style.id = 'yoto-notification-animation';
+    style.textContent = `
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   document.body.appendChild(notification);
-  
+
   setTimeout(() => {
     notification.remove();
   }, 5000);
@@ -8646,9 +8676,7 @@ async function processUpdateFiles(files, sourceName, cardId) {
           path: path
         });
       } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
-        const lowerFileName = fileName.toLowerCase();
-        const hasCoverKeyword = lowerFileName.includes('cover') || lowerFileName.includes('art') || lowerFileName.includes('image');
-        const isCoverImage = hasCoverKeyword && fileSize > 1000;
+        const isCoverImage = hasCoverKeywords(file.name) && fileSize > ICON_MAX_SIZE;
 
         if (!isCoverImage && fileSize <= ICON_MAX_SIZE) {
           iconFiles.push({
@@ -8674,8 +8702,7 @@ async function processUpdateFiles(files, sourceName, cardId) {
           path: path
         });
       } else if (fileName.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
-        const hasCoverKeyword = baseName.includes('cover') || baseName.includes('art') || baseName.includes('image');
-        const isCoverImage = hasCoverKeyword && fileSize > 1000;
+        const isCoverImage = hasCoverKeywords(baseName) && fileSize > ICON_MAX_SIZE;
 
         if (!isCoverImage && fileSize <= ICON_MAX_SIZE) {
           iconFiles.push({
@@ -9340,8 +9367,6 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal, sourceNam
       successMessage += ` with ${result.updatedIcons} new icons`;
     }
 
-    showNotification(successMessage, 'success');
-
     setTimeout(() => {
       modal.remove();
 
@@ -9801,10 +9826,8 @@ async function processBulkImport(playlists, modal, importMode = 'separate') {
 
     if (successfulImports > 0 && failedImports === 0) {
       addLogEntry(`✓ All ${successfulImports} playlist${successfulImports > 1 ? 's' : ''} imported successfully!`, 'success');
-      showNotification(`${chrome.i18n.getMessage("notification_importSuccess", [successfulImports])}`, 'success');
     } else if (successfulImports > 0) {
       addLogEntry(`Import completed with ${successfulImports} success${successfulImports > 1 ? 'es' : ''} and ${failedImports} failure${failedImports > 1 ? 's' : ''}`, 'info');
-      showNotification(`${chrome.i18n.getMessage("notification_importPartialSuccess", [successfulImports, failedImports])}`, 'warning');
     } else {
       addLogEntry(`✗ All imports failed`, 'error');
       showNotification(chrome.i18n.getMessage("notification_importAllFailed"), 'error');
@@ -11277,9 +11300,7 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
         `;
         document.head.appendChild(style);
       }
-      
-      showNotification(chrome.i18n.getMessage('notification_playlistCreated'), 'success');
-      
+
       // Track successful import
       chrome.runtime.sendMessage({
         action: 'TRACK_EVENT',

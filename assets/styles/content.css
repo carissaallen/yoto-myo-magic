@@ -65,11 +65,7 @@
 /* Notification styles */
 .yoto-magic-notification {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  max-width: 400px;
   word-wrap: break-word;
-  animation: yotoMagicSlideUp 0.3s ease;
 }
 
 /* Preview overlay */
@@ -385,6 +381,11 @@
     font-size: 20px;
   }
 
+  .yoto-magic-notification {
+    min-width: 240px !important;
+    font-size: 14px !important;
+  }
+
   .preview-item {
     flex-direction: column;
     align-items: flex-start;
@@ -421,6 +422,12 @@
     max-height: 100vh;
     border-radius: 0;
     padding: 16px;
+  }
+
+  .yoto-magic-notification {
+    min-width: 200px !important;
+    padding: 14px 20px !important;
+    font-size: 13px !important;
   }
 
   .preview-icon {
