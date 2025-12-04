@@ -261,8 +261,9 @@ function showNotification(message, type = 'success') {
   }
   
   notification.classList.add('show');
+  const duration = type === 'success' ? 2000 : 3000;
   setTimeout(() => {
     notification.classList.remove('show');
-  }, 3000);
+  }, duration);
 }
 
