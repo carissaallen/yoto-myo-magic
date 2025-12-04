@@ -513,6 +513,7 @@ async function resolvePlaylist(playlistId) {
                         if (contentType && contentType.includes('application/json')) {
                             const data = await redirectResponse.json();
                             console.log('[Resolve API] Got JSON from redirect');
+                            //console.log('[Resolve API] Raw response data:', JSON.stringify(data, null, 2));
                             return { data };
                         }
                     }
@@ -522,6 +523,7 @@ async function resolvePlaylist(playlistId) {
                 if (contentType && contentType.includes('application/json')) {
                     const data = await response.json();
                     console.log('[Resolve API] Successfully resolved via /card/resolve');
+                    //console.log('[Resolve API] Raw response data:', JSON.stringify(data, null, 2));
                     return { data };
                 }
             }
@@ -529,13 +531,13 @@ async function resolvePlaylist(playlistId) {
             console.log(`[Resolve API] /card/resolve failed:`, err.message);
         }
 
-        // Try /content/resolve/{playlistId}
         try {
             console.log(`[Resolve API] Trying /content/resolve/${playlistId}`);
             const contentResolveResponse = await makeAuthenticatedRequest(`/content/resolve/${playlistId}`);
 
             if (!contentResolveResponse.error) {
                 console.log('[Resolve API] Successfully resolved via /content/resolve');
+                //console.log('[Resolve API] Raw response data:', JSON.stringify(contentResolveResponse, null, 2));
                 return { data: contentResolveResponse };
             }
         } catch (err) {
@@ -4058,7 +4060,7 @@ async function createExportManifest(playlists, manifestId) {
             iconImages: []
         };
 
-        let iconCounter = 1;
+        let trackCounter = 1; // Track counter for audio file prefixes
 
         // Extract audio files and icons from chapters
         const chapters = resolvedData?.card?.content?.chapters || resolvedData?.chapters || [];
@@ -4074,13 +4076,16 @@ async function createExportManifest(playlists, manifestId) {
 
                     if (trackUrl && (trackUrl.startsWith('http://') || trackUrl.startsWith('https://'))) {
                         const fileId = `${playlistId}_audio_${i}_${j}`;
-                        const baseFilename = sanitizeFilename(track.title || `track-${i}-${j}`);
-                        const filename = baseFilename.endsWith('.mp3') ? baseFilename : `${baseFilename}.mp3`;
+                        const trackTitle = track.title || `Track ${trackCounter}`;
+                        const baseFilename = sanitizeFilename(trackTitle);
+                        const filename = `${String(trackCounter).padStart(2, '0')}-${baseFilename}.mp3`;
 
                         const audioFile = {
                             id: fileId,
                             url: trackUrl,
                             filename: filename,
+                            trackTitle: trackTitle,
+                            trackNumber: trackCounter,
                             size: track.size || track.fileSize
                         };
 
@@ -4105,7 +4110,9 @@ async function createExportManifest(playlists, manifestId) {
 
                     if (trackIcon) {
                         const iconId = `${playlistId}_icon_${i}_${j}`;
-                        const iconFilename = `${String(iconCounter).padStart(2, '0')}-icon.png`;
+                        const trackTitle = track.title || `Track ${trackCounter}`;
+                        const baseIconName = sanitizeFilename(trackTitle);
+                        const iconFilename = `${String(trackCounter).padStart(2, '0')}-${baseIconName}-icon.png`;
 
                         playlistManifest.iconImages.push({
                             id: iconId,
@@ -4119,22 +4126,26 @@ async function createExportManifest(playlists, manifestId) {
                             filename: iconFilename,
                             stored: false
                         };
-
-                        iconCounter++;
                     }
+
+                    // Increment track counter after processing this track
+                    trackCounter++;
                 }
             } else {
                 const chapterUrl = chapter.trackUrl || chapter.url || chapter.audioUrl || chapter.mediaUrl || chapter.downloadUrl;
 
                 if (chapterUrl && (chapterUrl.startsWith('http://') || chapterUrl.startsWith('https://'))) {
                     const fileId = `${playlistId}_audio_${i}`;
-                    const baseFilename = sanitizeFilename(chapter.title || `chapter-${i}`);
-                    const filename = baseFilename.endsWith('.mp3') ? baseFilename : `${baseFilename}.mp3`;
+                    const trackTitle = chapter.title || `Track ${trackCounter}`;
+                    const baseFilename = sanitizeFilename(trackTitle);
+                    const filename = `${String(trackCounter).padStart(2, '0')}-${baseFilename}.mp3`;
 
                     const audioFile = {
                         id: fileId,
                         url: chapterUrl,
                         filename: filename,
+                        trackTitle: trackTitle,
+                        trackNumber: trackCounter,
                         size: chapter.size || chapter.fileSize
                     };
 
@@ -4157,7 +4168,9 @@ async function createExportManifest(playlists, manifestId) {
 
                 if (chapterIcon) {
                     const iconId = `${playlistId}_icon_${i}`;
-                    const iconFilename = `${String(iconCounter).padStart(2, '0')}-icon.png`;
+                    const trackTitle = chapter.title || `Track ${trackCounter}`;
+                    const baseIconName = sanitizeFilename(trackTitle);
+                    const iconFilename = `${String(trackCounter).padStart(2, '0')}-${baseIconName}-icon.png`;
 
                     playlistManifest.iconImages.push({
                         id: iconId,
@@ -4171,9 +4184,10 @@ async function createExportManifest(playlists, manifestId) {
                         filename: iconFilename,
                         stored: false
                     };
-
-                    iconCounter++;
                 }
+
+                // Increment track counter after processing this chapter
+                trackCounter++;
             }
         }
 
@@ -4191,7 +4205,7 @@ async function createExportManifest(playlists, manifestId) {
             };
 
             manifest.files[coverId] = {
-                type: 'image',
+                type: 'cover',
                 playlistId: playlistId,
                 filename: 'cover.jpg',
                 stored: false

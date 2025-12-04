@@ -1557,9 +1557,6 @@ async function showBulkExportModal() {
   if (closeModalBtn) {
     closeModalBtn.onclick = () => {
       modal.remove();
-      if (window.currentExportManifestId) {
-        showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
-      }
     };
   }
 
@@ -1567,10 +1564,6 @@ async function showBulkExportModal() {
   const closeBtn = document.getElementById('close-export');
   closeBtn.onclick = () => {
     modal.remove();
-    if (window.currentExportManifestId) {
-      // If export is running, remind user it continues in background
-      showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
-    }
   };
   closeBtn.onmouseover = function() { this.style.backgroundColor = '#e5e7eb'; };
   closeBtn.onmouseout = function() { this.style.backgroundColor = '#f3f4f6'; };
@@ -1579,10 +1572,6 @@ async function showBulkExportModal() {
   modal.onclick = (e) => {
     if (e.target === modal) {
       modal.remove();
-      if (window.currentExportManifestId) {
-        // If export is running, remind user it continues in background
-        showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
-      }
     }
   };
 
@@ -1799,10 +1788,7 @@ async function startBulkExport(allPlaylists) {
       modalContent.insertBefore(bgIndicator, modalContent.firstChild.nextSibling);
     }
 
-    // Add status indicator to page
     addExportStatusIndicator();
-
-    showNotification(chrome.i18n.getMessage('bulkExport_exportStarted'), 'success');
 
   } catch (error) {
     console.error('[Bulk Export] Failed to start export:', error);
@@ -2440,9 +2426,6 @@ async function reopenExportModal() {
       if (window.exportProgressModalInterval) {
         clearInterval(window.exportProgressModalInterval);
         window.exportProgressModalInterval = null;
-      }
-      if (window.currentExportManifestId && percentage < 100) {
-        showNotification(chrome.i18n.getMessage('bulkExport_exportContinues'), 'info');
       }
     };
   }
@@ -8188,9 +8171,10 @@ function showNotification(message, type = 'info') {
 
   document.body.appendChild(notification);
 
+  const duration = type === 'success' ? 2000 : 5000;
   setTimeout(() => {
     notification.remove();
-  }, 5000);
+  }, duration);
 }
 
 function setupNavigationListener() {

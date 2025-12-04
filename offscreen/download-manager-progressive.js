@@ -202,7 +202,7 @@ class ProgressiveDownloadManager {
                 id: playlist.coverImage.id || `cover_${playlist.id}`,
                 url: playlist.coverImage.url,
                 filename: playlist.coverImage.filename || 'cover.jpg',
-                type: 'image',
+                type: 'cover',
                 playlistId: playlist.id,
                 playlistTitle: playlist.title,
                 manifestId: manifestId,
@@ -216,7 +216,7 @@ class ProgressiveDownloadManager {
                     id: icon.id || crypto.randomUUID(),
                     url: icon.url,
                     filename: icon.filename,
-                    type: 'image',
+                    type: 'icon',
                     playlistId: playlist.id,
                     playlistTitle: playlist.title,
                     manifestId: manifestId,
@@ -363,9 +363,10 @@ class ProgressiveDownloadManager {
 
         try {
             const zip = new JSZip();
-            const playlistFolder = zip.folder(this.sanitizeName(playlist.title));
-            const audioFolder = playlistFolder.folder('audio_files');
-            const imagesFolder = playlistFolder.folder('images');
+            const playlistFolder = zip.folder(this.sanitizePlaylistName(playlist.title));
+            const audioFolder = playlistFolder.folder('audio');
+            const iconsFolder = playlistFolder.folder('icons');
+            const coverFolder = playlistFolder.folder('cover');
 
             // Get files for this playlist from memory
             const playlistFiles = this.inMemoryFiles.get(playlist.id);
@@ -378,7 +379,19 @@ class ProgressiveDownloadManager {
             let filesAdded = 0;
             for (const [fileId, fileData] of playlistFiles) {
                 const { buffer, fileInfo } = fileData;
-                const targetFolder = fileInfo.type === 'audio' ? audioFolder : imagesFolder;
+                let targetFolder;
+
+                if (fileInfo.type === 'audio') {
+                    targetFolder = audioFolder;
+                } else if (fileInfo.type === 'icon') {
+                    targetFolder = iconsFolder;
+                } else if (fileInfo.type === 'cover' || fileInfo.filename === 'cover.jpg') {
+                    targetFolder = coverFolder;
+                } else {
+                    // Default to icons folder for other images
+                    targetFolder = iconsFolder;
+                }
+
                 targetFolder.file(fileInfo.filename || fileId, buffer);
                 filesAdded++;
             }
@@ -392,10 +405,8 @@ class ProgressiveDownloadManager {
             });
 
 
-            // Generate filename using sanitized playlist name
-            const sanitizedTitle = this.sanitizeName(playlist.title);
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-            const filename = `${sanitizedTitle}_${timestamp}.zip`;
+            const sanitizedTitle = this.sanitizePlaylistName(playlist.title);
+            const filename = `${sanitizedTitle}.zip`;
 
             // Create blob URL and trigger download
             const blobUrl = URL.createObjectURL(blob);
@@ -451,6 +462,15 @@ class ProgressiveDownloadManager {
             .replace(/\s+/g, '_')
             .replace(/\.+/g, '.')
             .replace(/_+/g, '_')
+            .trim();
+    }
+
+    sanitizePlaylistName(name) {
+        if (!name) return 'untitled';
+        return name
+            .replace(/[<>:"|?*\\/]/g, '')
+            .replace(/\s+/g, ' ')
+            .replace(/\.+$/g, '')
             .trim();
     }
 
