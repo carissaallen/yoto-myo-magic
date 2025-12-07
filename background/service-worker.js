@@ -4192,22 +4192,45 @@ async function createExportManifest(playlists, manifestId) {
         }
 
         // Extract cover image
-        const coverUrl = resolvedData?.card?.metadata?.cover?.imageL ||
-                        resolvedData?.coverImageL ||
-                        playlist.coverImageL;
+        let coverUrl = resolvedData?.card?.metadata?.cover?.imageL ||
+                       resolvedData?.coverImageL ||
+                       playlist.coverImageL;
+
+        // Convert yoto:# references to actual API URLs
+        if (coverUrl && coverUrl.startsWith('yoto:#')) {
+            const coverId = coverUrl.replace('yoto:#', '');
+            coverUrl = `https://api.yotoplay.com/media/${coverId}`;
+        }
 
         if (coverUrl) {
             const coverId = `${playlistId}_cover`;
+
+            // Extract file extension from URL
+            // For yoto API URLs (like /media/{id}), default to jpg
+            let extension = 'jpg';
+            if (coverUrl.includes('.')) {
+                const urlParts = coverUrl.split('.');
+                const potentialExt = urlParts[urlParts.length - 1].split('?')[0].split('/')[0].toLowerCase();
+                // Only use if it's a valid image extension
+                if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(potentialExt)) {
+                    extension = potentialExt;
+                }
+            }
+
+            // Use playlist title for cover filename
+            const sanitizedTitle = sanitizeFilename(playlist.title || 'playlist');
+            const coverFilename = `${sanitizedTitle}-cover.${extension}`;
+
             playlistManifest.coverImage = {
                 id: coverId,
                 url: coverUrl,
-                filename: 'cover.jpg'
+                filename: coverFilename
             };
 
             manifest.files[coverId] = {
                 type: 'cover',
                 playlistId: playlistId,
-                filename: 'cover.jpg',
+                filename: coverFilename,
                 stored: false
             };
         }
