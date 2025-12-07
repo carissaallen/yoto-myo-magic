@@ -2577,9 +2577,12 @@ async function exportPlaylist(playlist) {
   }
 
   if (coverUrl) {
+    const urlParts = coverUrl.split('.');
+    const extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].split('?')[0] : 'jpg';
+
     exportData.coverImage = {
       url: coverUrl,
-      filename: 'cover.jpg'
+      filename: `${folderName}-cover.${extension}`
     };
   }
 
@@ -2738,8 +2741,9 @@ async function downloadExportData(exportData) {
   try {
     const zip = new JSZip();
     const folder = zip.folder(exportData.folderName);
-    const audioFolder = folder.folder('audio_files');
-    const imagesFolder = folder.folder('images');
+    const audioFolder = folder.folder('audio');
+    const coverFolder = folder.folder('cover');
+    const iconsFolder = folder.folder('icons');
 
     const downloadFile = async (url, folder, filename) => {
       try {
@@ -2761,11 +2765,11 @@ async function downloadExportData(exportData) {
     }
 
     if (exportData.coverImage) {
-      downloadPromises.push(downloadFile(exportData.coverImage.url, imagesFolder, exportData.coverImage.filename));
+      downloadPromises.push(downloadFile(exportData.coverImage.url, coverFolder, exportData.coverImage.filename));
     }
 
     for (const icon of exportData.iconImages) {
-      downloadPromises.push(downloadFile(icon.url, imagesFolder, icon.filename));
+      downloadPromises.push(downloadFile(icon.url, iconsFolder, icon.filename));
     }
 
     const results = await Promise.all(downloadPromises);

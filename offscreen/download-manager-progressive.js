@@ -10,6 +10,14 @@ function sendMessage(message) {
     }
 }
 
+function sanitizeFolderName(name) {
+    return name
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 100);
+}
+
 class ProgressiveDownloadManager {
     constructor(storageManager) {
         this.storageManager = storageManager;
@@ -198,10 +206,22 @@ class ProgressiveDownloadManager {
         }
 
         if (playlist.coverImage) {
+            let extension = 'jpg';
+            if (playlist.coverImage.filename) {
+                const parts = playlist.coverImage.filename.split('.');
+                extension = parts.length > 1 ? parts[parts.length - 1] : 'jpg';
+            } else if (playlist.coverImage.url) {
+                const urlParts = playlist.coverImage.url.split('.');
+                extension = urlParts.length > 1 ? urlParts[urlParts.length - 1].split('?')[0] : 'jpg';
+            }
+
+            const sanitizedTitle = sanitizeFolderName(playlist.title || 'playlist');
+            const coverFilename = playlist.coverImage.filename || `${sanitizedTitle}-cover.${extension}`;
+
             playlistFiles.push({
                 id: playlist.coverImage.id || `cover_${playlist.id}`,
                 url: playlist.coverImage.url,
-                filename: playlist.coverImage.filename || 'cover.jpg',
+                filename: coverFilename,
                 type: 'cover',
                 playlistId: playlist.id,
                 playlistTitle: playlist.title,
@@ -385,7 +405,7 @@ class ProgressiveDownloadManager {
                     targetFolder = audioFolder;
                 } else if (fileInfo.type === 'icon') {
                     targetFolder = iconsFolder;
-                } else if (fileInfo.type === 'cover' || fileInfo.filename === 'cover.jpg') {
+                } else if (fileInfo.type === 'cover' || (fileInfo.filename && fileInfo.filename.includes('-cover.'))) {
                     targetFolder = coverFolder;
                 } else {
                     // Default to icons folder for other images

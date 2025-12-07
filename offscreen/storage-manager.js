@@ -269,8 +269,9 @@ class StorageManager {
 
         for (const playlist of playlists) {
             const playlistFolder = zip.folder(this.sanitizeName(playlist.title));
-            const audioFolder = playlistFolder.folder('audio_files');
-            const imagesFolder = playlistFolder.folder('images');
+            const audioFolder = playlistFolder.folder('audio');
+            const coverFolder = playlistFolder.folder('cover');
+            const iconsFolder = playlistFolder.folder('icons');
 
             for (const fileId in manifest.files) {
                 const fileInfo = manifest.files[fileId];
@@ -304,7 +305,14 @@ class StorageManager {
                     }
 
                     // Determine target folder based on file type
-                    const targetFolder = fileInfo.type === 'audio' ? audioFolder : imagesFolder;
+                    let targetFolder;
+                    if (fileInfo.type === 'audio') {
+                        targetFolder = audioFolder;
+                    } else if (fileInfo.type === 'cover') {
+                        targetFolder = coverFolder;
+                    } else {
+                        targetFolder = iconsFolder; // icons or other images
+                    }
                     targetFolder.file(fileInfo.filename || fileId, arrayBuffer);
                     filesAdded++;
                 } catch (error) {
