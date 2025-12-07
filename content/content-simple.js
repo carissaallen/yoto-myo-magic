@@ -3744,12 +3744,12 @@ async function handleImportClick() {
       }
     }
     
-    const audioFiles = files.filter(f => 
+    const audioFiles = files.filter(f =>
       /\.(m4a|mp3|wav|ogg|aac)$/i.test(f.name) && f.webkitRelativePath.includes('/audio_files/')
     ).sort((a, b) => a.name.localeCompare(b.name));
-    
-    const imageFiles = files.filter(f => 
-      /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name) && f.webkitRelativePath.includes('/images/')
+
+    const imageFiles = files.filter(f =>
+      /\.(png|jpg|jpeg|gif|webp)$/i.test(f.name)
     );
     
     // Separate track icons (numeric names) from cover images

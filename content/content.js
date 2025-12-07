@@ -6500,12 +6500,59 @@ function formatDuration(seconds) {
 
 function hasCoverKeywords(fileName) {
   const lowerFileName = fileName.toLowerCase();
-  return lowerFileName.includes('cover') ||
-         lowerFileName.includes('image') ||
-         lowerFileName.includes('art') ||
-         lowerFileName.includes('card') ||
-         lowerFileName === 'folder.jpg' ||
-         lowerFileName === 'folder.png';
+
+  // Exclude back covers
+  const backKeywords = [
+    'back-sticker', 'back_sticker', 'back-cover', 'back_cover',
+    'rückseite', 'rücken', 'hinten',  // German
+    'trasera', 'posterior', 'atras',  // Spanish
+    'arriere', 'dos', 'verso',        // French
+    'retro', 'posteriore', 'dietro',  // Italian
+    'zadnja', 'hrbtna'                // Slovenian
+  ];
+
+  for (const keyword of backKeywords) {
+    if (lowerFileName.includes(keyword)) {
+      return false;
+    }
+  }
+
+  if (lowerFileName.includes('back') && (lowerFileName.includes('sticker') || lowerFileName.includes('card'))) {
+    return false;
+  }
+
+  const coverKeywords = [
+    // English
+    'cover', 'front', 'sticker', 'front-sticker', 'front_sticker',
+    'image', 'art', 'card', 'artwork',
+    // German
+    'vorderseite', 'deckblatt', 'titelbild', 'umschlag',
+    // Spanish
+    'portada', 'caratula', 'frontal', 'frente',
+    // French
+    'couverture', 'jaquette', 'pochette', 'avant', 'recto',
+    // Italian
+    'copertina', 'fronte', 'anteriore',
+    // Slovenian
+    'naslovnica', 'platnica', 'sprednja'
+  ];
+
+  for (const keyword of coverKeywords) {
+    if (lowerFileName.includes(keyword)) {
+      return true;
+    }
+  }
+
+  // Standard album art filenames used by media players and operating systems
+  const standardCoverFilenames = [
+    'folder.jpg', 'folder.png', 'folder.jpeg',
+    'albumart.jpg', 'albumart.png', 'albumart.jpeg',
+    'albumartsmall.jpg', 'albumartsmall.png',
+    'albumartlarge.jpg', 'albumartlarge.png',
+    'thumb.jpg', 'thumb.png', 'thumbnail.jpg', 'thumbnail.png'
+  ];
+
+  return standardCoverFilenames.includes(lowerFileName);
 }
 
 function findCoverImage(imageFiles, minSize = 50 * 1024) {
@@ -6550,7 +6597,21 @@ function findCoverImageWithPriority(allImages, minSize = 50 * 1024) {
   const rootCover = findCoverImage(rootImages, minSize);
   if (rootCover) return rootCover;
 
-  const preferredFolders = ['/cover/', '/image/', '/images/', '/icon/', '/icons/', '/art/', '/artwork/'];
+  // Preferred folder names in multiple languages
+  const preferredFolders = [
+    // English
+    '/cover/', '/image/', '/images/', '/icon/', '/icons/', '/art/', '/artwork/', '/sticker/',
+    // German
+    '/bilder/', '/bild/', '/grafik/', '/grafiken/', '/symbole/', '/symbol/', '/umschlag/',
+    // Spanish
+    '/imagenes/', '/imagen/', '/portada/', '/portadas/', '/iconos/', '/icono/', '/arte/',
+    // French
+    '/images/', '/image/', '/couverture/', '/icones/', '/icone/', '/pochette/',
+    // Italian
+    '/immagini/', '/immagine/', '/copertina/', '/copertine/', '/icone/', '/icona/', '/arte/',
+    // Slovenian
+    '/slike/', '/slika/', '/ikone/', '/ikona/', '/naslovnica/'
+  ];
   const preferredImages = subfolderImages.filter(f => {
     const path = (f.webkitRelativePath || f.name).toLowerCase();
     return preferredFolders.some(folder => path.includes(folder));
@@ -6608,7 +6669,8 @@ function separateImagesIntelligently(imageFiles) {
     trackIcons.push(...validIcons);
   }
 
-  const coverImage = findCoverImage(nonNumericImages, ICON_MAX_SIZE);
+  // Use priority-based cover detection: root first, then preferred folders, then all folders
+  const coverImage = findCoverImageWithPriority(nonNumericImages, ICON_MAX_SIZE);
 
   if (coverImage) {
     const coverIndex = trackIcons.findIndex(f => f.name === coverImage.name);
@@ -6713,43 +6775,9 @@ async function processFolderFiles(files) {
     }
   }
   
-  // Smart image folder detection
-  let imageFiles = [];
-
-  const rootCoverFiles = allImageFiles.filter(f => {
-    const pathParts = f.webkitRelativePath.split('/');
-    if (pathParts.length === 2) {
-      return hasCoverKeywords(f.name);
-    }
-    return false;
-  });
-
-  const imageFolderFiles = allImageFiles.filter(f => {
-    const path = f.webkitRelativePath.toLowerCase();
-    return path.includes('/image') || path.includes('/icon');
-  });
-
-  if (imageFolderFiles.length > 0) {
-    imageFiles = [...imageFolderFiles, ...rootCoverFiles];
-  }
-  else if (allImageFiles.length > 0) {
-    const imageDirs = {};
-    allImageFiles.forEach(f => {
-      const dir = f.webkitRelativePath.substring(0, f.webkitRelativePath.lastIndexOf('/'));
-      imageDirs[dir] = (imageDirs[dir] || 0) + 1;
-    });
-
-    if (Object.keys(imageDirs).length > 0) {
-      const mainImageDir = Object.keys(imageDirs).reduce((a, b) =>
-        imageDirs[a] > imageDirs[b] ? a : b, ''
-      );
-      imageFiles = allImageFiles.filter(f =>
-        f.webkitRelativePath.startsWith(mainImageDir)
-      );
-    } else {
-      imageFiles = allImageFiles;
-    }
-  }
+  // Use ALL image files - the priority-based detection will handle finding the best cover
+  // This works with any folder structure and any language (bilder, imágenes, etc.)
+  const imageFiles = allImageFiles;
   
   audioFiles.sort((a, b) => {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
@@ -7096,35 +7124,10 @@ async function processZipFile(file) {
       });
     }
     
-    let imageFiles = [];
+    // Use ALL image files - the priority-based detection will handle finding the best cover
+    // This works with any folder structure and any language (bilder, imágenes, etc.)
+    const imageFiles = allImageFiles;
 
-    const imageFolderFiles = allImageFiles.filter(f => {
-      const path = (f.zipPath || f.webkitRelativePath || '').toLowerCase();
-      return path.includes('/image') || path.includes('/icon');
-    });
-    
-    if (imageFolderFiles.length > 0) {
-      imageFiles = imageFolderFiles;
-    }
-    else if (allImageFiles.length > 0) {
-      const imageDirs = {};
-      allImageFiles.forEach(f => {
-        const path = f.zipPath || f.webkitRelativePath || '';
-        const dir = path.substring(0, path.lastIndexOf('/'));
-        imageDirs[dir] = (imageDirs[dir] || 0) + 1;
-      });
-
-      // Use files from the directory with most image files
-      const mainImageDir = Object.keys(imageDirs).reduce((a, b) =>
-        imageDirs[a] > imageDirs[b] ? a : b, ''
-      );
-
-      imageFiles = allImageFiles.filter(f => {
-        const path = f.zipPath || f.webkitRelativePath || '';
-        return path.startsWith(mainImageDir);
-      });
-    }
-    
     audioFiles.sort((a, b) => {
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
@@ -7754,24 +7757,14 @@ async function extractPlaylistFromZip(zipContents, playlistName) {
     audioFiles = allAudioFiles;
   }
   
-  // Smart image folder detection
-  let imageFiles = [];
-  
-  const imageFolderFiles = allImageFiles.filter(f => {
-    const path = f.webkitRelativePath.toLowerCase();
-    return path.includes('/image') || path.includes('/icon');
-  });
-  
-  if (imageFolderFiles.length > 0) {
-    imageFiles = imageFolderFiles;
-  } else if (allImageFiles.length > 0) {
-    imageFiles = allImageFiles;
-  }
-  
+  // Use ALL image files - the priority-based detection will handle finding the best cover
+  // This works with any folder structure and any language (bilder, imágenes, etc.)
+  const imageFiles = allImageFiles;
+
   audioFiles.sort((a, b) => {
     return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
   });
-  
+
   // Separate track icons from cover image
   const { trackIcons, coverImage } = separateImagesIntelligently(imageFiles);
 
