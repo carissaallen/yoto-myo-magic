@@ -7481,7 +7481,11 @@ async function processBulkZipFile(file, importMode = 'separate') {
       const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
       const allImageFiles = [];
 
-      for (const { path, zipEntry } of allFiles) {
+      for (const [path, zipEntry] of Object.entries(contents.files)) {
+        if (zipEntry.dir || path.includes('__MACOSX/') || path.includes('._') || path.includes('.DS_Store')) {
+          continue;
+        }
+
         const fileName = path.split('/').pop();
         const ext = fileName.split('.').pop().toLowerCase();
 
