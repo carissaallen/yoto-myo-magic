@@ -2568,5 +2568,23 @@
   "bulkImport_funStatus10": {
     "message": "Création de la magie...",
     "description": "Whimsical status message during bulk import"
+  },
+  "status_podcastProcessing": {
+    "message": "Traitement: $CURRENT$ sur $TOTAL$ terminés",
+    "description": "Status for podcast episode processing progress",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "5"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "status_podcastFailed": {
+    "message": "échoués",
+    "description": "Word 'failed' for podcast import failures count"
   }
 }

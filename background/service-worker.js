@@ -2597,130 +2597,113 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         }
         const playlistName = `${podcast.title} - Podcast`;
         
-        const CONCURRENT_LIMIT = 6;
+        const CONCURRENT_LIMIT = 3;
         const audioTracks = [];
         let processedCount = 0;
         let failedCount = 0;
         const encounteredDomains = new Set(); // Track domains that need permissions
 
+        const updateProgress = async (episodeIndex) => {
+            const failedText = failedCount > 0 ? ` (${failedCount} ${chrome.i18n.getMessage('status_podcastFailed')})` : '';
+            const message = chrome.i18n.getMessage('status_podcastProcessing', [String(processedCount), String(episodes.length)]) + failedText;
+
+            await chrome.storage.local.set({
+                podcastImportProgress: {
+                    status: 'in_progress',
+                    current: processedCount,
+                    total: episodes.length,
+                    currentEpisode: episodeIndex + 1,
+                    message: message
+                }
+            });
+        };
+
         const processEpisode = async (episode, index) => {
             if (episode.audio_length_sec > 3600) {
                 console.warn(`Episode "${episode.title}" exceeds 60 minutes, it may be truncated by Yoto`);
             }
-            
+
             try {
                 let audioBlob = null;
                 let audioUrl = episode.audio;
-                
-                
-                // Non-Listen Notes URLs may fail due to CORS
-                if (!audioUrl.includes('listennotes.com')) {
-                    // May fail due to CORS
-                }
-                
+
                 try {
-                    // Log the original URL
-                    
-                    // First, try a HEAD request to see where it redirects without downloading
                     try {
                         const headResponse = await fetch(audioUrl, {
                             method: 'HEAD',
                             redirect: 'follow'
                         });
-                        
+
                         if (headResponse.url !== audioUrl) {
                             const finalUrl = new URL(headResponse.url);
-                            
-                            // Check if we have permission for this domain
+
                             const hasPermission = await chrome.permissions.contains({
                                 origins: [`${finalUrl.protocol}//${finalUrl.hostname}/*`]
                             });
-                            
+
                             if (!hasPermission) {
                                 encounteredDomains.add(`${finalUrl.protocol}//${finalUrl.hostname}/*`);
                             }
                         }
                     } catch (headError) {
-                        // HEAD request failed, continue with GET
                     }
-                    
+
                     const audioResponse = await fetch(audioUrl, {
                         method: 'GET',
                         redirect: 'follow'
                     });
-                    
-                    // Log the final URL after redirects
-                    
-                    // Parse and log the domain for analysis
+
                     try {
                         const finalUrl = new URL(audioResponse.url);
                     } catch (e) {
                     }
-                    
+
                     if (!audioResponse.ok) {
                         throw new Error(`HTTP ${audioResponse.status}`);
                     }
-                    
+
                     audioBlob = await audioResponse.blob();
-                    
+
                     if (!audioBlob || audioBlob.size === 0) {
                         throw new Error('Empty audio file');
                     }
                 } catch (fetchError) {
-                    
-                    // Log detailed error information
-                    
-                    // Try to extract the domain that caused the failure
-                    // The error message in Chrome often contains the blocked URL
                     if (fetchError.message && fetchError.message.includes('Failed to fetch')) {
-                        // If we already know the domain from HEAD request, it's in encounteredDomains
                         if (encounteredDomains.size === 0) {
-                            // Try to extract from the original URL
                             try {
                                 const url = new URL(audioUrl);
-                                // For Listen Notes, we know it redirects, so we need the actual domain
-                                // This will be captured by the HEAD request above
                             } catch (e) {
-                                // Ignore URL parse errors
                             }
                         }
                     }
-                    
+
                     failedCount++;
                     return null;
                 }
-                
-                
+
                 const uploadResult = await uploadAudioFile({
                     blob: audioBlob,
                     name: `${episode.title}.mp3`,
                     type: 'audio/mpeg'
                 });
-                
+
                 if (uploadResult.error) {
                     failedCount++;
                     return null;
                 }
-                
+
                 return {
                     title: episode.title,
                     transcodedAudio: uploadResult.transcodedAudio,
                     originalIndex: index
                 };
-                
+
             } catch (error) {
                 failedCount++;
                 return null;
             } finally {
                 processedCount++;
-                await chrome.storage.local.set({
-                    podcastImportProgress: {
-                        status: 'in_progress',
-                        current: processedCount,
-                        total: episodes.length,
-                        message: `Processing episodes: ${processedCount} of ${episodes.length} complete${failedCount > 0 ? ` (${failedCount} failed)` : ''}`
-                    }
-                });
+                await updateProgress(index);
             }
         };
         
