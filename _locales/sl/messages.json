@@ -2538,5 +2538,23 @@
   "bulkImport_funStatus10": {
     "message": "Ustvarjanje čarov...",
     "description": "Whimsical status message during bulk import"
+  },
+  "status_podcastProcessing": {
+    "message": "Obdelava: $CURRENT$ od $TOTAL$ končanih",
+    "description": "Status for podcast episode processing progress",
+    "placeholders": {
+      "current": {
+        "content": "$1",
+        "example": "5"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "status_podcastFailed": {
+    "message": "neuspelih",
+    "description": "Word 'failed' for podcast import failures count"
   }
 }

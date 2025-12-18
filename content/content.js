@@ -6116,10 +6116,13 @@ async function selectPodcast(podcast) {
           throw new Error('Failed to start import');
         }
         
-        // Poll for import status
         let importComplete = false;
         let pollAttempts = 0;
-        const maxAttempts = 120; // 2 minutes timeout
+        const episodeCount = selectedEpisodes.length;
+        const estimatedTimeSeconds = Math.ceil(episodeCount / 3) * 60 + 60;
+        const minTimeout = 180;
+        const maxTimeout = 900;
+        const maxAttempts = Math.min(Math.max(estimatedTimeSeconds, minTimeout), maxTimeout);
         
         progressBar.style.width = '10%';
         statusText.textContent = chrome.i18n.getMessage('status_downloadingEpisodes');
