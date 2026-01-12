@@ -574,6 +574,257 @@ function createIconArtButton() {
   return button;
 }
 
+function createAddGifButton() {
+  try {
+    const button = document.createElement('button');
+    button.id = 'yoto-add-gif-btn';
+
+    const gifIcon = `
+      <svg width="16" height="16" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2.5 10.5H2V11H2.5V10.5ZM4.5 10.5V11H5V10.5H4.5ZM13.5 3.5H14V3.29289L13.8536 3.14645L13.5 3.5ZM10.5 0.5L10.8536 0.146447L10.7071 0H10.5V0.5ZM2 6V10.5H3V6H2ZM2.5 11H4.5V10H2.5V11ZM5 10.5V8.5H4V10.5H5ZM3 7H5V6H3V7ZM2 5V1.5H1V5H2ZM13 3.5V5H14V3.5H13ZM2.5 1H10.5V0H2.5V1ZM10.1464 0.853553L13.1464 3.85355L13.8536 3.14645L10.8536 0.146447L10.1464 0.853553ZM2 1.5C2 1.22386 2.22386 1 2.5 1V0C1.67157 0 1 0.671573 1 1.5H2ZM1 12V13.5H2V12H1ZM2.5 15H12.5V14H2.5V15ZM14 13.5V12H13V13.5H14ZM12.5 15C13.3284 15 14 14.3284 14 13.5H13C13 13.7761 12.7761 14 12.5 14V15ZM1 13.5C1 14.3284 1.67157 15 2.5 15V14C2.22386 14 2 13.7761 2 13.5H1ZM6 7H9V6H6V7ZM6 11H9V10H6V11ZM7 6.5V10.5H8V6.5H7ZM10.5 7H13V6H10.5V7ZM10 6V11H11V6H10ZM10.5 9H12V8H10.5V9Z" fill="currentColor"/>
+      </svg>
+    `;
+
+    button.style.cssText = `
+      background-color: #ffffff;
+      color: #3b82f6;
+      border: 1px solid #3b82f6;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      line-height: 1.5;
+      height: 40px;
+      margin-left: 8px;
+    `;
+
+    button.innerHTML = `
+      ${gifIcon}
+      <span>${chrome.i18n.getMessage('button_addGif') || 'Add GIF'}</span>
+    `;
+
+    button.onmouseenter = () => {
+      button.style.backgroundColor = '#ffffff';
+      button.style.color = '#F85D41';
+      button.style.borderColor = '#F85D41';
+      button.style.transform = 'translateY(-1px)';
+    };
+
+    button.onmouseleave = () => {
+      button.style.backgroundColor = '#ffffff';
+      button.style.color = '#3b82f6';
+      button.style.borderColor = '#3b82f6';
+      button.style.transform = 'translateY(0)';
+    };
+
+    button.onclick = (e) => {
+      e.preventDefault();
+      openGifFilePicker();
+    };
+
+    return button;
+  } catch (error) {
+    console.error('Error creating Add GIF button:', error);
+    // Return a fallback button if something goes wrong
+    const fallbackButton = document.createElement('button');
+    fallbackButton.id = 'yoto-add-gif-btn';
+    fallbackButton.textContent = 'Add GIF';
+    fallbackButton.style.cssText = `
+      background-color: #ffffff;
+      color: #3b82f6;
+      border: 1px solid #3b82f6;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      height: 40px;
+      margin-left: 8px;
+    `;
+    fallbackButton.onclick = (e) => {
+      e.preventDefault();
+      openGifFilePicker();
+    };
+    return fallbackButton;
+  }
+}
+
+function openGifFilePicker() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/gif';
+  input.style.display = 'none';
+
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (file.type !== 'image/gif') {
+      showGifError(chrome.i18n.getMessage('error_gifInvalidType'));
+      return;
+    }
+
+    // Validate file size (max 1MB for icons)
+    const maxSize = 1 * 1024 * 1024; // 1MB
+    if (file.size > maxSize) {
+      showGifError(chrome.i18n.getMessage('error_gifTooLarge'));
+      return;
+    }
+
+    // Validate dimensions (must be exactly 16x16 for animated GIF preservation)
+    const dimensionsValid = await validateGifDimensions(file);
+    if (!dimensionsValid) {
+      showGifError(chrome.i18n.getMessage('error_gifWrongDimensions'));
+      return;
+    }
+
+    // Upload the GIF
+    await uploadGifIcon(file);
+  };
+
+  document.body.appendChild(input);
+  input.click();
+  document.body.removeChild(input);
+}
+
+function validateGifDimensions(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      resolve(img.width === 16 && img.height === 16);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(img.src);
+      resolve(false);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function uploadGifIcon(file) {
+  const loadingNotice = document.createElement('div');
+  loadingNotice.id = 'gif-upload-loading';
+  loadingNotice.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #3b82f6;
+    color: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    font-size: 16px;
+    z-index: 10000;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    text-align: center;
+    min-width: 300px;
+  `;
+  loadingNotice.innerHTML = `
+    <div style="font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('status_uploadingGif')}</div>
+  `;
+  document.body.appendChild(loadingNotice);
+
+  try {
+    // Read file as base64 using Promise
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result.split(',')[1];
+        resolve(result);
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'UPLOAD_GIF',
+      file: {
+        data: base64,
+        type: 'image/gif',
+        name: file.name || 'custom-icon.gif'
+      }
+    });
+
+    loadingNotice.remove();
+
+    if (response && response.success) {
+      const tracks = extractTracks();
+      if (tracks.length > 0 && response.iconId) {
+        await applyCustomIconToTracks(tracks, response.iconId);
+      }
+
+      const successNotice = document.createElement('div');
+      successNotice.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #10b981;
+        color: white;
+        padding: 30px 40px;
+        border-radius: 12px;
+        font-size: 16px;
+        z-index: 10000;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        text-align: center;
+        min-width: 300px;
+      `;
+      successNotice.innerHTML = `
+        <div style="margin-bottom: 10px; font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('notification_gifUploadedSuccess') || 'GIF icon uploaded successfully!'}</div>
+        <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_gifRefreshToView') || "Refresh the page to view in 'My Icons'"}</div>
+      `;
+      document.body.appendChild(successNotice);
+
+      setTimeout(() => {
+        successNotice.remove();
+      }, 5000);
+    } else {
+      showGifError(chrome.i18n.getMessage('error_gifUploadFailed', [response?.error || chrome.i18n.getMessage('error_unknownError')]));
+    }
+  } catch (error) {
+    loadingNotice.remove();
+    showGifError(chrome.i18n.getMessage('error_gifUploadFailed', [error.message || chrome.i18n.getMessage('error_unknownError')]));
+  }
+}
+
+function showGifError(message) {
+  const errorNotice = document.createElement('div');
+  errorNotice.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #ef4444;
+    color: white;
+    padding: 30px 40px;
+    border-radius: 12px;
+    font-size: 16px;
+    z-index: 10000;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    text-align: center;
+    min-width: 300px;
+    max-width: 500px;
+  `;
+  errorNotice.innerHTML = `
+    <div style="font-size: 18px; font-weight: 600;">${message}</div>
+  `;
+  document.body.appendChild(errorNotice);
+
+  setTimeout(() => {
+    errorNotice.remove();
+  }, 5000);
+}
+
 function createUpdatePlaylistButton() {
   const buttonContainer = document.createElement('div');
   buttonContainer.id = 'yoto-update-playlist-container';
@@ -3512,7 +3763,13 @@ function checkAndInjectButton() {
     // Check if the container is actually visible
     const rect = existingContainer.getBoundingClientRect();
     if (rect.width > 0 && rect.height > 0) {
-      return true; // Buttons exist and are visible
+      // Also verify the Add GIF button exists (in case of version mismatch)
+      const addGifButton = existingContainer.querySelector('#yoto-add-gif-btn');
+      if (addGifButton) {
+        return true; // Buttons exist and are visible
+      }
+      // Add GIF button is missing, remove old container and recreate
+      existingContainer.remove();
     }
   }
 
@@ -3544,9 +3801,11 @@ function checkAndInjectButton() {
 
     const iconMatchButton = createButton();
     const iconArtButton = createIconArtButton();
+    const addGifButton = createAddGifButton();
     const updatePlaylistButton = createUpdatePlaylistButton();
     buttonContainer.appendChild(iconMatchButton);
     buttonContainer.appendChild(iconArtButton);
+    buttonContainer.appendChild(addGifButton);
     buttonContainer.appendChild(updatePlaylistButton);
 
     if (addAudioButton.nextSibling) {
@@ -3585,9 +3844,11 @@ function checkAndInjectButton() {
 
       const iconMatchButton = createButton();
       const iconArtButton = createIconArtButton();
+      const addGifButton = createAddGifButton();
       const updatePlaylistButton = createUpdatePlaylistButton();
       buttonContainer.appendChild(iconMatchButton);
       buttonContainer.appendChild(iconArtButton);
+      buttonContainer.appendChild(addGifButton);
       buttonContainer.appendChild(updatePlaylistButton);
 
       const buttonsParent = addStreamButton.parentNode;

@@ -1695,6 +1695,65 @@ async function uploadIcon(iconFileData) {
     }
 }
 
+async function uploadGif(gifFileData) {
+    const uploadStartTime = Date.now();
+    const fileSize = gifFileData.data ? gifFileData.data.length * 0.75 : 0;
+
+    try {
+        const binaryString = atob(gifFileData.data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const filename = gifFileData.name ? gifFileData.name.split('.')[0] : 'icon';
+
+        // Use autoConvert=false to preserve GIF animation (requires 16x16 dimensions)
+        const response = await makeAuthenticatedRequest(
+            `/media/displayIcons/user/me/upload?autoConvert=false&filename=${encodeURIComponent(filename)}`,
+            {
+                method: 'POST',
+                body: bytes.buffer,
+                headers: {
+                    'Content-Type': 'image/gif'
+                }
+            }
+        );
+
+        if (response.error) {
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('gif', Date.now() - uploadStartTime, fileSize, false, response.error);
+            }
+            return { error: response.error };
+        }
+
+        if (response.displayIcon) {
+            const mediaId = response.displayIcon.mediaId;
+            if (typeof YotoAnalytics !== 'undefined') {
+                YotoAnalytics.trackUploadPerformance('gif', Date.now() - uploadStartTime, fileSize, true);
+            }
+            return {
+                success: true,
+                iconId: mediaId.startsWith('yoto:#') ? mediaId : `yoto:#${mediaId}`,
+                mediaId: response.displayIcon.mediaId,
+                displayIconId: response.displayIcon.displayIconId,
+                isNew: response.displayIcon.new || false
+            };
+        }
+
+        const errorMsg = 'No icon data in response';
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('gif', Date.now() - uploadStartTime, fileSize, false, errorMsg);
+        }
+        return { error: errorMsg };
+    } catch (error) {
+        if (typeof YotoAnalytics !== 'undefined') {
+            YotoAnalytics.trackUploadPerformance('gif', Date.now() - uploadStartTime, fileSize, false, error.message);
+        }
+        return { error: error.message };
+    }
+}
+
 async function uploadAudioFile(audioFileData) {
     const uploadStartTime = Date.now();
     const fileSize = audioFileData.blob?.size || 0;
@@ -3413,6 +3472,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                         name: request.file.name
                     });
                     sendResponse(iconResponse);
+                    break;
+
+                case 'UPLOAD_GIF':
+                    const gifResponse = await uploadGif({
+                        data: request.file.data,
+                        type: request.file.type,
+                        name: request.file.name
+                    });
+                    sendResponse(gifResponse);
                     break;
 
                 case 'UPLOAD_COVER':

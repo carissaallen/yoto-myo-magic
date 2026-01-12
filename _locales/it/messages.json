@@ -2542,5 +2542,43 @@
   "status_podcastFailed": {
     "message": "falliti",
     "description": "Word 'failed' for podcast import failures count"
+  },
+  "button_addGif": {
+    "message": "Aggiungi GIF",
+    "description": "Button to add a GIF icon"
+  },
+  "status_uploadingGif": {
+    "message": "Caricamento GIF...",
+    "description": "Status when uploading a GIF icon"
+  },
+  "notification_gifUploadedSuccess": {
+    "message": "Icona GIF caricata con successo!",
+    "description": "Success message when GIF is uploaded"
+  },
+  "notification_gifRefreshToView": {
+    "message": "Aggiorna la pagina per visualizzare in 'Le mie icone'",
+    "description": "Instruction to refresh page to see uploaded GIF in My Icons"
+  },
+  "error_gifInvalidType": {
+    "message": "Seleziona un file GIF.",
+    "description": "Error when selected file is not a GIF"
+  },
+  "error_gifTooLarge": {
+    "message": "Il file GIF è troppo grande. La dimensione massima è 1MB.",
+    "description": "Error when GIF file exceeds size limit"
+  },
+  "error_gifWrongDimensions": {
+    "message": "La GIF deve essere esattamente 16x16 pixel per preservare l'animazione.",
+    "description": "Error when GIF dimensions are not 16x16"
+  },
+  "error_gifUploadFailed": {
+    "message": "Caricamento GIF fallito: $MESSAGE$",
+    "description": "Error when GIF upload fails",
+    "placeholders": {
+      "message": {
+        "content": "$1",
+        "example": "Network error"
+      }
+    }
   }
 }
