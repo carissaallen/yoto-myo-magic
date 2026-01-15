@@ -150,7 +150,7 @@ See [PRIVACY.md](PRIVACY.md) for full details.
 - **Architecture**: Chrome Extension Manifest V3
 - **Content Scripts**: Inject functionality into Yoto pages
 - **Service Worker**: Handle API calls and authentication
-- **APIs**: Yoto Play API, Yoto Icons, ListenNotes Podcasts
+- **APIs**: Yoto Play API, Yoto Icons, iTunes Search API (Podcasts)
 - **Libraries**: JSZip for file handling
 
 ### Building from Source
@@ -173,7 +173,7 @@ npm install
 The extension integrates with:
 - Yoto Play API (`api.yotoplay.com`)
 - Yoto Icons (`www.yotoicons.com`)
-- ListenNotes API (podcast search and metadata)
+- iTunes Search API (podcast search and episodes)
 - Google Analytics 4 (usage tracking)
 
 ## 🆘 Support
@@ -190,7 +190,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 - The amazing Yoto community for inspiration and feedback
 - Yoto's delightful pixel art icon library
-- ListenNotes for podcast data
+- Apple iTunes Search API for podcast data
 - Every parent who has stayed up late making playlists
 
 ---

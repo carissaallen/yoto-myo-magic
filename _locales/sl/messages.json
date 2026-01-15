@@ -617,6 +617,10 @@
     "message": "Vnesite ime podcasta za iskanje:",
     "description": "Label for podcast search input"
   },
+  "placeholder_podcastSearch": {
+    "message": "npr. Greeking Out",
+    "description": "Placeholder example text for podcast search input"
+  },
   "label_existingContentPreserved": {
     "message": "✓ Obstoječa vsebina bo ohranjena",
     "description": "Info about update preserving content"

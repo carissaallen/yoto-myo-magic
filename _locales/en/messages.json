@@ -1959,6 +1959,10 @@
     "message": "Enter podcast name to search:",
     "description": "Label for podcast search input"
   },
+  "placeholder_podcastSearch": {
+    "message": "e.g., Greeking Out",
+    "description": "Placeholder example text for podcast search input"
+  },
   "notification_pleaseRefreshPage": {
     "message": "Please refresh the page to see your changes.",
     "description": "Instruction to refresh page after applying icons"

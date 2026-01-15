@@ -617,6 +617,10 @@
     "message": "Inserisci il nome del podcast da cercare:",
     "description": "Label for podcast search input"
   },
+  "placeholder_podcastSearch": {
+    "message": "es. Greeking Out",
+    "description": "Placeholder example text for podcast search input"
+  },
   "label_existingContentPreserved": {
     "message": "✓ I contenuti esistenti saranno conservati",
     "description": "Info about update preserving content"

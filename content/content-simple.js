@@ -2644,7 +2644,7 @@ function createButton() {
   };
   
   button.onclick = async () => {
-    await handleIconMatch('general');
+    await handleIconMatch('category');
   };
   
   buttonContainer.appendChild(button);
