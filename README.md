@@ -8,11 +8,17 @@
 
 Your MYO cards, ready to play as soon as you are. Drop in a ZIP file, point to a folder, or import your favorite podcasts — Yoto MYO Magic turns your raw audio into polished playlists with charming pixel art icons. It's like magic, without the manual fiddling.
 
+<a href="https://ko-fi.com/B0B31SBEBM">
+  <img height="36"
+       src="https://storage.ko-fi.com/cdn/kofi3.png?v=6"
+       alt="Buy Me a Coffee at ko-fi.com" />
+</a>
+
 ## Perfect For
 
 - **Parents** creating custom story collections and educational content
 - **Teachers** building curriculum-aligned playlists
-- **Podcast Lovers** who want their favorite shows on Yoto
+- **Podcast Lovers** who want their favorite podcasts on Yoto
 - **Families** preserving audiobooks and music collections
 - **Anyone** tired of manual, repetitive playlist creation
 
@@ -24,12 +30,40 @@ Your MYO cards, ready to play as soon as you are. Drop in a ZIP file, point to a
 
 Buttons will auto-magically appear on the Yoto MYO playlist page!
 
-## What's New
+## Features
 
-- **📝 Update Playlist**: Add new tracks to existing playlists without starting over
-- **🎙️ Import Podcasts**: Bring your favorite kid-friendly shows directly to your Yoto cards
-- **🏷️ Smart Icon Matching**: Find perfect icons by theme - animals, nature, music, and more
-- **🔋 Device Status**: See your Yoto player's battery level right from the library page
+- **📂 Playlist Import (Folder or ZIP)**  
+  Ingest an entire directory or archive in one operation. Audio files, per-track icons, and cover art are detected and applied automatically.
+
+- **📝 Incremental Playlist Updates**  
+  Append new tracks and/or icons to an existing playlist without recreating it—useful for retrofitting icons or extending long-running collections.
+
+- **📦 Bulk Playlist Import**  
+  Import multiple playlists in a single workflow, with the option to keep them discrete or consolidate them into one combined playlist.
+
+- **🎙️ Podcast Import**  
+  Browse and import podcast episodes directly into Yoto playlists, with metadata and artwork handled automatically.
+
+- **🏷️ Automatic Icon Matching**  
+  Generate track icons using title- and category-based matching against Yoto’s public icon sources, including Yoto Icons.
+
+- **🎨 Built-in Icon Editor**  
+  Create or customize icons inline on Yoto—start from an image or design from a blank canvas without leaving the playlist flow.
+
+- **✨ Animated GIF Support**  
+  Assign animated GIFs as track icons to add motion and visual feedback to MYO cards.
+
+- **⏱️ Visual Timer Cards**  
+  Generate configurable timer cards with selectable durations, icon styles, and sounds for kid-friendly time awareness.
+
+- **📤 Bulk Export / Backup**  
+  Export audio, icons, and cover art for multiple playlists at once to create local backups or migrate content.
+
+- **🔋 Device Status Overview**  
+  View battery levels for all connected Yoto devices directly from the library interface.
+
+- **🌍 Internationalization**  
+  UI localization support for French, German, Italian, Spanish, and Slovenian.
 
 ## How to Use
 
@@ -68,7 +102,7 @@ Bring your favorite podcasts to Yoto:
 
 1. **Find Your Podcast**:
    - Click **"Import Podcast"** on the playlist page
-   - Browse "Best Kids Podcasts" or search by name
+   - Browse "Popular Kids Podcasts" or search by name
    - Select episodes you want
 
 2. **Automatic Import**:
@@ -79,7 +113,7 @@ Bring your favorite podcasts to Yoto:
 
 ### 🎨 Automatic Icon Matching
 
-Let AI find the perfect icons for your tracks:
+An intelligent keyword search will find the perfect icons for your tracks:
 
 #### Single Track Icons
 - Click the icon button next to any track
@@ -95,7 +129,7 @@ Let AI find the perfect icons for your tracks:
 
 ![Icon Match Demo](./demo/icon-match-demo.gif)
 
-## Features in Detail
+## Technical Details
 
 ### Supported Formats
 
@@ -182,9 +216,23 @@ The extension integrates with:
 - **Feature Requests**: Use the support link above
 - **Questions**: Check the troubleshooting section first
 
-## 📝 License
+## 📝 License & Commercial Use
 
-MIT License - See [LICENSE](LICENSE) file for details
+MYO Magic is source-available under a **Non-Commercial license**.
+
+✔ You are free to:
+- View and study the source code
+- Use and modify it for personal or educational purposes
+- Submit contributions and pull requests
+
+✘ You may NOT:
+- Sell this software or derivatives
+- Offer it as part of a paid product or service
+- Redistribute it commercially
+
+If you are interested in commercial use or licensing, please contact: allen.carissamae@gmail.com
+
+Supporting development via Ko-fi does **not** grant commercial rights.
 
 ## 🙏 Acknowledgments
 
