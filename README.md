@@ -218,7 +218,7 @@ The extension integrates with:
 
 ## 📝 License & Commercial Use
 
-MYO Magic is source-available under a **Non-Commercial license**.
+MYO Magic™ is source-available under the **PolyForm Noncommercial License 1.0.0**.
 
 ✔ You are free to:
 - View and study the source code
@@ -229,10 +229,20 @@ MYO Magic is source-available under a **Non-Commercial license**.
 - Sell this software or derivatives
 - Offer it as part of a paid product or service
 - Redistribute it commercially
+- Use this software to provide a hosted or subscription-based service
 
 If you are interested in commercial use or licensing, please contact: allen.carissamae@gmail.com
 
 Supporting development via Ko-fi does **not** grant commercial rights.
+
+Note: Any future hosted services or web applications related to MYO Magic™
+may be governed by separate terms and are not covered by this repository’s license.
+
+## 🤝 Contributing
+
+By submitting a pull request, you agree that your contribution is licensed
+under the same license as the project and that the project owner may relicense
+the contribution as part of future versions of MYO Magic™.
 
 ## 🙏 Acknowledgments
 
