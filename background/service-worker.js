@@ -2794,7 +2794,7 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         }
         const playlistName = `${podcast.title} - Podcast`;
         
-        const CONCURRENT_LIMIT = 3;
+        const CONCURRENT_LIMIT = 5;
         const audioTracks = [];
         let processedCount = 0;
         let failedCount = 0;

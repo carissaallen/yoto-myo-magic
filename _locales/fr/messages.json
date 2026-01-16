@@ -1840,18 +1840,8 @@
     "description": "Searching for podcasts"
   },
   "status_startingImport": {
-    "message": "Début de l'importation de $COUNT$ épisode$PLURAL$...",
-    "description": "Status when starting podcast episode import",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "5"
-      },
-      "plural": {
-        "content": "$2",
-        "example": "s"
-      }
-    }
+    "message": "Début de l'importation...",
+    "description": "Status when starting podcast episode import"
   },
   "status_startingUpload": {
     "message": "Démarrage du téléchargement...",

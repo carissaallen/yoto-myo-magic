@@ -2150,18 +2150,8 @@
     "description": "Label for episode selection in podcast import"
   },
   "status_startingImport": {
-    "message": "Starting import of $COUNT$ episode$PLURAL$...",
-    "description": "Status when starting podcast episode import",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "5"
-      },
-      "plural": {
-        "content": "$2",
-        "example": "s"
-      }
-    }
+    "message": "Starting import...",
+    "description": "Status when starting podcast episode import"
   },
   "status_cancellingImport": {
     "message": "Cancelling import...",

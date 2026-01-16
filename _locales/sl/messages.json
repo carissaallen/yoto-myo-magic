@@ -1810,18 +1810,8 @@
     "description": "Searching for podcasts"
   },
   "status_startingImport": {
-    "message": "Začetek uvoza $COUNT$ epizod$PLURAL$...",
-    "description": "Status when starting podcast episode import",
-    "placeholders": {
-      "count": {
-        "content": "$1",
-        "example": "5"
-      },
-      "plural": {
-        "content": "$2",
-        "example": "s"
-      }
-    }
+    "message": "Začetek uvoza...",
+    "description": "Status when starting podcast episode import"
   },
   "status_startingUpload": {
     "message": "Začetek nalaganja...",
