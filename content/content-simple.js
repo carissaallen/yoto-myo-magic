@@ -2644,7 +2644,7 @@ function createButton() {
   };
   
   button.onclick = async () => {
-    await handleIconMatch('general');
+    await handleIconMatch('category');
   };
   
   buttonContainer.appendChild(button);
@@ -4530,17 +4530,20 @@ async function handleCategoryIconMatch(button) {
 
   if (contentResponse.card && contentResponse.card.content && contentResponse.card.content.chapters) {
     contentResponse.card.content.chapters.forEach((chapter, chapterIndex) => {
+      const chapterIcon = chapter.display?.icon16x16 || null;
+
       if (chapter.tracks && Array.isArray(chapter.tracks)) {
         chapter.tracks.forEach((track, trackIndex) => {
           if (track.title) {
-            const iconValue = track.display?.icon16x16 || track.icon16x16 || track.iconAudioId;
+            const trackIcon = track.display?.icon16x16 || track.icon16x16 || track.iconAudioId;
+            const iconValue = trackIcon || chapterIcon;
+
             const isDefaultIcon = iconValue && (
               iconValue === 'yoto:#aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q' ||
-              iconValue === 'yoto:#public/icon.png' ||
               iconValue.includes('aUm9i3ex3qqAMYBv-i-O-pYMKuMJGICtR3Vhf289u2Q')
             );
             const hasIcon = !!(iconValue && !isDefaultIcon);
-            let iconUrl = track.display?.icon16x16 || track.icon16x16 || null;
+            let iconUrl = iconValue || null;
 
             tracks.push({
               id: track.key || `track-${chapterIndex}-${trackIndex}`,
@@ -4575,12 +4578,45 @@ async function handleCategoryIconMatch(button) {
     return;
   }
 
-  showTrackSelectionModal(actualTracks, (selectedTracks) => {
-    if (selectedTracks.length === 0) {
-      return;
+  const tracksWithIcons = actualTracks.map((track) => {
+    let iconUrl = track.iconUrl || null;
+
+    if (!iconUrl && contentResponse && contentResponse.card && contentResponse.card.content && contentResponse.card.content.chapters) {
+      const targetChapter = contentResponse.card.content.chapters.find(ch => ch.key === track.chapterKey);
+      if (targetChapter && targetChapter.tracks && Array.isArray(targetChapter.tracks)) {
+        const apiTrack = targetChapter.tracks.find(t => t.key === track.id);
+        if (apiTrack) {
+          const trackIcon = apiTrack.display?.icon16x16 || apiTrack.icon16x16 || apiTrack.iconAudioId;
+          if (trackIcon) {
+            iconUrl = trackIcon;
+          }
+        }
+      }
     }
-    showCategorySelectionModal(cardId, selectedTracks);
-  }, 'category', contentResponse, button);
+
+    // DOM fallback
+    if (!iconUrl) {
+      const trackElements = document.querySelectorAll('[draggable="true"]');
+      trackElements.forEach(element => {
+        if (iconUrl) return;
+        const titleElements = element.querySelectorAll('p, span, h3, h4');
+        for (const titleEl of titleElements) {
+          const text = titleEl.textContent?.trim();
+          if (text === track.title) {
+            const iconImg = element.querySelector('img');
+            if (iconImg && iconImg.src && !iconImg.src.includes('data:image') && !iconImg.src.includes('placeholder')) {
+              iconUrl = iconImg.src;
+              break;
+            }
+          }
+        }
+      });
+    }
+
+    return { ...track, iconUrl };
+  });
+
+  showCategorySelectionModal(cardId, tracksWithIcons);
 }
 
 function showCategorySelectionModal(cardId, selectedTracks) {
@@ -4667,13 +4703,28 @@ function showCategorySelectionModal(cardId, selectedTracks) {
       <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
         ${chrome.i18n.getMessage('modal_customCategory')}
       </label>
-      <input type="text" id="custom-category" placeholder="${chrome.i18n.getMessage('modal_customCategoryPlaceholder')}" style="
-        width: 100%;
-        padding: 10px;
+      <div id="keyword-chips-container" style="
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px;
         border: 1px solid #d1d5db;
         border-radius: 6px;
-        font-size: 14px;
+        min-height: 42px;
+        align-items: center;
+        cursor: text;
+        background: white;
       ">
+        <input type="text" id="custom-category" placeholder="${chrome.i18n.getMessage('modal_customCategoryPlaceholder')}" style="
+          flex: 1;
+          min-width: 120px;
+          border: none;
+          outline: none;
+          font-size: 14px;
+          padding: 2px 4px;
+        ">
+      </div>
+      <p style="margin: 6px 0 0 0; font-size: 12px; color: #9ca3af;">${chrome.i18n.getMessage('label_pressEnterToAdd')}</p>
     </div>
 
     <div style="display: flex; gap: 12px; justify-content: flex-end;">
@@ -4695,7 +4746,7 @@ function showCategorySelectionModal(cardId, selectedTracks) {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">${chrome.i18n.getMessage('button_search')} Icons</button>
+      ">${chrome.i18n.getMessage('button_searchIcons')}</button>
     </div>
   `;
   
@@ -4704,41 +4755,144 @@ function showCategorySelectionModal(cardId, selectedTracks) {
 
   const categorySelect = document.getElementById('category-select');
   const customCategory = document.getElementById('custom-category');
+  const chipsContainer = document.getElementById('keyword-chips-container');
+  const keywords = [];
+
+  chipsContainer.addEventListener('click', () => {
+    customCategory.focus();
+  });
+
+  function createChip(keyword) {
+    const chip = document.createElement('span');
+    chip.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f3f4f6;
+      color: #374151;
+      padding: 4px 8px 4px 12px;
+      border-radius: 16px;
+      font-size: 13px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    `;
+    chip.dataset.keyword = keyword;
+
+    const text = document.createElement('span');
+    text.textContent = keyword;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.innerHTML = '&times;';
+    removeBtn.style.cssText = `
+      background: none;
+      border: none;
+      color: #6b7280;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 0 2px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    removeBtn.addEventListener('mouseenter', () => {
+      removeBtn.style.color = '#374151';
+    });
+    removeBtn.addEventListener('mouseleave', () => {
+      removeBtn.style.color = '#6b7280';
+    });
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const index = keywords.indexOf(keyword);
+      if (index > -1) {
+        keywords.splice(index, 1);
+      }
+      chip.remove();
+      customCategory.placeholder = keywords.length === 0 ? chrome.i18n.getMessage('modal_customCategoryPlaceholder') : '';
+    });
+
+    chip.appendChild(text);
+    chip.appendChild(removeBtn);
+    return chip;
+  }
+
+  function addKeyword(keyword) {
+    const trimmed = keyword.trim().toLowerCase();
+    if (!trimmed || keywords.includes(trimmed)) {
+      return false;
+    }
+    keywords.push(trimmed);
+    const chip = createChip(trimmed);
+    chipsContainer.insertBefore(chip, customCategory);
+    customCategory.value = '';
+    customCategory.placeholder = '';
+    categorySelect.value = '';
+    return true;
+  }
 
   categorySelect.addEventListener('change', () => {
     if (categorySelect.value) {
+      keywords.length = 0;
+      const chips = chipsContainer.querySelectorAll('span[data-keyword]');
+      chips.forEach(chip => chip.remove());
       customCategory.value = '';
+      customCategory.placeholder = chrome.i18n.getMessage('modal_customCategoryPlaceholder');
     }
   });
 
   customCategory.addEventListener('input', () => {
-    if (customCategory.value) {
+    if (customCategory.value || keywords.length > 0) {
       categorySelect.value = '';
     }
   });
 
-  const handleEnterKey = (e) => {
+  customCategory.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (customCategory.value.trim()) {
+        addKeyword(customCategory.value);
+      } else if (keywords.length > 0 || categorySelect.value) {
+        // Trigger search if we have keywords or category selected
+        document.getElementById('category-search').click();
+      }
+    } else if (e.key === 'Backspace' && customCategory.value === '' && keywords.length > 0) {
+      // Remove last chip on backspace when input is empty
+      const lastKeyword = keywords.pop();
+      const lastChip = chipsContainer.querySelector(`span[data-keyword="${lastKeyword}"]`);
+      if (lastChip) lastChip.remove();
+      customCategory.placeholder = keywords.length === 0 ? chrome.i18n.getMessage('modal_customCategoryPlaceholder') : '';
+    }
+  });
+
+  customCategory.addEventListener('blur', () => {
+    if (customCategory.value.trim()) {
+      addKeyword(customCategory.value);
+    }
+  });
+
+  categorySelect.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       document.getElementById('category-search').click();
     }
-  };
-
-  categorySelect.addEventListener('keypress', handleEnterKey);
-  customCategory.addEventListener('keypress', handleEnterKey);
+  });
 
   document.getElementById('category-cancel').addEventListener('click', () => {
     modal.remove();
   });
 
   document.getElementById('category-search').addEventListener('click', async () => {
-    const category = customCategory.value || categorySelect.value;
+    if (customCategory.value.trim()) {
+      addKeyword(customCategory.value);
+    }
 
-    if (!category) {
+    const searchKeywords = keywords.length > 0 ? [...keywords] : (categorySelect.value ? [categorySelect.value] : []);
+    const displayCategory = keywords.length > 0 ? keywords.join(', ') : categorySelect.value;
+
+    if (searchKeywords.length === 0) {
       alert(chrome.i18n.getMessage('notification_selectOrEnterCategory'));
       return;
     }
-    
+
     const searchBtn = document.getElementById('category-search');
     const originalBtnContent = searchBtn.innerHTML;
     searchBtn.innerHTML = `
@@ -4755,10 +4909,11 @@ function showCategorySelectionModal(cardId, selectedTracks) {
       </div>
     `;
     searchBtn.disabled = true;
-    
+
     const searchResponse = await chrome.runtime.sendMessage({
       action: 'SEARCH_ICONS_BY_CATEGORY',
-      category: category
+      category: searchKeywords.length === 1 ? searchKeywords[0] : null,
+      keywords: searchKeywords
     });
 
     if (searchResponse.error) {
@@ -4768,21 +4923,22 @@ function showCategorySelectionModal(cardId, selectedTracks) {
       modal.remove();
       return;
     }
-    
+
     if (!searchResponse.icons || searchResponse.icons.length === 0) {
-      alert(`${chrome.i18n.getMessage('modal_noIconsFound')} for category "${category}". Please try another category.`);
+      alert(`${chrome.i18n.getMessage('modal_noIconsFound')} for "${displayCategory}". Please try other keywords.`);
       searchBtn.innerHTML = originalBtnContent;
       searchBtn.disabled = false;
       return;
     }
-    
+
     modal.remove();
-    showIconSelectionModal(cardId, selectedTracks, searchResponse.icons, category);
+    showIconSelectionModal(cardId, selectedTracks, searchResponse.icons, displayCategory, searchKeywords);
   });
 }
 
-function showIconSelectionModal(cardId, selectedTracks, icons, category) {
+function showIconSelectionModal(cardId, selectedTracks, icons, category, searchKeywords = null) {
   const trackCount = selectedTracks.length;
+  const pollKeywords = searchKeywords || [category];
   const modal = document.createElement('div');
   modal.style.cssText = `
     position: fixed;
@@ -4802,15 +4958,113 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
   content.style.cssText = `
     background: white;
     border-radius: 12px;
-    padding: 30px;
+    padding: 0;
     max-width: 800px;
     width: 90%;
     max-height: 80vh;
-    overflow-y: auto;
+    overflow: hidden;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    position: relative;
   `;
 
   const iconsPerPage = 500;
+
+  const skipIconSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12,24C5.4,24,0,18.6,0,12S5.4,0,12,0s12,5.4,12,12S18.6,24,12,24z M12,2C6.5,2,2,6.5,2,12s4.5,10,10,10s10-4.5,10-10S17.5,2,12,2z"/>
+    <path d="M8,17c-0.3,0-0.5-0.1-0.7-0.3c-0.4-0.4-0.4-1,0-1.4l8-8c0.4-0.4,1-0.4,1.4,0s0.4,1,0,1.4l-8,8C8.5,16.9,8.3,17,8,17z"/>
+    <path d="M16,17c-0.3,0-0.5-0.1-0.7-0.3l-8-8c-0.4-0.4-0.4-1,0-1.4s1-0.4,1.4,0l8,8c0.4,0.4,0.4,1,0,1.4C16.5,16.9,16.3,17,16,17z"/>
+  </svg>`;
+
+  const defaultIconUrl = chrome.runtime.getURL('assets/images/default-icon.png');
+
+  function resolveIconUrl(track) {
+    let iconUrl = defaultIconUrl;
+
+    if (track.iconUrl) {
+      iconUrl = track.iconUrl;
+
+      if (iconUrl.startsWith('yoto:#')) {
+        const mediaId = iconUrl.replace('yoto:#', '');
+
+        let foundUrl = null;
+        const allImages = document.querySelectorAll('img');
+        for (const img of allImages) {
+          if (img.src && img.src.includes(mediaId)) {
+            foundUrl = img.src;
+            break;
+          }
+        }
+
+        if (foundUrl) {
+          iconUrl = foundUrl;
+        } else {
+          iconUrl = `https://api.yotoplay.com/media/${mediaId}/16x16.png`;
+        }
+      }
+    }
+
+    if (iconUrl === defaultIconUrl) {
+      const trackElements = document.querySelectorAll('[draggable="true"]');
+      trackElements.forEach(element => {
+        const titleElements = element.querySelectorAll('p, span, h3, h4');
+        for (const titleEl of titleElements) {
+          if (titleEl.textContent?.trim() === track.title) {
+            const iconImg = element.querySelector('img');
+            if (iconImg && iconImg.src && !iconImg.src.includes('data:image')) {
+              iconUrl = iconImg.src;
+              break;
+            }
+          }
+        }
+      });
+    }
+
+    return iconUrl;
+  }
+
+  const trackListHtml = selectedTracks.map((track, index) => {
+    const currentIconUrl = resolveIconUrl(track);
+    const iconPreviewHtml = `<img class="track-icon-preview" src="${currentIconUrl}" data-original-icon="${currentIconUrl}" style="
+          width: 24px;
+          height: 24px;
+          object-fit: cover;
+          border-radius: 4px;
+          flex-shrink: 0;
+        " onerror="this.src='${defaultIconUrl}';" />`;
+
+    return `
+    <div class="track-row" data-track-index="${index}" data-original-icon="${currentIconUrl || ''}" style="
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    ">
+      ${iconPreviewHtml}
+      <span class="track-name" style="
+        font-size: 13px;
+        color: #374151;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+      ">${index + 1}. ${track.title || track.trackTitle || chrome.i18n.getMessage('label_untitled')}</span>
+      <button class="skip-btn" data-track-index="${index}" title="${chrome.i18n.getMessage('tooltip_skipTrack')}" style="
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #9ca3af;
+        transition: color 0.2s;
+        border-radius: 4px;
+      ">${skipIconSvg}</button>
+    </div>
+  `;
+  }).join('');
 
   content.innerHTML = `
     <style>
@@ -4818,30 +5072,77 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
       }
+      .track-row:hover {
+        background-color: #f9fafb;
+      }
+      .track-row.skipped {
+        background-color: #fef2f2;
+      }
+      .track-row.skipped .track-name {
+        color: #9ca3af;
+      }
+      .skip-btn:hover {
+        background-color: #f3f4f6;
+      }
     </style>
-    <h2 style="margin: 0 0 10px 0; color: #2c3e50; font-size: 24px;">Select Icons for "${category}"</h2>
-    <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">
-      Choose icons to apply to your ${trackCount} tracks. Selected icons will be applied in order and repeated if needed.
-    </p>
+    <div id="modal-header" style="
+      padding: 20px 30px 15px 30px;
+      cursor: move;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    ">
+      <div>
+        <h2 style="margin: 0 0 5px 0; color: #2c3e50; font-size: 20px;">${chrome.i18n.getMessage('modal_selectIconsFor', [category])}</h2>
+        <p style="margin: 0; color: #666; font-size: 13px;">
+          ${chrome.i18n.getMessage('modal_chooseIconsDescription')}
+        </p>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; color: #9ca3af;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 9h14M5 15h14"/>
+        </svg>
+      </div>
+    </div>
+    <div id="modal-body" style="padding: 20px 30px 30px 30px; overflow-y: auto; max-height: calc(80vh - 120px);">
 
+    <div style="margin-bottom: 15px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <label style="font-size: 13px; font-weight: 500; color: #374151;">${chrome.i18n.getMessage('label_tracks')} <span style="color: #9ca3af; font-weight: normal;">(${chrome.i18n.getMessage('label_clickToSkip')})</span></label>
+        <span id="skip-count" style="font-size: 12px; color: #9ca3af;"></span>
+      </div>
+      <div id="track-list" style="
+        max-height: 150px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 4px;
+      ">
+        ${trackListHtml}
+      </div>
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <label style="font-size: 13px; font-weight: 500; color: #374151;">${chrome.i18n.getMessage('label_selectIcons')}</label>
+    </div>
     <div id="icon-grid" style="
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
       gap: 8px;
-      margin-bottom: 20px;
-      max-height: 400px;
+      margin-bottom: 15px;
+      max-height: 280px;
       overflow-y: auto;
       padding: 10px;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
     "></div>
 
-    <div style="margin-bottom: 20px; padding: 10px; background: #f9fafb; border-radius: 6px;">
-      <p style="margin: 0; font-size: 13px; color: #6b7280;">
-        <strong>Selected:</strong> <span id="selected-count">0</span> icon(s)
-      </p>
-      <p style="margin: 4px 0 0 0; font-size: 12px; color: #9ca3af;">
-        Icons will be applied to tracks in the order selected
+    <div id="selection-summary" style="margin-bottom: 15px; padding: 10px; background: #f9fafb; border-radius: 6px;">
+      <p id="selection-text" style="margin: 0; font-size: 13px; color: #6b7280;">
+        ${chrome.i18n.getMessage('label_selectedIconsFor', ['0', trackCount.toString()])}
       </p>
     </div>
 
@@ -4873,7 +5174,7 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
           font-size: 14px;
           font-weight: 500;
           transition: background-color 0.2s;
-        " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">Cancel</button>
+        " onmouseover="this.style.backgroundColor='#e5e7eb'" onmouseout="this.style.backgroundColor='#f3f4f6'">${chrome.i18n.getMessage('button_cancel')}</button>
         <button id="icon-apply" style="
           padding: 10px 20px;
           background: #3b82f6;
@@ -4884,13 +5185,47 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
           font-size: 14px;
           font-weight: 500;
           transition: background-color 0.2s;
-        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'" disabled>Apply Icons</button>
+        " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'" disabled>${chrome.i18n.getMessage('button_applyIcons')}</button>
       </div>
+    </div>
     </div>
   `;
 
   modal.appendChild(content);
   document.body.appendChild(modal);
+
+  const modalHeader = document.getElementById('modal-header');
+  let isDragging = false;
+  let dragOffset = { x: 0, y: 0 };
+
+  modalHeader.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+    isDragging = true;
+    const rect = content.getBoundingClientRect();
+    dragOffset.x = e.clientX - rect.left;
+    dragOffset.y = e.clientY - rect.top;
+    content.style.position = 'fixed';
+    content.style.margin = '0';
+    content.style.left = rect.left + 'px';
+    content.style.top = rect.top + 'px';
+    modal.style.alignItems = 'flex-start';
+    modal.style.justifyContent = 'flex-start';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+
+    const maxX = window.innerWidth - content.offsetWidth;
+    const maxY = window.innerHeight - content.offsetHeight;
+    content.style.left = Math.max(0, Math.min(newX, maxX)) + 'px';
+    content.style.top = Math.max(0, Math.min(newY, maxY)) + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+  });
 
   const iconGrid = document.getElementById('icon-grid');
   const selectedIcons = [];
@@ -4899,6 +5234,51 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
   let allIcons = [...icons];
   let isSearchComplete = false;
   let pollInterval = null;
+
+  const skippedTracks = new Set();
+
+  function updateSkipCount() {
+    const skipCountEl = document.getElementById('skip-count');
+    const activeCount = trackCount - skippedTracks.size;
+
+    if (skippedTracks.size > 0) {
+      skipCountEl.textContent = chrome.i18n.getMessage('label_numSkipped', [skippedTracks.size.toString()]);
+    } else {
+      skipCountEl.textContent = '';
+    }
+
+    const selectionTextEl = document.getElementById('selection-text');
+    if (selectionTextEl) {
+      selectionTextEl.textContent = chrome.i18n.getMessage('label_selectedIconsFor', [selectedIcons.length.toString(), activeCount.toString()]);
+    }
+  }
+
+  function getActiveTrackIndices() {
+    return selectedTracks.map((_, i) => i).filter(i => !skippedTracks.has(i));
+  }
+
+  document.querySelectorAll('.skip-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const trackIndex = parseInt(btn.dataset.trackIndex);
+      const trackRow = btn.closest('.track-row');
+
+      if (skippedTracks.has(trackIndex)) {
+        skippedTracks.delete(trackIndex);
+        trackRow.classList.remove('skipped');
+        btn.style.color = '#9ca3af';
+        btn.title = chrome.i18n.getMessage('tooltip_skipTrack');
+      } else {
+        skippedTracks.add(trackIndex);
+        trackRow.classList.add('skipped');
+        btn.style.color = '#ef4444';
+        btn.title = chrome.i18n.getMessage('tooltip_includeTrack');
+      }
+
+      updateSkipCount();
+      updateOrderBadges();
+    });
+  });
 
   function renderIcons(startIndex, endIndex) {
     const iconsToRender = allIcons.slice(startIndex, endIndex);
@@ -4951,26 +5331,32 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
       iconDiv.addEventListener('click', () => {
         const iconId = icon.mediaId || icon.id;
         const iconIndex = selectedIcons.findIndex(i => (i.mediaId || i.id) === iconId);
+        const activeTrackCount = trackCount - skippedTracks.size;
 
         if (iconIndex >= 0) {
+          // Deselecting - always allowed
           selectedIcons.splice(iconIndex, 1);
           iconDiv.style.borderColor = 'transparent';
           iconDiv.style.backgroundColor = 'white';
           orderBadge.style.display = 'none';
           selectedIconElements.delete(iconId);
-
-          updateOrderBadges();
         } else {
+          // Selecting - only allow if we haven't reached max icons
+          if (selectedIcons.length >= activeTrackCount) {
+            // Already have enough icons for all active tracks
+            return;
+          }
           selectedIcons.push(icon);
           iconDiv.style.borderColor = '#3b82f6';
           iconDiv.style.backgroundColor = '#eff6ff';
           orderBadge.style.display = 'flex';
-          orderBadge.textContent = selectedIcons.length;
           selectedIconElements.set(iconId, { badge: orderBadge, iconDiv: iconDiv });
         }
 
-        document.getElementById('selected-count').textContent = selectedIcons.length;
         document.getElementById('icon-apply').disabled = selectedIcons.length === 0;
+
+        // Update all badges with track numbers
+        updateOrderBadges();
       });
 
       iconGrid.appendChild(iconDiv);
@@ -5000,11 +5386,52 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
   }
 
   function updateOrderBadges() {
-    selectedIcons.forEach((icon, index) => {
+    const activeIndices = getActiveTrackIndices();
+
+    selectedIcons.forEach((icon, selectionIndex) => {
       const iconId = icon.mediaId || icon.id;
       const element = selectedIconElements.get(iconId);
       if (element && element.badge) {
-        element.badge.textContent = index + 1;
+        if (activeIndices.length === 0 || selectionIndex >= activeIndices.length) {
+          element.badge.textContent = '-';
+        } else {
+          const trackIndex = activeIndices[selectionIndex];
+          element.badge.textContent = trackIndex + 1;
+        }
+      }
+    });
+
+    updateSkipCount();
+    updateTrackIconPreviews();
+  }
+
+  function updateTrackIconPreviews() {
+    const activeIndices = getActiveTrackIndices();
+    const trackRows = document.querySelectorAll('.track-row');
+
+    trackRows.forEach((row) => {
+      const trackIndex = parseInt(row.dataset.trackIndex);
+      const originalIconUrl = row.dataset.originalIcon || defaultIconUrl;
+      let imgElement = row.querySelector('img.track-icon-preview');
+
+      let iconToShow = originalIconUrl;
+
+      if (skippedTracks.has(trackIndex)) {
+        iconToShow = originalIconUrl;
+      } else if (selectedIcons.length === 0) {
+        iconToShow = originalIconUrl;
+      } else {
+        const activePosition = activeIndices.indexOf(trackIndex);
+        if (activePosition !== -1 && activePosition < selectedIcons.length) {
+          const assignedIcon = selectedIcons[activePosition];
+          iconToShow = assignedIcon.url || assignedIcon.mediaUrl || `https://api.yotoplay.com/media/${assignedIcon.mediaId}`;
+        } else {
+          iconToShow = originalIconUrl;
+        }
+      }
+
+      if (imgElement) {
+        imgElement.src = iconToShow;
       }
     });
   }
@@ -5021,7 +5448,8 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'SEARCH_ICONS_BY_CATEGORY',
-        category: category,
+        category: pollKeywords.length === 1 ? pollKeywords[0] : null,
+        keywords: pollKeywords,
         loadMore: true
       });
 
@@ -5030,7 +5458,6 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
         allIcons = response.icons;
         isSearchComplete = response.isComplete || false;
 
-        // Auto-render newly found icons up to the next page
         const maxToDisplay = Math.min(currentlyDisplayed + iconsPerPage, allIcons.length);
         if (maxToDisplay > currentlyDisplayed) {
           renderIcons(currentlyDisplayed, maxToDisplay);
@@ -5052,10 +5479,8 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
     }
   }
 
-  // Render first 500 icons
   renderIcons(0, Math.min(iconsPerPage, allIcons.length));
 
-  // Start polling for new icons in background (every 2 seconds)
   pollInterval = setInterval(pollForNewIcons, 2000);
 
   document.getElementById('icon-cancel').addEventListener('click', () => {
@@ -5068,23 +5493,30 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
   
   document.getElementById('icon-apply').addEventListener('click', async () => {
     if (selectedIcons.length === 0) return;
-    
+
+    const activeCount = trackCount - skippedTracks.size;
+    if (activeCount === 0) {
+      alert('All tracks are skipped. Please select at least one track to apply icons.');
+      return;
+    }
+
     const applyBtn = document.getElementById('icon-apply');
     applyBtn.textContent = chrome.i18n.getMessage('button_applying');
     applyBtn.disabled = true;
-    
+
+    const skippedTrackIndices = Array.from(skippedTracks);
+
     const result = await chrome.runtime.sendMessage({
       action: 'APPLY_CATEGORY_ICONS',
       cardId: cardId,
       icons: selectedIcons,
-      selectedTracks: selectedTracks
+      selectedTracks: selectedTracks,
+      skippedTrackIndices: skippedTrackIndices
     });
     
     if (result.error) {
       alert(chrome.i18n.getMessage('error_failedToApplyIcons', [result.error]));
     } else {
-      const iconsApplied = Math.min(selectedIcons.length, trackCount);
-      
       const successNotice = document.createElement('div');
       successNotice.style.cssText = `
         position: fixed;
@@ -5096,14 +5528,11 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
         padding: 30px 40px;
         border-radius: 12px;
         font-size: 16px;
-        z-index: 10000;
+        z-index: 100000;
         box-shadow: 0 10px 25px rgba(0,0,0,0.2);
         text-align: center;
         min-width: 300px;
       `;
-
-      const iconPlural = iconsApplied !== 1 ? 's' : '';
-      const trackPlural = trackCount !== 1 ? 's' : '';
 
       successNotice.innerHTML = `
         <div style="width: 48px; height: 48px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
@@ -5111,9 +5540,7 @@ function showIconSelectionModal(cardId, selectedTracks, icons, category) {
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </div>
-        <div style="margin-bottom: 15px; font-size: 18px; font-weight: 600;">${chrome.i18n.getMessage('notification_iconsAppliedSuccessfully')}</div>
-        <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_appliedIconsToTracks', [iconsApplied.toString(), iconPlural, trackCount.toString(), trackPlural])}</div>
-        <div style="font-size: 14px; opacity: 0.95; margin-top: 10px;">${chrome.i18n.getMessage('notification_pleaseRefreshPage')}</div>
+        <div style="font-size: 14px; opacity: 0.95;">${chrome.i18n.getMessage('notification_pleaseRefreshPage')}</div>
       `;
 
       if (pollInterval) {

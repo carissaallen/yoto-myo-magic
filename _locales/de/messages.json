@@ -123,6 +123,10 @@
     "message": "Suche nach Symbolen...",
     "description": "Button state while searching for icons"
   },
+  "button_searchIcons": {
+    "message": "Symbole suchen",
+    "description": "Button to search for icons by category"
+  },
   "button_selectAll": {
     "message": "Alle auswählen",
     "description": "Button to select all items"
@@ -617,6 +621,10 @@
     "message": "Podcast-Namen eingeben:",
     "description": "Label for podcast search input"
   },
+  "placeholder_podcastSearch": {
+    "message": "z.B. Greeking Out",
+    "description": "Placeholder example text for podcast search input"
+  },
   "label_existingContentPreserved": {
     "message": "✓ Vorhandener Inhalt wird beibehalten",
     "description": "Info about update preserving content"
@@ -695,6 +703,16 @@
       }
     }
   },
+  "label_numSkipped": {
+    "message": "$COUNT$ übersprungen",
+    "description": "Number of skipped tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
   "label_offline": {
     "message": "Offline",
     "description": "Device offline status"
@@ -750,6 +768,20 @@
       "plural": {
         "content": "$2",
         "example": ""
+      }
+    }
+  },
+  "label_selectedIconsFor": {
+    "message": "Ausgewählt: $ICONS$ Symbol(e) für $TRACKS$ Titel",
+    "description": "Status showing selected icons for tracks",
+    "placeholders": {
+      "icons": {
+        "content": "$1",
+        "example": "3"
+      },
+      "tracks": {
+        "content": "$2",
+        "example": "5"
       }
     }
   },
@@ -813,6 +845,10 @@
     "message": "Unbekannt",
     "description": "When update date is unknown"
   },
+  "label_untitled": {
+    "message": "Unbenannt",
+    "description": "Label for untitled items"
+  },
   "label_untitledCard": {
     "message": "Unbenannte Karte",
     "description": "Fallback name for cards without title"
@@ -866,6 +902,10 @@
   "modal_chooseCategory": {
     "message": "Wählen Sie eine Kategorie:",
     "description": "Label for category dropdown"
+  },
+  "modal_chooseIconsDescription": {
+    "message": "Wählen Sie Symbole aus, die Ihren Titeln zugewiesen werden sollen. Klicken Sie auf das Symbol zum Überspringen, um Titel auszuschließen.",
+    "description": "Description for icon selection modal"
   },
   "modal_chooseImportMethod": {
     "message": "Importmethode wählen",
@@ -1028,6 +1068,16 @@
   "modal_selectFilesToAdd": {
     "message": "Wählen Sie Dateien aus, die dieser Karte hinzugefügt werden sollen.",
     "description": "Update modal description"
+  },
+  "modal_selectIconsFor": {
+    "message": "Symbole für \"$CATEGORY$\" auswählen",
+    "description": "Title for icon selection modal",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "Animals"
+      }
+    }
   },
   "modal_selectHowToImport": {
     "message": "Wählen Sie aus, wie Sie Ihre Playlist importieren möchten:",

@@ -123,6 +123,10 @@
     "message": "Buscando iconos...",
     "description": "Button state while searching for icons"
   },
+  "button_searchIcons": {
+    "message": "Buscar iconos",
+    "description": "Button to search for icons by category"
+  },
   "button_selectAll": {
     "message": "Seleccionar todo",
     "description": "Button to select all items"
@@ -617,6 +621,10 @@
     "message": "Introduce el nombre del podcast para buscar:",
     "description": "Label for podcast search input"
   },
+  "placeholder_podcastSearch": {
+    "message": "p.ej. Greeking Out",
+    "description": "Placeholder example text for podcast search input"
+  },
   "label_existingContentPreserved": {
     "message": "✓ El contenido existente se conservará",
     "description": "Info about update preserving content"
@@ -695,6 +703,16 @@
       }
     }
   },
+  "label_numSkipped": {
+    "message": "$COUNT$ omitidos",
+    "description": "Number of skipped tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
   "label_offline": {
     "message": "Desconectado",
     "description": "Device offline status"
@@ -750,6 +768,20 @@
       "plural": {
         "content": "$2",
         "example": "s"
+      }
+    }
+  },
+  "label_selectedIconsFor": {
+    "message": "Seleccionados: $ICONS$ icono(s) para $TRACKS$ pista(s)",
+    "description": "Status showing selected icons for tracks",
+    "placeholders": {
+      "icons": {
+        "content": "$1",
+        "example": "3"
+      },
+      "tracks": {
+        "content": "$2",
+        "example": "5"
       }
     }
   },
@@ -813,6 +845,10 @@
     "message": "Desconocido",
     "description": "When update date is unknown"
   },
+  "label_untitled": {
+    "message": "Sin título",
+    "description": "Label for untitled items"
+  },
   "label_untitledCard": {
     "message": "Tarjeta sin título",
     "description": "Fallback name for cards without title"
@@ -866,6 +902,10 @@
   "modal_chooseCategory": {
     "message": "Elige una categoría:",
     "description": "Label for category dropdown"
+  },
+  "modal_chooseIconsDescription": {
+    "message": "Elige los iconos que quieras aplicar a tus pistas. Haz clic en el icono de omitir para excluir pistas.",
+    "description": "Description for icon selection modal"
   },
   "modal_chooseImportMethod": {
     "message": "Elegir método de importación",
@@ -1028,6 +1068,16 @@
   "modal_selectFilesToAdd": {
     "message": "Selecciona archivos para agregar a esta tarjeta.",
     "description": "Update modal description"
+  },
+  "modal_selectIconsFor": {
+    "message": "Seleccionar iconos para \"$CATEGORY$\"",
+    "description": "Title for icon selection modal",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "Animals"
+      }
+    }
   },
   "modal_selectHowToImport": {
     "message": "Selecciona cómo quieres importar tu lista de reproducción:",

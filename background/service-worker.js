@@ -1046,6 +1046,110 @@ async function searchIconsByCategory(category, loadMore = false) {
     }
 }
 
+const multiKeywordSearchCache = new Map();
+
+async function searchIconsByMultipleKeywords(keywords, loadMore = false) {
+    try {
+        const cacheKey = keywords.map(k => k.toLowerCase()).sort().join('|');
+
+        if (multiKeywordSearchCache.has(cacheKey)) {
+            const cached = multiKeywordSearchCache.get(cacheKey);
+            return { icons: cached.allIcons, isComplete: cached.isComplete };
+        }
+
+        const translatedKeywords = await Promise.all(
+            keywords.map(async (keyword) => {
+                const translated = await TranslationService.translateToEnglish(keyword);
+                return translated || keyword;
+            })
+        );
+
+        const searchPromises = translatedKeywords.map(keyword => searchIconsByCategory(keyword, false));
+        const results = await Promise.all(searchPromises);
+
+        const seenIds = new Set();
+        let allIcons = [];
+
+        for (const result of results) {
+            if (result.icons) {
+                for (const icon of result.icons) {
+                    const iconId = icon.mediaId || icon.id;
+                    if (!seenIds.has(iconId)) {
+                        seenIds.add(iconId);
+                        allIcons.push(icon);
+                    }
+                }
+            }
+        }
+
+        const isComplete = results.every(r => r.isComplete);
+        multiKeywordSearchCache.set(cacheKey, {
+            allIcons: allIcons,
+            isComplete: isComplete
+        });
+
+        if (!isComplete) {
+            pollMultiKeywordSearchInBackground(cacheKey, translatedKeywords);
+        }
+        return { icons: allIcons, isComplete: isComplete };
+    } catch (error) {
+        console.error('Multi-keyword search error:', error);
+        return { error: error.message };
+    }
+}
+
+async function pollMultiKeywordSearchInBackground(cacheKey, keywords) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const seenIds = new Set();
+            let allIcons = [];
+            let allComplete = true;
+
+            for (const keyword of keywords) {
+                const keywordCacheKey = keyword.toLowerCase();
+                if (categorySearchCache.has(keywordCacheKey)) {
+                    const cached = categorySearchCache.get(keywordCacheKey);
+                    for (const icon of cached.allIcons) {
+                        const iconId = icon.mediaId || icon.id;
+                        if (!seenIds.has(iconId)) {
+                            seenIds.add(iconId);
+                            allIcons.push(icon);
+                        }
+                    }
+                    if (!cached.isComplete) {
+                        allComplete = false;
+                    }
+                } else {
+                    allComplete = false;
+                }
+            }
+
+            multiKeywordSearchCache.set(cacheKey, {
+                allIcons: allIcons,
+                isComplete: allComplete
+            });
+
+            if (allComplete) {
+                clearInterval(pollInterval);
+            }
+        } catch (error) {
+            console.error('Multi-keyword poll error:', error);
+            clearInterval(pollInterval);
+        }
+    }, 1000);
+
+    setTimeout(() => {
+        clearInterval(pollInterval);
+        const cached = multiKeywordSearchCache.get(cacheKey);
+        if (cached && !cached.isComplete) {
+            multiKeywordSearchCache.set(cacheKey, {
+                ...cached,
+                isComplete: true
+            });
+        }
+    }, 30000);
+}
+
 async function searchRelatedTermsInBackground(cacheKey, relatedTerms, initialIcons, alreadySearchedTerms) {
     try {
         let allIcons = [...initialIcons];
@@ -1103,7 +1207,7 @@ function getRelatedTerms(category) {
     return categoryMap[lowerCategory] || [category];
 }
 
-async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
+async function applyCategoryIcons(cardId, selectedIcons, selectedTracks, skippedTrackIndices = []) {
     try {
         const cardContent = await getCardContent(cardId);
         if (cardContent.error) {
@@ -1140,7 +1244,14 @@ async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
             processedIcons.push(iconId);
         }
 
-        const selectedTrackTitles = new Set(selectedTracks.map(t => t.title));
+        const skippedIndicesSet = new Set(skippedTrackIndices);
+
+        const activeTrackTitles = new Set();
+        selectedTracks.forEach((track, index) => {
+            if (!skippedIndicesSet.has(index)) {
+                activeTrackTitles.add(track.title);
+            }
+        });
 
         let iconIndex = 0;
         let iconsUpdated = 0;
@@ -1150,10 +1261,10 @@ async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
 
             if (chapter.tracks && chapter.tracks.length > 0) {
                 chapter.tracks.forEach((track) => {
-                    if (selectedTrackTitles.has(track.title)) {
+                    if (activeTrackTitles.has(track.title) && iconIndex < processedIcons.length) {
                         shouldUpdateChapter = true;
 
-                        const iconId = processedIcons[iconIndex % processedIcons.length];
+                        const iconId = processedIcons[iconIndex];
 
                         if (!track.display) {
                             track.display = {};
@@ -2265,8 +2376,6 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
     }
 }
 
-// Listen Notes API functions
-
 // Cache implementation for API responses
 const apiCache = {
     cache: new Map(),
@@ -2316,81 +2425,92 @@ const apiCache = {
     }
 };
 
+// Curated podcast recommendations with iTunes IDs
+// To add more: find iTunes ID from podcast URL (e.g., .../id1233834541 -> '1233834541')
+const CURATED_PODCASTS = [
+    { itunesId: '1233834541', name: 'Wow in the World' },
+    { itunesId: '719585944', name: 'Story Pirates' },
+    { itunesId: '1103320303', name: 'But Why' },
+    { itunesId: '703720228', name: 'Brains On!' },
+    { itunesId: '1483233279', name: 'Greeking Out' },
+    { itunesId: '1504895463', name: 'Terrestrials' },
+    { itunesId: '1718989781', name: 'Work It Out Wombats!' },
+    { itunesId: '984771479', name: 'Tumble Science' },
+    { itunesId: '1561861786', name: 'Goodnight World!' },
+    { itunesId: '1506815544', name: 'Thomas & Friends' },
+    { itunesId: '1746567248', name: 'Smologies' },
+    { itunesId: '1687544181', name: 'Keyshawn Solves It' },
+    { itunesId: '1450820162', name: 'Molly of Denali' },
+    { itunesId: '1565581033', name: "Quentin and Alfie's" },
+    { itunesId: '1479312117', name: 'Eat Your Spanish' },
+    { itunesId: '1139672164', name: 'The Alien Adventures of Finn Caspian' },
+    { itunesId: '1836539554', name: 'The Bedtime Scientist' },
+    { itunesId: '1711281052', name: 'Silly Stories for Kids' },
+    { itunesId: '1648149849', name: 'Arthur' },
+    { itunesId: '1348469682', name: 'The Big Fib' },
+    { itunesId: '1771688947', name: 'Momma Bear Audio' },
+    { itunesId: '1597620394', name: 'Koala Moon' },
+    { itunesId: '1635154611', name: 'Yoto Daily' },
+    { itunesId: '1838933610', name: 'The Download' },
+    { itunesId: '1739331611', name: "Blippi & Meekah's Road Trip" },
+    { itunesId: '1243077660', name: 'The Purple Rocket Podcast' },
+    { itunesId: '1836987791', name: 'The Gnomes of Wondergarten' },
+    { itunesId: '1786330034', name: 'Sleepytime Pups' },
+    { itunesId: '1574162442', name: "Lei's Little Golden Books" },
+    { itunesId: '1613054810', name: 'Ryers Readers' },
+    { itunesId: '1533462141', name: 'Who Smarted?' },
+    { itunesId: '1418029100', name: 'KidNuz' },
+    { itunesId: '1566472174', name: 'Whose Amazing Life?' },
+    { itunesId: '1440083927', name: 'Forever Ago' },
+    { itunesId: '948976028', name: 'Stories Podcast' },
+    { itunesId: '1382789861', name: 'Smash Boom Best' }
+];
+
 // Static fallback data for when API is unavailable or limit reached
 const staticPodcastData = {
     popularKidsPodcasts: [
         {
-            id: "static_1",
+            id: "1233834541",
             title: "Wow in the World",
-            publisher: "Tinkercast",
-            description: "The #1 science podcast for kids and their grown-ups. Hosts Mindy Thomas and Guy Raz guide curious kids and their grown-ups on a journey into the wonders of the world around them.",
+            publisher: "Tinkercast | Wondery",
+            description: "The #1 science podcast for kids and their grown-ups.",
             thumbnail: null,
             total_episodes: 500
         },
         {
-            id: "static_2",
+            id: "719585944",
             title: "Story Pirates",
-            publisher: "Gimlet Media",
-            description: "The Story Pirates Podcast is a wildly fun show for kids and families. Each episode features stories written by kids brought to life by the Story Pirates' talented comedy troupe.",
+            publisher: "Gimlet",
+            description: "Stories written by kids brought to life by comedy troupe.",
             thumbnail: null,
             total_episodes: 200
         },
         {
-            id: "static_3",
-            title: "Radiolab for Kids",
-            publisher: "WNYC Studios",
-            description: "Radiolab for Kids is a place where children and adults investigate the world together. We ask questions and go wherever curiosity takes us.",
+            id: "1103320303",
+            title: "But Why: A Podcast For Curious Kids",
+            publisher: "Vermont Public",
+            description: "A podcast that answers kids' questions about the world.",
             thumbnail: null,
-            total_episodes: 100
+            total_episodes: 300
         },
         {
-            id: "static_4",
-            title: "Work It Out Wombats!",
-            publisher: "GBH & PBS Kids",
-            description: "Work It Out Wombats! follows a playful trio of marsupial siblings who live with their grandmother in a fantastical treehouse apartment complex.",
+            id: "703720228",
+            title: "Brains On! Science podcast for kids",
+            publisher: "American Public Media",
+            description: "Science podcast for kids and curious adults.",
             thumbnail: null,
-            total_episodes: 50
+            total_episodes: 300
         },
         {
-            id: "static_5",
-            title: "Tumble Science Podcast for Kids",
-            publisher: "Tumble Media",
-            description: "Tumble is a science podcast created to be enjoyed by the entire family. Hosted by Lindsay Patterson and Marshall Escamilla.",
+            id: "948976028",
+            title: "Stories Podcast",
+            publisher: "Stories Podcast",
+            description: "A free bedtime story podcast for kids.",
             thumbnail: null,
-            total_episodes: 200
+            total_episodes: 400
         }
-    ],
-    
-    genres: [
-        { id: 132, name: "Kids & Family", parent_id: 0 },
-        { id: 133, name: "Stories for Kids", parent_id: 132 },
-        { id: 134, name: "Education for Kids", parent_id: 132 }
     ]
 };
-
-function getPodcastLanguage() {
-    const uiLang = chrome.i18n.getUILanguage(); // Returns e.g., "en", "fr", "es-ES", "de"
-    const langCode = uiLang.split('-')[0].toLowerCase(); // Get just the language code
-
-    // Map browser language codes to ListenNotes API language names
-    const languageMap = {
-        'en': 'English',
-        'fr': 'French',
-        'es': 'Spanish',
-        'de': 'German',
-        'it': 'Italian',
-        'pt': 'Portuguese',
-        'nl': 'Dutch',
-        'pl': 'Polish',
-        'ru': 'Russian',
-        'zh': 'Chinese',
-        'ja': 'Japanese',
-        'ko': 'Korean',
-        'sl': 'Slovenian'
-    };
-
-    return languageMap[langCode] || 'English'; // Default to English if not mapped
-}
 
 async function searchPodcasts(query) {
     try {
@@ -2399,19 +2519,16 @@ async function searchPodcasts(query) {
             return cached;
         }
 
-        const language = getPodcastLanguage();
-        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(query)}&type=podcast&only_in=title,description&language=${language}&safe_mode=0`);
+        const response = await fetch(
+            `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=podcast&entity=podcast&limit=25`
+        );
 
         if (!response.ok) {
-            if (response.status === 401) {
-                return { error: 'API authentication failed. Please check the proxy server configuration.' };
-            }
-            if (response.status === 429) {
-                // Rate limited - return rate limit error with user-friendly message
-                return { 
+            if (response.status === 403 || response.status === 429) {
+                return {
                     error: 'rate_limited',
                     rateLimited: true,
-                    message: "We've reached the maximum allowed use of the podcast search service for now. To keep this extension free for all users, we have usage limits that reset periodically. Please try again later, or browse the popular podcasts below.",
+                    message: "We've reached the maximum allowed use of the podcast search service for now. Please try again later, or browse the popular podcasts below.",
                     podcasts: staticPodcastData.popularKidsPodcasts,
                     fromCache: true,
                     isStatic: true
@@ -2421,26 +2538,23 @@ async function searchPodcasts(query) {
         }
 
         const data = await response.json();
-        
+
         const podcasts = data.results.slice(0, 10).map(podcast => ({
-            id: podcast.id,
-            title: podcast.title_original,
-            publisher: podcast.publisher_original,
-            thumbnail: podcast.thumbnail,
-            total_episodes: podcast.total_episodes,
-            description: podcast.description_original
+            id: String(podcast.collectionId),
+            title: podcast.collectionName,
+            publisher: podcast.artistName,
+            thumbnail: podcast.artworkUrl600 || podcast.artworkUrl100,
+            total_episodes: podcast.trackCount || 0,
+            description: '',
+            feedUrl: podcast.feedUrl
         }));
 
         const result = { podcasts };
-        
-        // Cache the result
         apiCache.set('search', { q: query }, result);
-        
+
         return result;
     } catch (error) {
-        
-        // If API fails, try to return static fallback data
-        return { 
+        return {
             podcasts: staticPodcastData.popularKidsPodcasts,
             fromCache: true,
             isStatic: true,
@@ -2449,93 +2563,69 @@ async function searchPodcasts(query) {
     }
 }
 
-async function getGenres() {
-    try {
-        const cached = apiCache.get('genres', {}, 1440); // 1440 minutes = 24 hours
-        if (cached) {
-            return cached;
-        }
-
-        return {
-            genres: staticPodcastData.genres,
-            kidsGenres: staticPodcastData.genres,
-            fromCache: false,
-            isStatic: true
-        };
-
-        // The code below is commented out since we're using static genres for now
-        // Will be implemented when proxy server has genres endpoint
-    } catch (error) {
-        
-        return {
-            genres: staticPodcastData.genres,
-            kidsGenres: staticPodcastData.genres,
-            fromCache: true,
-            isStatic: true,
-            error: 'Using fallback genres due to API error'
-        };
-    }
-}
-
 async function getBestPodcasts(genreId = null, page = 1) {
     try {
-        // Use the search API to get popular kids podcasts
-        const searchTerms = [
-            'kids stories',
-            'science for kids', 
-            'educational kids',
-            'bedtime stories',
-            'kids adventure'
-        ];
-        
-        // Pick a random search term for variety
-        const searchTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
-        
-        const cacheKey = `best_podcasts_${searchTerm}_${page}`;
-        const cached = apiCache.get('best_podcasts', { term: searchTerm, page: page }, 60); // 1 hour cache
+        const cached = apiCache.get('best_podcasts', { page: page }, 60);
         if (cached) {
             return cached;
         }
-        
-        const language = getPodcastLanguage();
-        const response = await fetch(`${CONFIG.PROXY_SERVER_URL}/api/search?q=${encodeURIComponent(searchTerm)}&type=podcast&only_in=title,description&language=${language}&safe_mode=1&offset=${(page - 1) * 10}`);
-        
-        if (!response.ok) {
-            throw new Error(`API response not ok: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        const podcasts = data.results ? data.results.slice(0, 10).map(podcast => ({
-            id: podcast.id,
-            title: podcast.title_original,
-            publisher: podcast.publisher_original,
-            thumbnail: podcast.thumbnail,
-            total_episodes: podcast.total_episodes,
-            description: podcast.description_original
-        })) : [];
-        
+
+        // Select random subset from curated list for variety
+        const shuffled = [...CURATED_PODCASTS].sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, Math.min(8, CURATED_PODCASTS.length));
+
+        const promises = selected.map(async (podcast) => {
+            try {
+                const response = await fetch(
+                    `https://itunes.apple.com/lookup?id=${podcast.itunesId}`
+                );
+                if (!response.ok) return null;
+
+                const data = await response.json();
+                const result = data.results[0];
+                if (!result) return null;
+
+                return {
+                    id: String(result.collectionId),
+                    title: result.collectionName,
+                    publisher: result.artistName,
+                    thumbnail: result.artworkUrl600 || result.artworkUrl100,
+                    total_episodes: result.trackCount || 0,
+                    description: '',
+                    feedUrl: result.feedUrl
+                };
+            } catch {
+                return null;
+            }
+        });
+
+        const allPodcasts = (await Promise.all(promises)).filter(p => p !== null);
+        const seenIds = new Set();
+        const podcasts = allPodcasts.filter(p => {
+            if (seenIds.has(p.id)) return false;
+            seenIds.add(p.id);
+            return true;
+        });
+
         const result = {
-            podcasts: podcasts,
-            has_next: data.next_offset ? true : false,
-            has_previous: page > 1,
-            page_number: page,
-            total: data.total || podcasts.length,
+            podcasts: podcasts.length > 0 ? podcasts : staticPodcastData.popularKidsPodcasts,
+            has_next: false,
+            has_previous: false,
+            page_number: 1,
+            total: podcasts.length || staticPodcastData.popularKidsPodcasts.length,
             fromCache: false,
-            isStatic: false
+            isStatic: podcasts.length === 0
         };
-        
-        // Cache the result
-        apiCache.set('best_podcasts', { term: searchTerm, page: page }, result);
-        
+
+        apiCache.set('best_podcasts', { page: page }, result);
         return result;
 
     } catch (error) {
-        return { 
+        return {
             podcasts: staticPodcastData.popularKidsPodcasts,
             has_next: false,
-            has_previous: page > 1,
-            page_number: page,
+            has_previous: false,
+            page_number: 1,
             total: staticPodcastData.popularKidsPodcasts.length,
             fromCache: true,
             isStatic: true,
@@ -2544,58 +2634,106 @@ async function getBestPodcasts(genreId = null, page = 1) {
     }
 }
 
-async function getPodcastEpisodes(podcastId, nextEpisodePubDate = null) {
-    try {
-        const cacheKey = nextEpisodePubDate ?
-            `${podcastId}_${nextEpisodePubDate}` : 
-            `${podcastId}_initial`;
-        
-        const cached = apiCache.get('podcast_episodes', { key: cacheKey }, 720); // 720 minutes = 12 hours
-        if (cached) {
-            return cached;
-        }
+function parseDuration(duration) {
+    if (!duration) return 0;
+    if (/^\d+$/.test(duration)) return parseInt(duration, 10);
+    const parts = duration.split(':').map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+}
 
-        let url = `${CONFIG.PROXY_SERVER_URL}/api/podcast/${podcastId}?sort=recent_first`;
-        if (nextEpisodePubDate) {
-            url += `&next_episode_pub_date=${nextEpisodePubDate}`;
-        }
+async function parseRSSForEpisodes(feedUrl, limit = 20) {
+    const response = await fetch(feedUrl);
+    const xmlText = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'text/xml');
 
-        const response = await fetch(url);
+    const channelImage = doc.querySelector('channel > image > url')?.textContent ||
+                        doc.querySelector('channel > itunes\\:image, channel > [href]')?.getAttribute('href') ||
+                        '';
 
-        if (!response.ok) {
-            if (response.status === 429) {
-                // Rate limited - return error with user-friendly message
-                return { 
-                    error: 'rate_limited',
-                    rateLimited: true,
-                    message: "We've reached the maximum allowed use of the podcast service for now. To keep this extension free for all users, we have usage limits that reset periodically. Please try again later. We appreciate your patience and hope to expand the allowed usage in the future."
-                };
-            }
-            return { error: `Failed to get podcast episodes: ${response.statusText}` };
-        }
+    const items = doc.querySelectorAll('item');
+    return Array.from(items).slice(0, limit).map((item, index) => {
+        const enclosure = item.querySelector('enclosure');
+        const durationText = item.querySelector('itunes\\:duration, duration')?.textContent || '0';
+        const episodeImage = item.querySelector('itunes\\:image')?.getAttribute('href') || channelImage;
 
-        const data = await response.json();
-        
-        const episodes = data.episodes.slice(0, 20).map(episode => ({
-            id: episode.id,
-            title: cleanEpisodeTitle(episode.title), // Use comprehensive title cleaning
-            description: episode.description,
-            audio: episode.audio,
-            audio_length_sec: episode.audio_length_sec,
-            thumbnail: episode.thumbnail || data.thumbnail,
-            pub_date_ms: episode.pub_date_ms
-        }));
-
-        const result = {
-            episodes,
-            next_episode_pub_date: data.next_episode_pub_date || null,
-            has_more: data.next_episode_pub_date ? true : false
+        return {
+            id: `rss_${index}`,
+            title: cleanEpisodeTitle(item.querySelector('title')?.textContent || 'Untitled'),
+            description: item.querySelector('description')?.textContent || '',
+            audio: enclosure?.getAttribute('url') || '',
+            audio_length_sec: parseDuration(durationText),
+            thumbnail: episodeImage,
+            pub_date_ms: new Date(item.querySelector('pubDate')?.textContent || Date.now()).getTime()
         };
-        
-        // Cache the result
-        apiCache.set('podcast_episodes', { key: cacheKey }, result);
-        
-        return result;
+    });
+}
+
+async function getPodcastEpisodes(podcastId, feedUrl = null, offset = 0) {
+    try {
+        const cacheKey = `${podcastId}_all_episodes`;
+        const pageSize = 20;
+
+        let allEpisodes = apiCache.get('podcast_episodes_all', { key: cacheKey }, 720);
+
+        if (!allEpisodes) {
+            const response = await fetch(
+                `https://itunes.apple.com/lookup?id=${podcastId}&media=podcast&entity=podcastEpisode&limit=100`
+            );
+
+            if (!response.ok) {
+                if (response.status === 403 || response.status === 429) {
+                    return {
+                        error: 'rate_limited',
+                        rateLimited: true,
+                        message: "We've reached the maximum allowed use of the podcast service for now. Please try again later."
+                    };
+                }
+                return { error: `Failed to get podcast episodes: ${response.statusText}` };
+            }
+
+            const data = await response.json();
+
+            // First result is the podcast info, rest are episodes
+            const podcastInfo = data.results[0];
+            const episodesData = data.results.slice(1);
+
+            // iTunes episodeUrl is preferred; fall back to RSS parsing when unavailable
+            if (episodesData.length > 0 && episodesData[0].episodeUrl) {
+                allEpisodes = episodesData.map(ep => ({
+                    id: String(ep.trackId),
+                    title: cleanEpisodeTitle(ep.trackName || 'Untitled'),
+                    description: ep.description || '',
+                    audio: ep.episodeUrl,
+                    audio_length_sec: Math.round((ep.trackTimeMillis || 0) / 1000),
+                    thumbnail: ep.artworkUrl600 || ep.artworkUrl160 || podcastInfo?.artworkUrl600 || '',
+                    pub_date_ms: new Date(ep.releaseDate).getTime()
+                }));
+            } else if (feedUrl || podcastInfo?.feedUrl) {
+                try {
+                    allEpisodes = await parseRSSForEpisodes(feedUrl || podcastInfo.feedUrl, 100);
+                } catch (rssError) {
+                    return { error: 'Failed to parse podcast RSS feed' };
+                }
+            } else {
+                return { error: 'No episode source available for this podcast' };
+            }
+
+            apiCache.set('podcast_episodes_all', { key: cacheKey }, allEpisodes);
+        }
+
+        const paginatedEpisodes = allEpisodes.slice(offset, offset + pageSize);
+        const hasMore = offset + pageSize < allEpisodes.length;
+
+        return {
+            episodes: paginatedEpisodes,
+            has_more: hasMore,
+            total_episodes: allEpisodes.length,
+            offset: offset,
+            next_offset: hasMore ? offset + pageSize : null
+        };
     } catch (error) {
         return { error: 'Failed to get podcast episodes' };
     }
@@ -3060,12 +3198,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                 
                 case 'SEARCH_ICONS_BY_CATEGORY':
-                    const categoryIcons = await searchIconsByCategory(request.category, request.loadMore || false);
-                    sendResponse(categoryIcons);
+                    if (request.keywords && request.keywords.length > 1) {
+                        const multiKeywordIcons = await searchIconsByMultipleKeywords(request.keywords, request.loadMore || false);
+                        sendResponse(multiKeywordIcons);
+                    } else {
+                        const singleCategory = request.category || (request.keywords && request.keywords[0]);
+                        const categoryIcons = await searchIconsByCategory(singleCategory, request.loadMore || false);
+                        sendResponse(categoryIcons);
+                    }
                     break;
                 
                 case 'APPLY_CATEGORY_ICONS':
-                    const applyResult = await applyCategoryIcons(request.cardId, request.icons, request.selectedTracks);
+                    const applyResult = await applyCategoryIcons(
+                        request.cardId,
+                        request.icons,
+                        request.selectedTracks,
+                        request.skippedTrackIndices || []
+                    );
                     sendResponse(applyResult);
                     break;
 
@@ -3632,13 +3781,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'GET_PODCAST_EPISODES':
-                    const episodesResult = await getPodcastEpisodes(request.podcastId, request.nextEpisodePubDate);
+                    const episodesResult = await getPodcastEpisodes(request.podcastId, request.feedUrl, request.offset || 0);
                     sendResponse(episodesResult);
-                    break;
-
-                case 'GET_GENRES':
-                    const genresResult = await getGenres();
-                    sendResponse(genresResult);
                     break;
 
                 case 'GET_BEST_PODCASTS':
@@ -3745,7 +3889,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'CANCEL_PODCAST_IMPORT':
-                    // Cancel the podcast import
                     await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
                     
                     await chrome.storage.local.set({

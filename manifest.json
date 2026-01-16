@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_extensionName__",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "__MSG_extensionDescription__",
 
   "permissions": [
@@ -23,9 +23,7 @@
     "https://share.yoto.co/*",
     "https://www.yotoicons.com/*",
     "https://www.google-analytics.com/*",
-    "https://www.listennotes.com/*",
-    "https://audio.listennotes.com/*",
-    "https://*.listennotes.com/*",
+    "https://itunes.apple.com/*",
     "https://*.cloudfront.net/*",
     "https://*.amazonaws.com/*",
     "https://cdn.yotoplay.com/*",

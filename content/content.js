@@ -938,9 +938,9 @@ function showPodcastPermissionModal() {
       });
       
       content.innerHTML = `
-        <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">Requesting Permission...</h2>
-        <p style="color: #6b7280;">Please grant the permission in the popup window that appears.</p>
-        <p style="color: #6b7280; font-size: 14px; margin-top: 16px;">If no popup appears, please check your browser's extension settings.</p>
+        <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('modal_requestingPermission')}</h2>
+        <p style="color: #6b7280;">${chrome.i18n.getMessage('modal_grantPermissionInPopup')}</p>
+        <p style="color: #6b7280; font-size: 14px; margin-top: 16px;">${chrome.i18n.getMessage('modal_noPopupInstruction')}</p>
       `;
       
       // Wait a moment then check if permission was granted
@@ -5735,7 +5735,7 @@ async function selectPodcast(podcast) {
     </div>
     <div id="episode-loading" style="text-align: center; padding: 40px;">
       <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-      <p style="margin-top: 10px; color: #6b7280;">Loading episodes...</p>
+      <p style="margin-top: 10px; color: #6b7280;">${chrome.i18n.getMessage('status_loadingEpisodes')}</p>
     </div>
     <div id="episode-content" style="display: none;">
       <div style="margin-bottom: 20px;">
@@ -5807,13 +5807,15 @@ async function selectPodcast(podcast) {
   document.body.appendChild(modal);
   
   let allEpisodes = [];
-  let nextEpisodePubDate = null;
+  let currentOffset = 0;
   let hasMoreEpisodes = false;
-  
+
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'GET_PODCAST_EPISODES',
-      podcastId: podcast.id
+      podcastId: podcast.id,
+      feedUrl: podcast.feedUrl,
+      offset: 0
     });
     
     document.getElementById('episode-loading').style.display = 'none';
@@ -5827,7 +5829,7 @@ async function selectPodcast(podcast) {
             <div style="display: flex; align-items: start; gap: 12px;">
               <span style="font-size: 24px;">⚠️</span>
               <div>
-                <h3 style="margin: 0 0 10px; color: #f57c00;">Usage Limit Reached</h3>
+                <h3 style="margin: 0 0 10px; color: #f57c00;">${chrome.i18n.getMessage('error_usageLimitReached')}</h3>
                 <p style="margin: 0; color: #666; line-height: 1.6;">${response.message}</p>
               </div>
             </div>
@@ -5844,7 +5846,7 @@ async function selectPodcast(podcast) {
     }
     
     allEpisodes = response.episodes || [];
-    nextEpisodePubDate = response.next_episode_pub_date || null;
+    currentOffset = response.next_offset || 0;
     hasMoreEpisodes = response.has_more || false;
     
     if (allEpisodes.length === 0) {
@@ -5930,7 +5932,7 @@ async function selectPodcast(podcast) {
               cursor: pointer;
               transition: all 0.2s;
             ">
-              Load More Episodes
+              ${chrome.i18n.getMessage('button_loadMore')}
             </button>
           </div>
         `;
@@ -5954,12 +5956,13 @@ async function selectPodcast(podcast) {
                 const moreResponse = await chrome.runtime.sendMessage({
                   action: 'GET_PODCAST_EPISODES',
                   podcastId: podcast.id,
-                  nextEpisodePubDate: nextEpisodePubDate
+                  feedUrl: podcast.feedUrl,
+                  offset: currentOffset
                 });
-                
+
                 if (moreResponse.episodes && moreResponse.episodes.length > 0) {
                   allEpisodes = [...allEpisodes, ...moreResponse.episodes];
-                  nextEpisodePubDate = moreResponse.next_episode_pub_date || null;
+                  currentOffset = moreResponse.next_offset || currentOffset;
                   hasMoreEpisodes = moreResponse.has_more || false;
                   
                   renderEpisodeList(true);
@@ -6171,8 +6174,8 @@ async function selectPodcast(podcast) {
               importComplete = true;
               statusText.innerHTML = `
                 <div style="color: #dc3545;">
-                  <p>Permission required to access podcast audio files.</p>
-                  <p style="font-size: 14px; margin-top: 10px;">Please close this modal and try importing again.</p>
+                  <p>${chrome.i18n.getMessage('error_permissionRequired')}</p>
+                  <p style="font-size: 14px; margin-top: 10px;">${chrome.i18n.getMessage('error_closeModalAndRetry')}</p>
                 </div>
               `;
               progressBar.style.width = '0%';
@@ -6262,7 +6265,7 @@ function showPodcastSearchModal() {
       <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
         ${chrome.i18n.getMessage('label_enterPodcastName')}
       </label>
-      <input type="text" id="podcast-search-input" placeholder="e.g., Radiolab for Kids" style="
+      <input type="text" id="podcast-search-input" placeholder="${chrome.i18n.getMessage('placeholder_podcastSearch')}" style="
         width: 100%;
         padding: 10px 12px;
         border: 1px solid #d1d5db;
@@ -6365,7 +6368,7 @@ function showPodcastSearchModal() {
     <div id="podcast-search-results" style="display: none; margin-bottom: 20px;">
       <div id="podcast-loading" style="display: none; text-align: center; padding: 20px;">
         <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        <p style="margin-top: 10px; color: #6b7280;">Searching podcasts...</p>
+        <p style="margin-top: 10px; color: #6b7280;">${chrome.i18n.getMessage('status_searchingPodcasts')}</p>
       </div>
       <div id="podcast-list" style="max-height: 300px; overflow-y: auto;"></div>
       <div id="podcast-error" style="display: none; color: #ef4444; padding: 10px; background: #fee; border-radius: 6px;"></div>
@@ -6435,7 +6438,7 @@ function showPodcastSearchModal() {
             <div style="display: flex; align-items: start; gap: 10px;">
               <span style="font-size: 20px;">⚠️</span>
               <div>
-                <strong style="color: #f57c00;">Usage Limit Reached</strong>
+                <strong style="color: #f57c00;">${chrome.i18n.getMessage('error_usageLimitReached')}</strong>
                 <p style="margin: 8px 0 0 0; color: #666; line-height: 1.5;">${response.message}</p>
               </div>
             </div>
