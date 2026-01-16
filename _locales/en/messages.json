@@ -429,6 +429,84 @@
     "message": "Untitled Icon",
     "description": "Fallback name for icons without title"
   },
+  "label_tracks": {
+    "message": "Tracks",
+    "description": "Label for tracks section"
+  },
+  "label_clickToSkip": {
+    "message": "click to skip",
+    "description": "Hint text for skip functionality"
+  },
+  "label_skipped": {
+    "message": "skipped",
+    "description": "Label when track is skipped"
+  },
+  "label_selectIcons": {
+    "message": "Select Icons",
+    "description": "Label for icon selection section"
+  },
+  "tooltip_skipTrack": {
+    "message": "Skip this track",
+    "description": "Tooltip for skip button"
+  },
+  "tooltip_includeTrack": {
+    "message": "Include this track",
+    "description": "Tooltip when track is skipped and can be included"
+  },
+  "label_addKeyword": {
+    "message": "Add keyword...",
+    "description": "Placeholder for keyword input"
+  },
+  "label_pressEnterToAdd": {
+    "message": "Press Enter to add multiple keywords",
+    "description": "Hint text for keyword chip input"
+  },
+  "button_searchIcons": {
+    "message": "Search Icons",
+    "description": "Button to search for icons"
+  },
+  "modal_selectIconsFor": {
+    "message": "Select Icons for \"$CATEGORY$\"",
+    "description": "Title for icon selection modal with category name",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "animals"
+      }
+    }
+  },
+  "modal_chooseIconsDescription": {
+    "message": "Choose icons to apply to your tracks. Click the skip icon to exclude tracks.",
+    "description": "Description for icon selection modal"
+  },
+  "label_selectedIconsFor": {
+    "message": "Selected: $ICONS$ icon(s) for $TRACKS$ track(s)",
+    "description": "Summary of selected icons and tracks",
+    "placeholders": {
+      "icons": {
+        "content": "$1",
+        "example": "3"
+      },
+      "tracks": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
+  "label_untitled": {
+    "message": "Untitled",
+    "description": "Fallback name for untitled items"
+  },
+  "label_numSkipped": {
+    "message": "$COUNT$ skipped",
+    "description": "Label showing number of skipped tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
   "status_authenticated": {
     "message": "Authenticated with Yoto",
     "description": "Status when user is authenticated"

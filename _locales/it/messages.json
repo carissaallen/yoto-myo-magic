@@ -123,6 +123,10 @@
     "message": "Ricerca icone in corso...",
     "description": "Button state while searching for icons"
   },
+  "button_searchIcons": {
+    "message": "Cerca icone",
+    "description": "Button to search for icons by category"
+  },
   "button_selectAll": {
     "message": "Seleziona tutto",
     "description": "Button to select all items"
@@ -699,6 +703,16 @@
       }
     }
   },
+  "label_numSkipped": {
+    "message": "$COUNT$ saltati",
+    "description": "Number of skipped tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
   "label_offline": {
     "message": "• Offline",
     "description": "Label for offline status"
@@ -753,6 +767,20 @@
       }
     }
   },
+  "label_selectedIconsFor": {
+    "message": "Selezionate: $ICONS$ icona/e per $TRACKS$ brano/i",
+    "description": "Status showing selected icons for tracks",
+    "placeholders": {
+      "icons": {
+        "content": "$1",
+        "example": "3"
+      },
+      "tracks": {
+        "content": "$2",
+        "example": "5"
+      }
+    }
+  },
   "label_separatePlaylists": {
     "message": "Playlist separate",
     "description": "Import mode option"
@@ -802,6 +830,10 @@
   "label_unknown": {
     "message": "Sconosciuto",
     "description": "When update date is unknown"
+  },
+  "label_untitled": {
+    "message": "Senza titolo",
+    "description": "Label for untitled items"
   },
   "label_untitledCard": {
     "message": "Scheda senza titolo",
@@ -856,6 +888,10 @@
   "modal_chooseCategory": {
     "message": "Scegli una categoria:",
     "description": "Label for category dropdown"
+  },
+  "modal_chooseIconsDescription": {
+    "message": "Scegli le icone da applicare ai tuoi brani. Clicca sull'icona \"salta\" per escludere i brani.",
+    "description": "Description for icon selection modal"
   },
   "modal_chooseImportMethod": {
     "message": "Scegli il metodo di importazione",
@@ -1018,6 +1054,16 @@
   "modal_selectFilesToAdd": {
     "message": "Seleziona i file da aggiungere a questa scheda.",
     "description": "Update modal description"
+  },
+  "modal_selectIconsFor": {
+    "message": "Seleziona le icone per \"$CATEGORY$\"",
+    "description": "Title for icon selection modal",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "Animals"
+      }
+    }
   },
   "modal_selectHowToImport": {
     "message": "Seleziona come desideri importare la tua playlist:",

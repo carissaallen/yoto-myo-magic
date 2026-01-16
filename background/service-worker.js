@@ -1046,6 +1046,110 @@ async function searchIconsByCategory(category, loadMore = false) {
     }
 }
 
+const multiKeywordSearchCache = new Map();
+
+async function searchIconsByMultipleKeywords(keywords, loadMore = false) {
+    try {
+        const cacheKey = keywords.map(k => k.toLowerCase()).sort().join('|');
+
+        if (multiKeywordSearchCache.has(cacheKey)) {
+            const cached = multiKeywordSearchCache.get(cacheKey);
+            return { icons: cached.allIcons, isComplete: cached.isComplete };
+        }
+
+        const translatedKeywords = await Promise.all(
+            keywords.map(async (keyword) => {
+                const translated = await TranslationService.translateToEnglish(keyword);
+                return translated || keyword;
+            })
+        );
+
+        const searchPromises = translatedKeywords.map(keyword => searchIconsByCategory(keyword, false));
+        const results = await Promise.all(searchPromises);
+
+        const seenIds = new Set();
+        let allIcons = [];
+
+        for (const result of results) {
+            if (result.icons) {
+                for (const icon of result.icons) {
+                    const iconId = icon.mediaId || icon.id;
+                    if (!seenIds.has(iconId)) {
+                        seenIds.add(iconId);
+                        allIcons.push(icon);
+                    }
+                }
+            }
+        }
+
+        const isComplete = results.every(r => r.isComplete);
+        multiKeywordSearchCache.set(cacheKey, {
+            allIcons: allIcons,
+            isComplete: isComplete
+        });
+
+        if (!isComplete) {
+            pollMultiKeywordSearchInBackground(cacheKey, translatedKeywords);
+        }
+        return { icons: allIcons, isComplete: isComplete };
+    } catch (error) {
+        console.error('Multi-keyword search error:', error);
+        return { error: error.message };
+    }
+}
+
+async function pollMultiKeywordSearchInBackground(cacheKey, keywords) {
+    const pollInterval = setInterval(async () => {
+        try {
+            const seenIds = new Set();
+            let allIcons = [];
+            let allComplete = true;
+
+            for (const keyword of keywords) {
+                const keywordCacheKey = keyword.toLowerCase();
+                if (categorySearchCache.has(keywordCacheKey)) {
+                    const cached = categorySearchCache.get(keywordCacheKey);
+                    for (const icon of cached.allIcons) {
+                        const iconId = icon.mediaId || icon.id;
+                        if (!seenIds.has(iconId)) {
+                            seenIds.add(iconId);
+                            allIcons.push(icon);
+                        }
+                    }
+                    if (!cached.isComplete) {
+                        allComplete = false;
+                    }
+                } else {
+                    allComplete = false;
+                }
+            }
+
+            multiKeywordSearchCache.set(cacheKey, {
+                allIcons: allIcons,
+                isComplete: allComplete
+            });
+
+            if (allComplete) {
+                clearInterval(pollInterval);
+            }
+        } catch (error) {
+            console.error('Multi-keyword poll error:', error);
+            clearInterval(pollInterval);
+        }
+    }, 1000);
+
+    setTimeout(() => {
+        clearInterval(pollInterval);
+        const cached = multiKeywordSearchCache.get(cacheKey);
+        if (cached && !cached.isComplete) {
+            multiKeywordSearchCache.set(cacheKey, {
+                ...cached,
+                isComplete: true
+            });
+        }
+    }, 30000);
+}
+
 async function searchRelatedTermsInBackground(cacheKey, relatedTerms, initialIcons, alreadySearchedTerms) {
     try {
         let allIcons = [...initialIcons];
@@ -1103,7 +1207,7 @@ function getRelatedTerms(category) {
     return categoryMap[lowerCategory] || [category];
 }
 
-async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
+async function applyCategoryIcons(cardId, selectedIcons, selectedTracks, skippedTrackIndices = []) {
     try {
         const cardContent = await getCardContent(cardId);
         if (cardContent.error) {
@@ -1140,7 +1244,14 @@ async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
             processedIcons.push(iconId);
         }
 
-        const selectedTrackTitles = new Set(selectedTracks.map(t => t.title));
+        const skippedIndicesSet = new Set(skippedTrackIndices);
+
+        const activeTrackTitles = new Set();
+        selectedTracks.forEach((track, index) => {
+            if (!skippedIndicesSet.has(index)) {
+                activeTrackTitles.add(track.title);
+            }
+        });
 
         let iconIndex = 0;
         let iconsUpdated = 0;
@@ -1150,10 +1261,10 @@ async function applyCategoryIcons(cardId, selectedIcons, selectedTracks) {
 
             if (chapter.tracks && chapter.tracks.length > 0) {
                 chapter.tracks.forEach((track) => {
-                    if (selectedTrackTitles.has(track.title)) {
+                    if (activeTrackTitles.has(track.title) && iconIndex < processedIcons.length) {
                         shouldUpdateChapter = true;
 
-                        const iconId = processedIcons[iconIndex % processedIcons.length];
+                        const iconId = processedIcons[iconIndex];
 
                         if (!track.display) {
                             track.display = {};
@@ -3087,12 +3198,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                 
                 case 'SEARCH_ICONS_BY_CATEGORY':
-                    const categoryIcons = await searchIconsByCategory(request.category, request.loadMore || false);
-                    sendResponse(categoryIcons);
+                    if (request.keywords && request.keywords.length > 1) {
+                        const multiKeywordIcons = await searchIconsByMultipleKeywords(request.keywords, request.loadMore || false);
+                        sendResponse(multiKeywordIcons);
+                    } else {
+                        const singleCategory = request.category || (request.keywords && request.keywords[0]);
+                        const categoryIcons = await searchIconsByCategory(singleCategory, request.loadMore || false);
+                        sendResponse(categoryIcons);
+                    }
                     break;
                 
                 case 'APPLY_CATEGORY_ICONS':
-                    const applyResult = await applyCategoryIcons(request.cardId, request.icons, request.selectedTracks);
+                    const applyResult = await applyCategoryIcons(
+                        request.cardId,
+                        request.icons,
+                        request.selectedTracks,
+                        request.skippedTrackIndices || []
+                    );
                     sendResponse(applyResult);
                     break;
 

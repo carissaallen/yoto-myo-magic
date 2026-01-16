@@ -123,6 +123,10 @@
     "message": "Iskanje ikon...",
     "description": "Button state while searching for icons"
   },
+  "button_searchIcons": {
+    "message": "Ikone za iskanje",
+    "description": "Button to search for icons by category"
+  },
   "button_selectAll": {
     "message": "Izberi vse",
     "description": "Button to select all items"
@@ -699,6 +703,16 @@
       }
     }
   },
+  "label_numSkipped": {
+    "message": "$COUNT$ preskočenih",
+    "description": "Number of skipped tracks",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
   "label_offline": {
     "message": "• Offline",
     "description": "Label for offline status"
@@ -754,6 +768,20 @@
       "plural": {
         "content": "$2",
         "example": "i"
+      }
+    }
+  },
+  "label_selectedIconsFor": {
+    "message": "Izbrano: $ICONS$ ikona(-e) za $TRACKS$ skladb(-e)",
+    "description": "Status showing selected icons for tracks",
+    "placeholders": {
+      "icons": {
+        "content": "$1",
+        "example": "3"
+      },
+      "tracks": {
+        "content": "$2",
+        "example": "5"
       }
     }
   },
@@ -817,6 +845,10 @@
     "message": "Neznano",
     "description": "When update date is unknown"
   },
+  "label_untitled": {
+    "message": "Brez naslova",
+    "description": "Label for untitled items"
+  },
   "label_untitledCard": {
     "message": "Kartica brez naslova",
     "description": "Fallback name for cards without title"
@@ -870,6 +902,10 @@
   "modal_chooseCategory": {
     "message": "Izberite kategorijo:",
     "description": "Label for category dropdown"
+  },
+  "modal_chooseIconsDescription": {
+    "message": "Izberite ikone, ki jih želite uporabiti za skladbe. Kliknite ikono za preskok, da izključite skladbe.",
+    "description": "Description for icon selection modal"
   },
   "modal_chooseImportMethod": {
     "message": "Izberite metodo uvoza",
@@ -1032,6 +1068,16 @@
   "modal_selectFilesToAdd": {
     "message": "Izberite datoteke, ki jih želite dodati tej kartici.",
     "description": "Update modal description"
+  },
+  "modal_selectIconsFor": {
+    "message": "Izberite ikone za \"$CATEGORY$\"",
+    "description": "Title for icon selection modal",
+    "placeholders": {
+      "category": {
+        "content": "$1",
+        "example": "Animals"
+      }
+    }
   },
   "modal_selectHowToImport": {
     "message": "Izberite, kako želite uvoziti svoj seznam predvajanja:",
