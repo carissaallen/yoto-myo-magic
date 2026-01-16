@@ -833,9 +833,8 @@ function showPodcastPermissionModal() {
     justify-content: center;
     padding-top: 20vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    animation: fadeIn 0.3s ease;
   `;
-  
+
   const content = document.createElement('div');
   content.style.cssText = `
     background: white;
@@ -844,7 +843,6 @@ function showPodcastPermissionModal() {
     max-width: 500px;
     width: 90%;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: slideDown 0.3s ease;
   `;
   
   content.innerHTML = `
@@ -5484,7 +5482,17 @@ async function loadBestKidsPodcasts() {
         break;
       }
     }
-    
+
+    // Remove duplicates by podcast ID
+    const seenIds = new Set();
+    allPodcasts = allPodcasts.filter(podcast => {
+      if (seenIds.has(podcast.id)) {
+        return false;
+      }
+      seenIds.add(podcast.id);
+      return true;
+    });
+
     // Shuffle the final podcast list for additional randomness
     if (allPodcasts.length > 0) {
       // Fisher-Yates shuffle
@@ -5668,7 +5676,7 @@ async function selectPodcast(podcast) {
   if (searchModal) {
     searchModal.remove();
   }
-  
+
   const modal = document.createElement('div');
   modal.id = 'episode-selection-modal';
   modal.style.cssText = `
@@ -5684,9 +5692,8 @@ async function selectPodcast(podcast) {
     justify-content: center;
     padding-top: 20vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    animation: fadeIn 0.3s ease;
   `;
-  
+
   const content = document.createElement('div');
   content.style.cssText = `
     background: white;
@@ -5697,7 +5704,6 @@ async function selectPodcast(podcast) {
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: slideDown 0.3s ease;
   `;
   
   content.innerHTML = `
@@ -6068,9 +6074,8 @@ async function selectPodcast(podcast) {
       importBtn.textContent = chrome.i18n.getMessage('button_importing');
       // Keep cancel button enabled so user can cancel
       cancelBtn.textContent = chrome.i18n.getMessage('button_cancel');
-      
-      const episodePlural = selectedEpisodes.length !== 1 ? 's' : '';
-      statusText.textContent = chrome.i18n.getMessage("status_startingImport", [selectedEpisodes.length.toString(), episodePlural]);
+
+      statusText.textContent = chrome.i18n.getMessage("status_startingImport");
       progressBar.style.width = '5%';
       
       let importCancelled = false;
@@ -6122,9 +6127,9 @@ async function selectPodcast(podcast) {
         let importComplete = false;
         let pollAttempts = 0;
         const episodeCount = selectedEpisodes.length;
-        const estimatedTimeSeconds = Math.ceil(episodeCount / 3) * 60 + 60;
-        const minTimeout = 180;
-        const maxTimeout = 900;
+        const estimatedTimeSeconds = Math.ceil(episodeCount / 5) * 90 + 120;
+        const minTimeout = 300;
+        const maxTimeout = 1800;
         const maxAttempts = Math.min(Math.max(estimatedTimeSeconds, minTimeout), maxTimeout);
         
         progressBar.style.width = '10%';
@@ -6242,9 +6247,8 @@ function showPodcastSearchModal() {
     justify-content: center;
     padding-top: 20vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    animation: fadeIn 0.3s ease;
   `;
-  
+
   const content = document.createElement('div');
   content.style.cssText = `
     background: white;
@@ -6256,7 +6260,6 @@ function showPodcastSearchModal() {
     overflow-y: auto;
     overflow-x: visible;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: slideDown 0.3s ease;
   `;
   
   content.innerHTML = `
