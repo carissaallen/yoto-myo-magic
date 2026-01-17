@@ -1999,11 +1999,16 @@ async function uploadAudioFile(audioFileData) {
         const additionalAttempts = fileSizeMB > 35 ? Math.floor((fileSizeMB - 35) / 5) : 0;
         const maxAttempts = Math.min(baseAttempts + additionalAttempts, 120);
 
-        let pollInterval = 500;
-        const maxPollInterval = 5000; // Max 5 seconds between polls
-        let totalElapsedTime = 0;
-        const transcodingStartTime = Date.now();
+        // Initial delay before polling - transcoding typically takes 25-60+ seconds
+        // Wait based on file size: ~1.5s per MB, minimum 15s, maximum 30s
+        const estimatedTranscodeSeconds = Math.min(Math.max(fileSizeMB * 1.5, 15), 30);
+        await new Promise(resolve => setTimeout(resolve, estimatedTranscodeSeconds * 1000));
 
+        // After initial delay, poll more aggressively (start at 2s instead of 500ms with slow ramp)
+        let pollInterval = 2000;
+        const maxPollInterval = 5000; // Max 5 seconds between polls
+        let totalElapsedTime = estimatedTranscodeSeconds * 1000;
+        const transcodingStartTime = Date.now() - totalElapsedTime; // Adjust for initial delay
 
         while (attempts < maxAttempts) {
             const transcodeResponse = await makeAuthenticatedRequest(
@@ -2050,8 +2055,7 @@ async function uploadAudioFile(audioFileData) {
             totalElapsedTime += pollInterval;
             attempts++;
 
-            // Exponential backoff: increase interval by 1.5x each attempt, up to max
-            pollInterval = Math.min(Math.floor(pollInterval * 1.5), maxPollInterval);
+            pollInterval = Math.min(Math.floor(pollInterval * 1.2), maxPollInterval);
         }
 
         if (!transcodedAudio) {
@@ -2776,6 +2780,11 @@ async function updateCardWithPodcastEpisodes(cardId, newAudioTracks, coverImageU
 }
 
 async function importPodcastEpisodes(podcast, episodes, updateMode = false, cardId = null) {
+    const audioTracks = [];
+    let processedCount = 0;
+    let failedCount = 0;
+    const encounteredDomains = new Set();
+
     try {
         await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp']);
 
@@ -2792,15 +2801,12 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         if (!isValid) {
             return { error: 'Not authenticated. Please log in first.' };
         }
-        const playlistName = `${podcast.title} - Podcast`;
-        
-        const CONCURRENT_LIMIT = 5;
-        const audioTracks = [];
-        let processedCount = 0;
-        let failedCount = 0;
-        const encounteredDomains = new Set(); // Track domains that need permissions
 
-        const updateProgress = async (episodeIndex) => {
+        const playlistName = `${podcast.title} - Podcast`;
+
+        const CONCURRENT_LIMIT = episodes.length >= 50 ? 4 : 3;
+
+        const updateProgress = async (episodeIndex, additionalInfo = {}) => {
             const failedText = failedCount > 0 ? ` (${failedCount} ${chrome.i18n.getMessage('status_podcastFailed')})` : '';
             const message = chrome.i18n.getMessage('status_podcastProcessing', [String(processedCount), String(episodes.length)]) + failedText;
 
@@ -2810,20 +2816,18 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
                     current: processedCount,
                     total: episodes.length,
                     currentEpisode: episodeIndex + 1,
-                    message: message
+                    successfulTracks: audioTracks.length,
+                    failedCount: failedCount,
+                    message: message,
+                    ...additionalInfo
                 }
             });
         };
 
-        const processEpisode = async (episode, index) => {
-            if (episode.audio_length_sec > 3600) {
-                console.warn(`Episode "${episode.title}" exceeds 60 minutes, it may be truncated by Yoto`);
-            }
+        const fetchAudioWithRetry = async (audioUrl, episodeTitle, maxAttempts = 3) => {
+            let lastError = null;
 
-            try {
-                let audioBlob = null;
-                let audioUrl = episode.audio;
-
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
                     try {
                         const headResponse = await fetch(audioUrl, {
@@ -2833,7 +2837,6 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
 
                         if (headResponse.url !== audioUrl) {
                             const finalUrl = new URL(headResponse.url);
-
                             const hasPermission = await chrome.permissions.contains({
                                 origins: [`${finalUrl.protocol}//${finalUrl.hostname}/*`]
                             });
@@ -2843,48 +2846,86 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
                             }
                         }
                     } catch (headError) {
+                        // HEAD request failed, continue with GET
                     }
+
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
                     const audioResponse = await fetch(audioUrl, {
                         method: 'GET',
-                        redirect: 'follow'
+                        redirect: 'follow',
+                        signal: controller.signal
                     });
 
-                    try {
-                        const finalUrl = new URL(audioResponse.url);
-                    } catch (e) {
-                    }
+                    clearTimeout(timeoutId);
 
                     if (!audioResponse.ok) {
-                        throw new Error(`HTTP ${audioResponse.status}`);
+                        const errorMsg = `HTTP ${audioResponse.status} ${audioResponse.statusText}`;
+                        if (audioResponse.status >= 400 && audioResponse.status < 500) {
+                            throw new Error(errorMsg);
+                        }
+                        lastError = new Error(errorMsg);
+                        if (attempt < maxAttempts) {
+                            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw lastError;
                     }
 
-                    audioBlob = await audioResponse.blob();
+                    const audioBlob = await audioResponse.blob();
 
                     if (!audioBlob || audioBlob.size === 0) {
-                        throw new Error('Empty audio file');
+                        throw new Error('Empty audio file received');
                     }
+
+                    return { success: true, blob: audioBlob };
+
                 } catch (fetchError) {
-                    if (fetchError.message && fetchError.message.includes('Failed to fetch')) {
-                        if (encounteredDomains.size === 0) {
-                            try {
-                                const url = new URL(audioUrl);
-                            } catch (e) {
-                            }
+                    lastError = fetchError;
+                    const isNetworkError = fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('NetworkError');
+
+                    if (isNetworkError && encounteredDomains.size === 0) {
+                        try {
+                            const url = new URL(audioUrl);
+                            encounteredDomains.add(`${url.protocol}//${url.hostname}/*`);
+                        } catch (e) {
+                            // Ignore URL parse errors
                         }
                     }
 
+                    if (attempt < maxAttempts) {
+                        const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
+                }
+            }
+
+            return { success: false, error: lastError?.message || 'Failed to fetch audio' };
+        };
+
+        const processEpisode = async (episode, index) => {
+            if (episode.audio_length_sec > 3600) {
+                console.warn(`Episode "${episode.title}" exceeds 60 minutes, may be truncated by Yoto`);
+            }
+
+            try {
+                const fetchResult = await fetchAudioWithRetry(episode.audio, episode.title);
+
+                if (!fetchResult.success) {
                     failedCount++;
                     return null;
                 }
 
                 const uploadResult = await uploadAudioFile({
-                    blob: audioBlob,
+                    blob: fetchResult.blob,
                     name: `${episode.title}.mp3`,
                     type: 'audio/mpeg'
                 });
 
                 if (uploadResult.error) {
+                    console.error(`Upload failed for "${episode.title}":`, uploadResult.error);
                     failedCount++;
                     return null;
                 }
@@ -2896,6 +2937,7 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
                 };
 
             } catch (error) {
+                console.error(`Error processing "${episode.title}":`, error.message);
                 failedCount++;
                 return null;
             } finally {
@@ -2903,53 +2945,62 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
                 await updateProgress(index);
             }
         };
-        
-        const results = [];
+
         for (let i = 0; i < episodes.length; i += CONCURRENT_LIMIT) {
             const batch = episodes.slice(i, Math.min(i + CONCURRENT_LIMIT, episodes.length));
-            const batchPromises = batch.map((episode, batchIndex) => 
-                processEpisode(episode, i + batchIndex)
-            );
-            
-            // Wait for current batch to complete before starting next batch
-            const batchResults = await Promise.all(batchPromises);
-            results.push(...batchResults);
+
+            try {
+                const batchPromises = batch.map((episode, batchIndex) =>
+                    processEpisode(episode, i + batchIndex)
+                );
+
+                const batchResults = await Promise.all(batchPromises);
+
+                const batchTracks = batchResults
+                    .filter(track => track !== null)
+                    .sort((a, b) => a.originalIndex - b.originalIndex)
+                    .map(track => ({
+                        title: track.title,
+                        transcodedAudio: track.transcodedAudio
+                    }));
+
+                audioTracks.push(...batchTracks);
+
+            } catch (batchError) {
+                console.error(`Batch processing error:`, batchError.message);
+                for (let j = 0; j < batch.length; j++) {
+                    failedCount++;
+                    processedCount++;
+                }
+                await updateProgress(i + batch.length - 1, { batchError: batchError.message });
+            }
+
+            if (i + CONCURRENT_LIMIT < episodes.length) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
         }
-        
-        const successfulTracks = results
-            .filter(track => track !== null)
-            .sort((a, b) => a.originalIndex - b.originalIndex)
-            .map(track => ({
-                title: track.title,
-                transcodedAudio: track.transcodedAudio
-            }));
-        
-        audioTracks.push(...successfulTracks);
-        
-        
-        
+
         if (audioTracks.length === 0) {
-            // Check if we encountered domains we don't have permission for
             if (encounteredDomains.size > 0 && failedCount > 0) {
-                const domainsArray = Array.from(encounteredDomains);
-                
-                return { 
+                return {
                     error: 'Failed to import episodes. The podcast audio is hosted on external domains that require additional permissions.',
                     needsPermission: true,
-                    requiredDomains: domainsArray
+                    requiredDomains: Array.from(encounteredDomains)
                 };
             }
-            
             return { error: 'Failed to import episodes. The podcast audio may be hosted on a domain that requires additional permissions.' };
         }
-        
+
+        const isPartialImport = audioTracks.length < episodes.length;
+        if (isPartialImport) {
+            console.info(`Partial import: ${audioTracks.length}/${episodes.length} episodes succeeded`);
+        }
+
         let coverImageUrl = null;
         if (podcast.thumbnail) {
             try {
-                const imageResponse = await fetch(podcast.thumbnail, {
-                    method: 'GET'
-                });
-                
+                const imageResponse = await fetch(podcast.thumbnail, { method: 'GET' });
+
                 if (imageResponse.ok) {
                     const imageBlob = await imageResponse.blob();
                     const reader = new FileReader();
@@ -2960,23 +3011,22 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
                         };
                         reader.readAsDataURL(imageBlob);
                     });
-                    
+
                     const coverResult = await uploadCoverImage({
                         data: imageData,
                         name: 'podcast_cover.jpg',
                         type: imageBlob.type
                     });
-                    
+
                     if (coverResult.url) {
                         coverImageUrl = coverResult.url;
                     }
-                } else {
                 }
             } catch (error) {
                 // Continue without cover image
             }
         }
-        
+
         await chrome.storage.local.set({
             podcastImportProgress: {
                 status: 'in_progress',
@@ -2989,18 +3039,9 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         let result;
 
         if (updateMode && cardId) {
-            result = await updateCardWithPodcastEpisodes(
-                cardId,
-                audioTracks,
-                coverImageUrl
-            );
+            result = await updateCardWithPodcastEpisodes(cardId, audioTracks, coverImageUrl);
         } else {
-            result = await createPlaylistContent(
-                playlistName,
-                audioTracks,
-                [], // No custom icons for now
-                coverImageUrl
-            );
+            result = await createPlaylistContent(playlistName, audioTracks, [], coverImageUrl);
         }
 
         if (result.error) {
@@ -3008,10 +3049,7 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
             await chrome.storage.local.set({
                 podcastImportResult: errorResult,
                 podcastImportTimestamp: Date.now(),
-                podcastImportProgress: {
-                    status: 'error',
-                    message: errorResult.error
-                }
+                podcastImportProgress: { status: 'error', message: errorResult.error }
             });
             return errorResult;
         }
@@ -3020,6 +3058,9 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
             success: true,
             contentId: result.contentId,
             tracksImported: audioTracks.length,
+            totalEpisodes: episodes.length,
+            failedCount: failedCount,
+            partial: isPartialImport,
             updated: updateMode
         };
 
@@ -3033,19 +3074,67 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         });
 
         return successResult;
-        
+
     } catch (error) {
-        const errorResult = { error: error.message || 'Failed to import podcast episodes' };
-        
+        console.error('Podcast import failed:', error.message);
+
+        // Attempt to save partial results on failure
+        if (audioTracks.length > 0) {
+            try {
+                const partialResult = await createPlaylistContent(
+                    `${podcast.title} - Podcast`,
+                    audioTracks,
+                    [],
+                    null
+                );
+
+                if (!partialResult.error) {
+                    console.info(`Saved partial import: ${audioTracks.length} tracks`);
+
+                    const partialSuccess = {
+                        success: true,
+                        partial: true,
+                        contentId: partialResult.contentId,
+                        tracksImported: audioTracks.length,
+                        totalEpisodes: episodes.length,
+                        failedCount: failedCount,
+                        originalError: error.message,
+                        updated: updateMode
+                    };
+
+                    await chrome.storage.local.set({
+                        podcastImportResult: partialSuccess,
+                        podcastImportTimestamp: Date.now(),
+                        podcastImportProgress: {
+                            status: 'complete',
+                            partial: true,
+                            message: `Imported ${audioTracks.length} of ${episodes.length} episodes (some failed)`
+                        }
+                    });
+
+                    return partialSuccess;
+                }
+            } catch (recoveryError) {
+                console.error('Failed to save partial results:', recoveryError.message);
+            }
+        }
+
+        const errorResult = {
+            error: error.message || 'Failed to import podcast episodes',
+            tracksProcessed: audioTracks.length,
+            failedCount: failedCount
+        };
+
         await chrome.storage.local.set({
             podcastImportResult: errorResult,
             podcastImportTimestamp: Date.now(),
             podcastImportProgress: {
                 status: 'error',
-                message: errorResult.error
+                message: errorResult.error,
+                tracksProcessed: audioTracks.length
             }
         });
-        
+
         return errorResult;
     }
 }
@@ -3058,7 +3147,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     (async () => {
         try {
-            console.log('[DEBUG] Received message with action:', request.action, 'Full request:', request);
             switch (request.action) {
                 case 'CHECK_AUTH':
                     const isValid = await TokenManager.isTokenValid();

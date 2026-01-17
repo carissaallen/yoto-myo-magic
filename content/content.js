@@ -6125,51 +6125,75 @@ async function selectPodcast(podcast) {
         }
         
         let importComplete = false;
-        let pollAttempts = 0;
         const episodeCount = selectedEpisodes.length;
-        const estimatedTimeSeconds = Math.ceil(episodeCount / 5) * 90 + 120;
-        const minTimeout = 300;
-        const maxTimeout = 1800;
-        const maxAttempts = Math.min(Math.max(estimatedTimeSeconds, minTimeout), maxTimeout);
-        
+
+        const INACTIVITY_TIMEOUT_SECONDS = 300; // 5 minutes without progress = timeout
+        let lastProgressCount = 0;
+        let lastProgressTime = Date.now();
+        let totalElapsedSeconds = 0;
+
         progressBar.style.width = '10%';
         statusText.textContent = chrome.i18n.getMessage('status_downloadingEpisodes');
-        
-        while (!importComplete && !importCancelled && pollAttempts < maxAttempts) {
+
+        while (!importComplete && !importCancelled) {
           await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          totalElapsedSeconds++;
 
           if (importCancelled) {
             break;
           }
-          
+
           const statusResponse = await chrome.runtime.sendMessage({
             action: 'GET_PODCAST_IMPORT_STATUS'
           });
-          
+
           if (statusResponse) {
             if (statusResponse.progress) {
               const progress = statusResponse.progress;
               if (progress.status === 'in_progress') {
-                const percent = progress.total > 0 
+                const percent = progress.total > 0
                   ? Math.min(10 + (progress.current / progress.total * 80), 90)
                   : 10;
                 progressBar.style.width = `${percent}%`;
                 statusText.textContent = progress.message || chrome.i18n.getMessage('status_processing');
+
+                const currentCount = progress.current || 0;
+                if (currentCount > lastProgressCount) {
+                  lastProgressCount = currentCount;
+                  lastProgressTime = Date.now();
+                }
               }
             }
-            
+
             if (statusResponse.success) {
               importComplete = true;
               progressBar.style.width = '100%';
-              statusText.textContent = `${chrome.i18n.getMessage("status_successfullyImportedEpisodes", [statusResponse.tracksImported || selectedEpisodes.length])}`;
+
+              if (statusResponse.partial) {
+                const imported = statusResponse.tracksImported || 0;
+                const total = statusResponse.totalEpisodes || selectedEpisodes.length;
+                const failed = statusResponse.failedCount || (total - imported);
+
+                statusText.innerHTML = `
+                  <div style="color: #28a745;">
+                    <p>${chrome.i18n.getMessage("status_successfullyImportedEpisodes", [imported])}</p>
+                    <p style="font-size: 14px; margin-top: 8px; color: #856404;">
+                      Note: ${failed} episode${failed !== 1 ? 's' : ''} could not be imported due to errors.
+                    </p>
+                  </div>
+                `;
+              } else {
+                statusText.textContent = `${chrome.i18n.getMessage("status_successfullyImportedEpisodes", [statusResponse.tracksImported || selectedEpisodes.length])}`;
+              }
+
               importBtn.textContent = chrome.i18n.getMessage('status_completed');
-              
+
               await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
-              
+
               setTimeout(() => {
                 modal.remove();
                 window.location.reload();
-              }, 2000);
+              }, statusResponse.partial ? 4000 : 2000); // Give more time to read partial message
             } else if (statusResponse.cancelled) {
               // Import was cancelled
               importComplete = true;
@@ -6190,12 +6214,31 @@ async function selectPodcast(podcast) {
               throw new Error(statusResponse.error);
             }
           }
-          
-          pollAttempts++;
-        }
-        
-        if (!importComplete) {
-          throw new Error(chrome.i18n.getMessage('error_importTakingTooLong'));
+
+          const secondsSinceProgress = (Date.now() - lastProgressTime) / 1000;
+          if (secondsSinceProgress >= INACTIVITY_TIMEOUT_SECONDS) {
+            console.error(`[PodcastImport:UI] No progress for ${secondsSinceProgress.toFixed(0)}s - timing out`);
+
+            const finalStatus = await chrome.runtime.sendMessage({
+              action: 'GET_PODCAST_IMPORT_STATUS'
+            });
+
+            if (finalStatus && finalStatus.success) {
+              importComplete = true;
+              progressBar.style.width = '100%';
+              statusText.textContent = `${chrome.i18n.getMessage("status_successfullyImportedEpisodes", [finalStatus.tracksImported || selectedEpisodes.length])}`;
+              importBtn.textContent = chrome.i18n.getMessage('status_completed');
+
+              await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
+
+              setTimeout(() => {
+                modal.remove();
+                window.location.reload();
+              }, 2000);
+            } else {
+              throw new Error(chrome.i18n.getMessage('error_importTakingTooLong'));
+            }
+          }
         }
 
         if (window.yotoUpdateMode) {
