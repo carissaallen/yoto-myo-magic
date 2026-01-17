@@ -2467,7 +2467,8 @@ const CURATED_PODCASTS = [
     { itunesId: '1566472174', name: 'Whose Amazing Life?' },
     { itunesId: '1440083927', name: 'Forever Ago' },
     { itunesId: '948976028', name: 'Stories Podcast' },
-    { itunesId: '1382789861', name: 'Smash Boom Best' }
+    { itunesId: '1382789861', name: 'Smash Boom Best' },
+    { itunesId: '1861346448', name: 'Tales of Extinction' }
 ];
 
 // Static fallback data for when API is unavailable or limit reached
@@ -2647,6 +2648,52 @@ function parseDuration(duration) {
     return 0;
 }
 
+async function fetchPodcastDescription(feedUrl) {
+    if (!feedUrl) return '';
+    try {
+        const response = await fetch(feedUrl);
+        if (!response.ok) return '';
+        const xmlText = await response.text();
+
+        // Use regex to extract description from XML (service workers may not have DOMParser)
+        // Try itunes:summary first (usually cleaner), then description
+        let description = '';
+
+        // Try <itunes:summary> first - match content between tags or in CDATA
+        const itunesSummaryMatch = xmlText.match(/<itunes:summary[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/itunes:summary>/i);
+        if (itunesSummaryMatch && itunesSummaryMatch[1]) {
+            description = itunesSummaryMatch[1];
+        }
+
+        // Fall back to <description> in channel (first occurrence, before <item>)
+        if (!description) {
+            const channelPart = xmlText.split(/<item>/i)[0]; // Only look in channel section
+            const descMatch = channelPart.match(/<description[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/description>/i);
+            if (descMatch && descMatch[1]) {
+                description = descMatch[1];
+            }
+        }
+
+        if (!description) return '';
+
+        // Strip HTML tags, decode common entities, and normalize whitespace
+        description = description
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return description;
+    } catch {
+        return '';
+    }
+}
+
 async function parseRSSForEpisodes(feedUrl, limit = 20) {
     const response = await fetch(feedUrl);
     const xmlText = await response.text();
@@ -2675,10 +2722,9 @@ async function parseRSSForEpisodes(feedUrl, limit = 20) {
     });
 }
 
-async function getPodcastEpisodes(podcastId, feedUrl = null, offset = 0) {
+async function getPodcastEpisodes(podcastId, feedUrl = null) {
     try {
         const cacheKey = `${podcastId}_all_episodes`;
-        const pageSize = 20;
 
         let allEpisodes = apiCache.get('podcast_episodes_all', { key: cacheKey }, 720);
 
@@ -2728,15 +2774,9 @@ async function getPodcastEpisodes(podcastId, feedUrl = null, offset = 0) {
             apiCache.set('podcast_episodes_all', { key: cacheKey }, allEpisodes);
         }
 
-        const paginatedEpisodes = allEpisodes.slice(offset, offset + pageSize);
-        const hasMore = offset + pageSize < allEpisodes.length;
-
         return {
-            episodes: paginatedEpisodes,
-            has_more: hasMore,
-            total_episodes: allEpisodes.length,
-            offset: offset,
-            next_offset: hasMore ? offset + pageSize : null
+            episodes: allEpisodes,
+            total_episodes: allEpisodes.length
         };
     } catch (error) {
         return { error: 'Failed to get podcast episodes' };
@@ -2779,7 +2819,15 @@ async function updateCardWithPodcastEpisodes(cardId, newAudioTracks, coverImageU
     }
 }
 
-async function importPodcastEpisodes(podcast, episodes, updateMode = false, cardId = null) {
+async function importPodcastEpisodes(episodes, options = {}) {
+    const {
+        playlistName: providedPlaylistName,
+        coverImageUrl: providedCoverUrl,
+        updateMode = false,
+        cardId = null,
+        podcast = null
+    } = options;
+
     const audioTracks = [];
     let processedCount = 0;
     let failedCount = 0;
@@ -2802,7 +2850,17 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
             return { error: 'Not authenticated. Please log in first.' };
         }
 
-        const playlistName = `${podcast.title} - Podcast`;
+        let playlistName;
+        if (providedPlaylistName) {
+            playlistName = providedPlaylistName;
+        } else if (podcast && podcast.title) {
+            playlistName = `${podcast.title} - Podcast`;
+        } else if (episodes.length > 0 && episodes[0].podcast && episodes[0].podcast.title) {
+            const uniquePodcasts = [...new Set(episodes.map(ep => ep.podcast?.title).filter(Boolean))];
+            playlistName = uniquePodcasts.length === 1 ? `${uniquePodcasts[0]} - Podcast` : (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape');
+        } else {
+            playlistName = 'Podcast Episodes';
+        }
 
         const CONCURRENT_LIMIT = episodes.length >= 50 ? 4 : 3;
 
@@ -2997,9 +3055,17 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
         }
 
         let coverImageUrl = null;
-        if (podcast.thumbnail) {
+        let thumbnailSource = providedCoverUrl;
+        if (!thumbnailSource && podcast && podcast.thumbnail) {
+            thumbnailSource = podcast.thumbnail;
+        }
+        if (!thumbnailSource && episodes.length > 0 && episodes[0].podcast && episodes[0].podcast.thumbnail) {
+            thumbnailSource = episodes[0].podcast.thumbnail;
+        }
+
+        if (thumbnailSource) {
             try {
-                const imageResponse = await fetch(podcast.thumbnail, { method: 'GET' });
+                const imageResponse = await fetch(thumbnailSource, { method: 'GET' });
 
                 if (imageResponse.ok) {
                     const imageBlob = await imageResponse.blob();
@@ -3023,7 +3089,6 @@ async function importPodcastEpisodes(podcast, episodes, updateMode = false, card
                     }
                 }
             } catch (error) {
-                // Continue without cover image
             }
         }
 
@@ -3869,8 +3934,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'GET_PODCAST_EPISODES':
-                    const episodesResult = await getPodcastEpisodes(request.podcastId, request.feedUrl, request.offset || 0);
+                    const episodesResult = await getPodcastEpisodes(request.podcastId, request.feedUrl);
                     sendResponse(episodesResult);
+                    break;
+
+                case 'FETCH_PODCAST_DESCRIPTION':
+                    const podcastDescription = await fetchPodcastDescription(request.feedUrl);
+                    sendResponse({ description: podcastDescription });
                     break;
 
                 case 'GET_BEST_PODCASTS':
@@ -3940,17 +4010,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                     
                 case 'IMPORT_PODCAST_EPISODES':
-                    // Don't check permissions upfront - try first and see if it works
-                    // Start the import process asynchronously
-                    // Return immediately to avoid timeout
                     sendResponse({status: 'started', message: 'Import process started'});
 
-                    // Run the actual import in the background
                     importPodcastEpisodes(
-                        request.podcast,
                         request.episodes,
-                        request.updateMode || false,
-                        request.cardId || null
+                        {
+                            playlistName: request.playlistName,
+                            coverImageUrl: request.coverImageUrl,
+                            updateMode: request.updateMode || false,
+                            cardId: request.cardId || null,
+                            podcast: request.podcast || null
+                        }
                     ).then(result => {
                         chrome.storage.local.set({
                             podcastImportResult: result,

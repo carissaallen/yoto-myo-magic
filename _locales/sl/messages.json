@@ -733,6 +733,10 @@
     "message": "Ime seznama predvajanja",
     "description": "Label for playlist name input"
   },
+  "label_podcastMixtape": {
+    "message": "Podcast Mixtape",
+    "description": "Default playlist name when importing episodes from multiple podcasts"
+  },
   "label_playlistNameColon": {
     "message": "Ime seznama predvajanja:",
     "description": "Label for playlist name input with colon"
@@ -998,6 +1002,70 @@
   "modal_importPodcastPermission": {
     "message": "Uvozi podcast - Potrebno dovoljenje",
     "description": "Title when permission is required"
+  },
+  "modal_mixPodcastEpisodes": {
+    "message": "Dodaj epizode podcastov",
+    "description": "Title for the podcast mixing modal"
+  },
+  "modal_reviewYourPlaylist": {
+    "message": "Preglej svoj seznam",
+    "description": "Title for review modal before import"
+  },
+  "button_addToQueue": {
+    "message": "Dodaj",
+    "description": "Button to add episode to queue"
+  },
+  "button_added": {
+    "message": "Dodano",
+    "description": "State showing episode is in queue"
+  },
+  "button_reviewAndImport": {
+    "message": "Preglej in uvozi",
+    "description": "Button to open review modal"
+  },
+  "button_backToSearch": {
+    "message": "Nazaj",
+    "description": "Button to return to podcast search"
+  },
+  "button_importMix": {
+    "message": "Uvozi miks",
+    "description": "Final import button in review modal"
+  },
+  "button_done": {
+    "message": "Končano",
+    "description": "Button shown after successful import"
+  },
+  "label_playlistName": {
+    "message": "Ime seznama",
+    "description": "Label for playlist name input"
+  },
+  "label_dragToReorder": {
+    "message": "Povleci za prerazporeditev",
+    "description": "Hint text for drag and drop"
+  },
+  "placeholder_filterEpisodes": {
+    "message": "Filtriraj epizode...",
+    "description": "Placeholder for episode filter input"
+  },
+  "label_noEpisodesMatch": {
+    "message": "Nobena epizoda ne ustreza vašemu filtru",
+    "description": "Message when no episodes match filter"
+  },
+  "sort_newestFirst": {
+    "message": "Najprej najnovejše",
+    "description": "Sort option for newest episodes first"
+  },
+  "sort_oldestFirst": {
+    "message": "Najprej najstarejše",
+    "description": "Sort option for oldest episodes first"
+  },
+  "label_episodesFromPodcasts": {
+    "message": "$1 epizod iz $2 podcastov",
+    "description": "Queue summary in footer",
+    "placeholders": {
+      "1": { "content": "$1" },
+      "2": { "content": "$2" }
+    }
   },
   "modal_importPodcastTitle": {
     "message": "Uvoz $PODCASTTITLE$",

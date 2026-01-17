@@ -161,6 +161,74 @@
     "message": "Import Podcast - Permission Required",
     "description": "Title when permission is required"
   },
+  "modal_mixPodcastEpisodes": {
+    "message": "Add Podcast Episodes",
+    "description": "Title for the podcast mixing modal"
+  },
+  "modal_reviewYourPlaylist": {
+    "message": "Review Your Playlist",
+    "description": "Title for review modal before import"
+  },
+  "button_addToQueue": {
+    "message": "Add",
+    "description": "Button to add episode to queue"
+  },
+  "button_added": {
+    "message": "Added",
+    "description": "State showing episode is in queue"
+  },
+  "button_reviewAndImport": {
+    "message": "Review & Import",
+    "description": "Button to open review modal"
+  },
+  "button_backToSearch": {
+    "message": "Back",
+    "description": "Button to return to podcast search"
+  },
+  "button_importMix": {
+    "message": "Import Mix",
+    "description": "Final import button in review modal"
+  },
+  "button_done": {
+    "message": "Done",
+    "description": "Button shown after successful import"
+  },
+  "label_playlistName": {
+    "message": "Playlist Name",
+    "description": "Label for playlist name input"
+  },
+  "label_podcastMixtape": {
+    "message": "Podcast Mixtape",
+    "description": "Default playlist name when importing episodes from multiple podcasts"
+  },
+  "label_dragToReorder": {
+    "message": "Drag to reorder",
+    "description": "Hint text for drag and drop"
+  },
+  "placeholder_filterEpisodes": {
+    "message": "Filter episodes...",
+    "description": "Placeholder for episode filter input"
+  },
+  "label_noEpisodesMatch": {
+    "message": "No episodes match your filter",
+    "description": "Message when no episodes match filter"
+  },
+  "sort_newestFirst": {
+    "message": "Newest first",
+    "description": "Sort option for newest episodes first"
+  },
+  "sort_oldestFirst": {
+    "message": "Oldest first",
+    "description": "Sort option for oldest episodes first"
+  },
+  "label_episodesFromPodcasts": {
+    "message": "$1 episodes from $2 podcasts",
+    "description": "Queue summary in footer",
+    "placeholders": {
+      "1": { "content": "$1" },
+      "2": { "content": "$2" }
+    }
+  },
   "status_authenticating": {
     "message": "Authenticating...",
     "description": "Status message during authentication"

@@ -733,6 +733,10 @@
     "message": "Nom de la liste de lecture",
     "description": "Label for playlist name input"
   },
+  "label_podcastMixtape": {
+    "message": "Mixtape Podcast",
+    "description": "Default playlist name when importing episodes from multiple podcasts"
+  },
   "label_playlistNameColon": {
     "message": "Nom de la playlist :",
     "description": "Label for playlist name input with colon"
@@ -998,6 +1002,70 @@
   "modal_importPodcastPermission": {
     "message": "Importer un podcast - Autorisation requise",
     "description": "Title when permission is required"
+  },
+  "modal_mixPodcastEpisodes": {
+    "message": "Ajouter des épisodes de podcast",
+    "description": "Title for the podcast mixing modal"
+  },
+  "modal_reviewYourPlaylist": {
+    "message": "Vérifiez votre playlist",
+    "description": "Title for review modal before import"
+  },
+  "button_addToQueue": {
+    "message": "Ajouter",
+    "description": "Button to add episode to queue"
+  },
+  "button_added": {
+    "message": "Ajouté",
+    "description": "State showing episode is in queue"
+  },
+  "button_reviewAndImport": {
+    "message": "Vérifier et importer",
+    "description": "Button to open review modal"
+  },
+  "button_backToSearch": {
+    "message": "Retour",
+    "description": "Button to return to podcast search"
+  },
+  "button_importMix": {
+    "message": "Importer le mix",
+    "description": "Final import button in review modal"
+  },
+  "button_done": {
+    "message": "Terminé",
+    "description": "Button shown after successful import"
+  },
+  "label_playlistName": {
+    "message": "Nom de la playlist",
+    "description": "Label for playlist name input"
+  },
+  "label_dragToReorder": {
+    "message": "Glisser pour réorganiser",
+    "description": "Hint text for drag and drop"
+  },
+  "placeholder_filterEpisodes": {
+    "message": "Filtrer les épisodes...",
+    "description": "Placeholder for episode filter input"
+  },
+  "label_noEpisodesMatch": {
+    "message": "Aucun épisode ne correspond à votre filtre",
+    "description": "Message when no episodes match filter"
+  },
+  "sort_newestFirst": {
+    "message": "Plus récents d'abord",
+    "description": "Sort option for newest episodes first"
+  },
+  "sort_oldestFirst": {
+    "message": "Plus anciens d'abord",
+    "description": "Sort option for oldest episodes first"
+  },
+  "label_episodesFromPodcasts": {
+    "message": "$1 épisodes de $2 podcasts",
+    "description": "Queue summary in footer",
+    "placeholders": {
+      "1": { "content": "$1" },
+      "2": { "content": "$2" }
+    }
   },
   "modal_importPodcastTitle": {
     "message": "Importer $PODCASTTITLE$",

@@ -5506,7 +5506,7 @@ async function loadBestKidsPodcasts() {
       
       listDiv.innerHTML = '';
       displayPodcasts.forEach(podcast => {
-        const podcastCard = createPodcastCard(podcast, true);
+        const podcastCard = createPodcastCardForMix(podcast, true);
         listDiv.appendChild(podcastCard);
       });
       
@@ -5518,6 +5518,110 @@ async function loadBestKidsPodcasts() {
   } catch (error) {
     loadingDiv.style.display = 'none';
   }
+}
+
+let podcastEpisodeQueue = [];
+let currentPodcastView = null;
+let podcastMixModalRef = null;
+
+function generateQueueId(podcastId, episodeId) {
+  return `${podcastId}_${episodeId}_${Date.now()}`;
+}
+
+function addEpisodeToQueue(episode, podcast) {
+  const existingIndex = podcastEpisodeQueue.findIndex(
+    item => item.podcast.id === podcast.id && item.id === episode.id
+  );
+
+  if (existingIndex !== -1) {
+    return false;
+  }
+
+  const queuedEpisode = {
+    ...episode,
+    podcast: {
+      id: podcast.id,
+      title: podcast.title,
+      thumbnail: podcast.thumbnail,
+      publisher: podcast.publisher
+    },
+    queueId: generateQueueId(podcast.id, episode.id),
+    addedAt: Date.now()
+  };
+
+  podcastEpisodeQueue.push(queuedEpisode);
+  return true;
+}
+
+function removeEpisodeFromQueue(queueId) {
+  const index = podcastEpisodeQueue.findIndex(item => item.queueId === queueId);
+  if (index !== -1) {
+    podcastEpisodeQueue.splice(index, 1);
+    return true;
+  }
+  return false;
+}
+
+function removeEpisodeFromQueueByIds(podcastId, episodeId) {
+  const index = podcastEpisodeQueue.findIndex(
+    item => item.podcast.id === podcastId && item.id === episodeId
+  );
+  if (index !== -1) {
+    podcastEpisodeQueue.splice(index, 1);
+    return true;
+  }
+  return false;
+}
+
+function isEpisodeInQueue(podcastId, episodeId) {
+  return podcastEpisodeQueue.some(
+    item => item.podcast.id === podcastId && item.id === episodeId
+  );
+}
+
+function getQueuedPodcasts() {
+  const podcastMap = new Map();
+
+  podcastEpisodeQueue.forEach(item => {
+    const existing = podcastMap.get(item.podcast.id);
+    if (existing) {
+      existing.count++;
+    } else {
+      podcastMap.set(item.podcast.id, {
+        ...item.podcast,
+        count: 1
+      });
+    }
+  });
+
+  return Array.from(podcastMap.values());
+}
+
+function reorderQueue(fromIndex, toIndex) {
+  if (fromIndex < 0 || fromIndex >= podcastEpisodeQueue.length) return;
+  if (toIndex < 0 || toIndex >= podcastEpisodeQueue.length) return;
+
+  const [removed] = podcastEpisodeQueue.splice(fromIndex, 1);
+  podcastEpisodeQueue.splice(toIndex, 0, removed);
+}
+
+function clearEpisodeQueue() {
+  podcastEpisodeQueue = [];
+  currentPodcastView = null;
+}
+
+// SVG Icon helpers for podcast mix UI
+function getSvgIcon(iconName) {
+  const icons = {
+    add: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`,
+    check: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`,
+    remove: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>`,
+    back: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>`,
+    dragHandle: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>`,
+    chevronDown: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`,
+    chevronUp: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>`
+  };
+  return icons[iconName] || '';
 }
 
 function createPodcastCard(podcast, isCompact = false) {
@@ -5813,20 +5917,17 @@ async function selectPodcast(podcast) {
   document.body.appendChild(modal);
   
   let allEpisodes = [];
-  let currentOffset = 0;
-  let hasMoreEpisodes = false;
 
   try {
     const response = await chrome.runtime.sendMessage({
       action: 'GET_PODCAST_EPISODES',
       podcastId: podcast.id,
-      feedUrl: podcast.feedUrl,
-      offset: 0
+      feedUrl: podcast.feedUrl
     });
-    
+
     document.getElementById('episode-loading').style.display = 'none';
     document.getElementById('episode-content').style.display = 'block';
-    
+
     if (response.error === 'rate_limited' && response.rateLimited) {
       // Show rate limit message in the modal instead of removing it
       document.getElementById('episode-content').innerHTML = `
@@ -5850,11 +5951,9 @@ async function selectPodcast(podcast) {
       modal.remove();
       return;
     }
-    
+
     allEpisodes = response.episodes || [];
-    currentOffset = response.next_offset || 0;
-    hasMoreEpisodes = response.has_more || false;
-    
+
     if (allEpisodes.length === 0) {
       showNotification(chrome.i18n.getMessage('notification_noEpisodesFound'), 'error');
       modal.remove();
@@ -5923,68 +6022,6 @@ async function selectPodcast(podcast) {
             <span style="color: #ef4444;">*</span> Episodes over 60 minutes may exceed Yoto's official track limit.
           </p>
         `;
-      }
-      
-      if (hasMoreEpisodes) {
-        episodeList.innerHTML += `
-          <div style="text-align: center; margin-top: 16px;">
-            <button id="load-more-episodes" style="
-              padding: 8px 20px;
-              background: #f3f4f6;
-              color: #4b5563;
-              border: 1px solid #d1d5db;
-              border-radius: 6px;
-              font-size: 14px;
-              cursor: pointer;
-              transition: all 0.2s;
-            ">
-              ${chrome.i18n.getMessage('button_loadMore')}
-            </button>
-          </div>
-        `;
-        
-        setTimeout(() => {
-          const loadMoreBtn = document.getElementById('load-more-episodes');
-          if (loadMoreBtn) {
-            loadMoreBtn.addEventListener('click', async () => {
-              loadMoreBtn.disabled = true;
-              loadMoreBtn.textContent = chrome.i18n.getMessage('status_loading');
-              
-              try {
-                selectedEpisodeIndices.clear();
-                allEpisodes.forEach((_, index) => {
-                  const checkbox = document.getElementById(`episode-${index}`);
-                  if (checkbox && checkbox.checked) {
-                    selectedEpisodeIndices.add(index);
-                  }
-                });
-                
-                const moreResponse = await chrome.runtime.sendMessage({
-                  action: 'GET_PODCAST_EPISODES',
-                  podcastId: podcast.id,
-                  feedUrl: podcast.feedUrl,
-                  offset: currentOffset
-                });
-
-                if (moreResponse.episodes && moreResponse.episodes.length > 0) {
-                  allEpisodes = [...allEpisodes, ...moreResponse.episodes];
-                  currentOffset = moreResponse.next_offset || currentOffset;
-                  hasMoreEpisodes = moreResponse.has_more || false;
-                  
-                  renderEpisodeList(true);
-                  
-                  attachEventListeners();
-                } else {
-                  loadMoreBtn.style.display = 'none';
-                }
-              } catch (error) {
-                showNotification(chrome.i18n.getMessage('notification_failedToLoadMoreEpisodes'), 'error');
-                loadMoreBtn.disabled = false;
-                loadMoreBtn.textContent = chrome.i18n.getMessage('button_loadMore');
-              }
-            });
-          }
-        }, 100);
       }
     };
     
@@ -6275,8 +6312,11 @@ async function selectPodcast(podcast) {
 }
 
 function showPodcastSearchModal() {
+  clearEpisodeQueue();
+
   const modal = document.createElement('div');
-  modal.id = 'podcast-search-modal';
+  modal.id = 'podcast-mix-modal';
+  podcastMixModalRef = modal;
   modal.style.cssText = `
     position: fixed;
     top: 0;
@@ -6288,7 +6328,7 @@ function showPodcastSearchModal() {
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 20vh;
+    padding-top: 10vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   `;
 
@@ -6296,161 +6336,190 @@ function showPodcastSearchModal() {
   content.style.cssText = `
     background: white;
     border-radius: 12px;
-    padding: 30px;
-    max-width: 750px;
+    max-width: 800px;
     width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    overflow-x: visible;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
   `;
-  
+
   content.innerHTML = `
-    <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('modal_importPodcast')}</h2>
-    <div style="margin-bottom: 20px;">
-      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-        ${chrome.i18n.getMessage('label_enterPodcastName')}
-      </label>
-      <input type="text" id="podcast-search-input" placeholder="${chrome.i18n.getMessage('placeholder_podcastSearch')}" style="
-        width: 100%;
-        padding: 10px 12px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 14px;
-        box-sizing: border-box;
-      " />
+    <div style="padding: 24px 24px 0 24px; flex-shrink: 0;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button id="header-back-btn" style="
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #374151;
+            transition: all 0.15s;
+          " title="${chrome.i18n.getMessage('button_backToSearch') || 'Back'}"
+             onmouseover="this.style.background='#e5e7eb'; this.style.borderColor='#9ca3af'; this.style.color='#1f2937';"
+             onmouseout="this.style.background='#f3f4f6'; this.style.borderColor='#d1d5db'; this.style.color='#374151';">
+            ${getSvgIcon('back')}
+          </button>
+          <h2 style="margin: 0; color: #2c3e50; font-size: 22px;">${chrome.i18n.getMessage('modal_mixPodcastEpisodes') || 'Add Podcast Episodes'}</h2>
+        </div>
+        <button id="podcast-mix-close" style="background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280;">
+          ${getSvgIcon('remove')}
+        </button>
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <input type="text" id="podcast-search-input" placeholder="${chrome.i18n.getMessage('placeholder_podcastSearch')}" style="
+          flex: 1;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          box-sizing: border-box;
+        " />
+        <button id="podcast-search-btn" style="
+          padding: 10px 16px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          white-space: nowrap;
+        ">${chrome.i18n.getMessage('button_search')}</button>
+      </div>
     </div>
-    
-    <!-- Best Kids' Podcasts Section -->
-    <div id="best-podcasts-section" style="margin-bottom: 20px;">
-      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
-        ${chrome.i18n.getMessage('label_popularKidsPodcasts')}
-      </label>
-      <div id="best-podcasts-loading" style="text-align: center; padding: 20px;">
-        <div style="display: inline-block; width: 30px; height: 30px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+
+    <div id="podcast-mix-content" style="flex: 1; overflow-y: auto; padding: 0 24px;">
+      <div id="podcast-search-view">
+        <div id="best-podcasts-section" style="margin-bottom: 20px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #374151;">
+            ${chrome.i18n.getMessage('label_popularKidsPodcasts')}
+          </label>
+          <div id="best-podcasts-loading" style="text-align: center; padding: 20px;">
+            <div style="display: inline-block; width: 30px; height: 30px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          </div>
+          <div id="best-podcasts-carousel" style="
+            display: none;
+            overflow-x: scroll;
+            overflow-y: hidden;
+            padding: 10px 0 25px 0;
+            margin: 0;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 #f3f4f6;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+          ">
+            <div id="best-podcasts-list" style="
+              display: inline-flex;
+              flex-wrap: nowrap;
+              gap: 12px;
+              padding: 0 10px;
+              width: max-content;
+            "></div>
+          </div>
+        </div>
+
+        <div id="podcast-search-results" style="display: none; margin-bottom: 20px;">
+          <div id="podcast-loading" style="display: none; text-align: center; padding: 20px;">
+            <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="margin-top: 10px; color: #6b7280;">${chrome.i18n.getMessage('status_searchingPodcasts')}</p>
+          </div>
+          <div id="podcast-list" style="max-height: 300px; overflow-y: auto;"></div>
+          <div id="podcast-error" style="display: none; color: #ef4444; padding: 10px; background: #fee; border-radius: 6px;"></div>
+        </div>
       </div>
-      <div id="best-podcasts-carousel" style="
-        display: none;
-        overflow-x: scroll;
-        overflow-y: hidden;
-        padding: 10px 0 25px 0;
-        margin: 0;
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e0 #f3f4f6;
-        -webkit-overflow-scrolling: touch;
-        position: relative;
-      ">
-        <div id="best-podcasts-list" style="
-          display: inline-flex;
-          flex-wrap: nowrap;
-          gap: 12px;
-          padding: 0 10px;
-          width: max-content;
-        "></div>
-      </div>
-      <style>
+
+      <div id="podcast-episode-view" style="display: none;"></div>
+    </div>
+
+    <div id="podcast-queue-footer" style="display: none; border-top: 1px solid #e5e7eb; background: #f9fafb; flex-shrink: 0;"></div>
+
+    <style>
+      #best-podcasts-carousel {
+        scrollbar-width: auto !important;
+        scrollbar-color: #6b7280 #e5e7eb !important;
+      }
+      #best-podcasts-carousel::-webkit-scrollbar {
+        height: 16px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      #best-podcasts-carousel::-webkit-scrollbar-track {
+        background: #e5e7eb;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+      }
+      #best-podcasts-carousel::-webkit-scrollbar-thumb {
+        background: #6b7280;
+        border-radius: 8px;
+        border: 2px solid #e5e7eb;
+        min-width: 40px;
+      }
+      #best-podcasts-carousel::-webkit-scrollbar-thumb:hover {
+        background: #4b5563;
+      }
+      #best-podcasts-carousel::-webkit-scrollbar-thumb:active {
+        background: #374151;
+      }
+      @media (max-width: 480px) {
         #best-podcasts-carousel {
-          scrollbar-width: auto !important;
-          scrollbar-color: #6b7280 #e5e7eb !important;
+          margin: 0 -15px;
+          padding: 10px 15px 20px 15px;
+        }
+        #best-podcasts-list {
+          padding: 0 5px !important;
+        }
+      }
+      @media (min-width: 768px) and (max-width: 1024px) {
+        #best-podcasts-carousel {
+          padding-bottom: 25px;
         }
         #best-podcasts-carousel::-webkit-scrollbar {
-          height: 16px !important;
-          display: block !important;
-          visibility: visible !important;
-          opacity: 1 !important;
+          height: 14px !important;
         }
-        #best-podcasts-carousel::-webkit-scrollbar-track {
-          background: #e5e7eb;
-          border-radius: 8px;
-          border: 1px solid #d1d5db;
+      }
+      @media (min-width: 1025px) {
+        #best-podcasts-carousel::-webkit-scrollbar {
+          height: 14px !important;
         }
-        #best-podcasts-carousel::-webkit-scrollbar-thumb {
-          background: #6b7280;
-          border-radius: 8px;
-          border: 2px solid #e5e7eb;
-          min-width: 40px;
-        }
-        #best-podcasts-carousel::-webkit-scrollbar-thumb:hover {
-          background: #4b5563;
-        }
-        #best-podcasts-carousel::-webkit-scrollbar-thumb:active {
-          background: #374151;
-        }
-        
-        /* Responsive adjustments for different viewports */
-        @media (max-width: 480px) {
-          #best-podcasts-carousel {
-            margin: 0 -15px;
-            padding: 10px 15px 20px 15px;
-          }
-          #best-podcasts-list {
-            padding: 0 5px !important;
-          }
-        }
-        
-        @media (min-width: 768px) and (max-width: 1024px) {
-          /* iPad and tablet optimization */
-          #best-podcasts-carousel {
-            padding-bottom: 25px;
-          }
-          #best-podcasts-carousel::-webkit-scrollbar {
-            height: 14px !important;
-          }
-        }
-        
-        @media (min-width: 1025px) {
-          /* Desktop optimization */
-          #best-podcasts-carousel::-webkit-scrollbar {
-            height: 14px !important;
-          }
-        }
-        
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      </style>
-    </div>
-    
-    <div id="podcast-search-results" style="display: none; margin-bottom: 20px;">
-      <div id="podcast-loading" style="display: none; text-align: center; padding: 20px;">
-        <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-        <p style="margin-top: 10px; color: #6b7280;">${chrome.i18n.getMessage('status_searchingPodcasts')}</p>
-      </div>
-      <div id="podcast-list" style="max-height: 300px; overflow-y: auto;"></div>
-      <div id="podcast-error" style="display: none; color: #ef4444; padding: 10px; background: #fee; border-radius: 6px;"></div>
-    </div>
-    <div style="display: flex; gap: 12px; justify-content: flex-end;">
-      <button id="podcast-cancel" style="
-        padding: 10px 20px;
-        background: #f3f4f6;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-      ">${chrome.i18n.getMessage('button_cancel')}</button>
-      <button id="podcast-search-btn" style="
-        padding: 10px 20px;
-        background: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-      ">${chrome.i18n.getMessage('button_search')}</button>
-    </div>
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .podcast-episode-row:hover {
+        background: #f3f4f6 !important;
+      }
+      .podcast-queue-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+      }
+      .drag-over {
+        border-top: 2px solid #3b82f6 !important;
+      }
+      .dragging {
+        opacity: 0.5;
+      }
+    </style>
   `;
-  
+
   modal.appendChild(content);
   document.body.appendChild(modal);
-  
+
   loadBestKidsPodcasts();
-  
-  // Focus on input
+
   const searchInput = document.getElementById('podcast-search-input');
   searchInput.focus();
-  
+
   const searchBtn = document.getElementById('podcast-search-btn');
   const handleSearch = async () => {
     const query = searchInput.value.trim();
@@ -6458,27 +6527,28 @@ function showPodcastSearchModal() {
       showNotification(chrome.i18n.getMessage('notification_enterPodcastName'), 'error');
       return;
     }
-    
+
+    showSearchViewInMixModal();
+
     const resultsDiv = document.getElementById('podcast-search-results');
     const loadingDiv = document.getElementById('podcast-loading');
     const listDiv = document.getElementById('podcast-list');
     const errorDiv = document.getElementById('podcast-error');
-    
+
     resultsDiv.style.display = 'block';
     loadingDiv.style.display = 'block';
     listDiv.innerHTML = '';
     errorDiv.style.display = 'none';
-    
+
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'SEARCH_PODCASTS',
         query: query
       });
-      
+
       loadingDiv.style.display = 'none';
-      
+
       if (response.error === 'rate_limited' && response.rateLimited) {
-        // Show the rate limit message
         errorDiv.innerHTML = `
           <div style="padding: 15px; background: #fff8e1; border: 1px solid #ffcc00; border-radius: 8px; margin-bottom: 20px;">
             <div style="display: flex; align-items: start; gap: 10px;">
@@ -6491,57 +6561,1001 @@ function showPodcastSearchModal() {
           </div>
         `;
         errorDiv.style.display = 'block';
-        
-        // If we have fallback podcasts, still show them
+
         if (response.podcasts && response.podcasts.length > 0) {
           const suggestionDiv = document.createElement('div');
           suggestionDiv.innerHTML = `<h3 style="margin: 20px 0 10px;">${chrome.i18n.getMessage('label_popularKidsPodcasts')}</h3>`;
           listDiv.appendChild(suggestionDiv);
-          
+
           response.podcasts.forEach(podcast => {
-            const podcastCard = createPodcastCard(podcast, false);
+            const podcastCard = createPodcastCardForMix(podcast, false);
             listDiv.appendChild(podcastCard);
           });
         }
         return;
       }
-      
+
       if (response.error) {
         errorDiv.textContent = response.error;
         errorDiv.style.display = 'block';
         return;
       }
-      
+
       if (!response.podcasts || response.podcasts.length === 0) {
         errorDiv.textContent = chrome.i18n.getMessage('error_noPodcastsFound', [query]);
         errorDiv.style.display = 'block';
         return;
       }
-      
+
       response.podcasts.forEach(podcast => {
-        const podcastCard = createPodcastCard(podcast, false);
+        const podcastCard = createPodcastCardForMix(podcast, false);
         listDiv.appendChild(podcastCard);
       });
-      
+
     } catch (error) {
       loadingDiv.style.display = 'none';
       errorDiv.textContent = chrome.i18n.getMessage('error_failedSearch');
       errorDiv.style.display = 'block';
     }
   };
-  
+
   searchBtn.addEventListener('click', handleSearch);
   searchInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   });
-  
-  document.getElementById('podcast-cancel').addEventListener('click', () => {
+
+  document.getElementById('podcast-mix-close').addEventListener('click', () => {
+    clearEpisodeQueue();
     modal.remove();
+    podcastMixModalRef = null;
   });
-  
+
+  document.getElementById('header-back-btn').addEventListener('click', showSearchViewInMixModal);
+
+  updateQueueFooter();
 }
+
+function showSearchViewInMixModal() {
+  const searchView = document.getElementById('podcast-search-view');
+  const episodeView = document.getElementById('podcast-episode-view');
+  const headerBackBtn = document.getElementById('header-back-btn');
+  if (searchView) searchView.style.display = 'block';
+  if (episodeView) episodeView.style.display = 'none';
+  if (headerBackBtn) headerBackBtn.style.display = 'none';
+  currentPodcastView = null;
+}
+
+function createPodcastCardForMix(podcast, isCompact = false) {
+  const card = document.createElement('div');
+
+  if (isCompact) {
+    card.style.cssText = `
+      flex: 0 0 auto;
+      min-width: 140px;
+      width: 140px;
+      max-width: 180px;
+      display: inline-block;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+      flex-shrink: 0;
+    `;
+
+    card.innerHTML = `
+      ${podcast.thumbnail ?
+        `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
+          width: 100%;
+          height: 120px;
+          object-fit: cover;
+          border-radius: 6px;
+          margin-bottom: 8px;
+          background: #f3f4f6;
+        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+        ''
+      }
+      <div style="
+        width: 100%;
+        height: 120px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%);
+        display: ${podcast.thumbnail ? 'none' : 'flex'};
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        font-weight: bold;
+        color: white;
+      ">
+        🎙️
+      </div>
+      <h4 style="
+        margin: 0 0 4px 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #1f2937;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      ">${podcast.title}</h4>
+      <p style="
+        margin: 0;
+        font-size: 11px;
+        color: #6b7280;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      ">${podcast.publisher || ''}</p>
+    `;
+
+    card.onmouseenter = () => {
+      card.style.transform = 'translateY(-2px)';
+      card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+    };
+
+    card.onmouseleave = () => {
+      card.style.transform = 'translateY(0)';
+      card.style.boxShadow = 'none';
+    };
+
+  } else {
+    card.style.cssText = `
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    `;
+
+    card.innerHTML = `
+      ${podcast.thumbnail ?
+        `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
+          width: 60px;
+          height: 60px;
+          object-fit: cover;
+          border-radius: 6px;
+          flex-shrink: 0;
+          background: #f3f4f6;
+        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+        ''
+      }
+      <div style="
+        width: 60px;
+        height: 60px;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%);
+        display: ${podcast.thumbnail ? 'none' : 'flex'};
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: bold;
+        color: white;
+      ">
+        🎙️
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1f2937;">${podcast.title}</h4>
+        <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">${podcast.publisher || ''}</p>
+        <p style="margin: 0; font-size: 11px; color: #9ca3af;">${podcast.total_episodes || 0} episodes</p>
+      </div>
+    `;
+
+    card.onmouseenter = () => {
+      card.style.backgroundColor = '#f9fafb';
+      card.style.borderColor = '#3b82f6';
+    };
+
+    card.onmouseleave = () => {
+      card.style.backgroundColor = 'transparent';
+      card.style.borderColor = '#e5e7eb';
+    };
+  }
+
+  card.addEventListener('click', () => showEpisodesInMixModal(podcast));
+
+  return card;
+}
+
+async function showEpisodesInMixModal(podcast) {
+  chrome.runtime.sendMessage({
+    action: 'TRACK_EVENT',
+    eventName: 'podcast_selected',
+    parameters: {
+      podcast_title: podcast.title,
+      podcast_id: podcast.id
+    }
+  });
+
+  currentPodcastView = podcast;
+
+  const searchView = document.getElementById('podcast-search-view');
+  const episodeView = document.getElementById('podcast-episode-view');
+  const headerBackBtn = document.getElementById('header-back-btn');
+
+  if (searchView) searchView.style.display = 'none';
+  if (headerBackBtn) headerBackBtn.style.display = 'flex';
+  if (!episodeView) return;
+
+  episodeView.style.display = 'block';
+  episodeView.innerHTML = `
+    <div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
+      ${podcast.thumbnail ?
+        `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
+          width: 80px;
+          height: 80px;
+          border-radius: 8px;
+          object-fit: cover;
+          background: #f3f4f6;
+          flex-shrink: 0;
+        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" />` :
+        ''
+      }
+      <div style="
+        width: 80px;
+        height: 80px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%);
+        display: ${podcast.thumbnail ? 'none' : 'flex'};
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        color: white;
+        flex-shrink: 0;
+      ">
+        🎙️
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <h3 style="margin: 0 0 4px 0; font-size: 18px; color: #1f2937; font-weight: 600;">${podcast.title}</h3>
+        <p style="margin: 0 0 8px 0; font-size: 13px; color: #6b7280;">${podcast.publisher || ''}</p>
+        <p id="podcast-description-text" style="
+          margin: 0;
+          font-size: 13px;
+          color: #4b5563;
+          line-height: 1.4;
+          display: ${podcast.description ? 'block' : 'none'};
+          max-height: 60px;
+          overflow-y: auto;
+        ">${podcast.description || ''}</p>
+      </div>
+    </div>
+    <div id="episode-loading" style="text-align: center; padding: 40px;">
+      <div style="display: inline-block; width: 40px; height: 40px; border: 3px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      <p style="margin-top: 10px; color: #6b7280;">${chrome.i18n.getMessage('status_loadingEpisodes')}</p>
+    </div>
+    <div id="episode-list-container" style="display: none;">
+      <div style="margin-bottom: 8px; display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="episode-filter-input" placeholder="${chrome.i18n.getMessage('placeholder_filterEpisodes') || 'Filter episodes...'}" style="
+          flex: 1;
+          padding: 8px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          box-sizing: border-box;
+        " />
+        <select id="episode-sort-select" style="
+          padding: 8px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 14px;
+          background: white;
+          cursor: pointer;
+          color: #374151;
+        ">
+          <option value="newest">${chrome.i18n.getMessage('sort_newestFirst') || 'Newest first'}</option>
+          <option value="oldest">${chrome.i18n.getMessage('sort_oldestFirst') || 'Oldest first'}</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+        <button id="select-all-episodes-btn" style="
+          padding: 6px 12px;
+          background: #f3f4f6;
+          color: #374151;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 12px;
+          cursor: pointer;
+        ">${chrome.i18n.getMessage('button_selectAll') || 'Select All'}</button>
+        <button id="deselect-all-episodes-btn" style="
+          padding: 6px 12px;
+          background: #f3f4f6;
+          color: #374151;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          font-size: 12px;
+          cursor: pointer;
+        ">${chrome.i18n.getMessage('button_deselectAll') || 'Deselect All'}</button>
+      </div>
+      <div id="mix-episode-list" style="
+        max-height: 350px;
+        overflow-y: auto;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: #f9fafb;
+        margin-bottom: 16px;
+      "></div>
+    </div>
+  `;
+
+  // Fetch podcast description from RSS if not already available
+  if (!podcast.description && podcast.feedUrl) {
+    chrome.runtime.sendMessage({
+      action: 'FETCH_PODCAST_DESCRIPTION',
+      feedUrl: podcast.feedUrl
+    }).then(result => {
+      if (result?.description) {
+        const descEl = document.getElementById('podcast-description-text');
+        if (descEl) {
+          descEl.textContent = result.description;
+          descEl.style.display = 'block';
+        }
+      }
+    }).catch(() => {});
+  }
+
+  let allEpisodes = [];
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'GET_PODCAST_EPISODES',
+      podcastId: podcast.id,
+      feedUrl: podcast.feedUrl
+    });
+
+    document.getElementById('episode-loading').style.display = 'none';
+    document.getElementById('episode-list-container').style.display = 'block';
+
+    if (response.error === 'rate_limited' && response.rateLimited) {
+      document.getElementById('mix-episode-list').innerHTML = `
+        <div style="padding: 20px;">
+          <div style="background: #fff8e1; border: 1px solid #ffcc00; border-radius: 8px; padding: 20px;">
+            <div style="display: flex; align-items: start; gap: 12px;">
+              <span style="font-size: 24px;">⚠️</span>
+              <div>
+                <h3 style="margin: 0 0 10px; color: #f57c00;">${chrome.i18n.getMessage('error_usageLimitReached')}</h3>
+                <p style="margin: 0; color: #666; line-height: 1.6;">${response.message}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (response.error) {
+      showNotification(response.error, 'error');
+      showSearchViewInMixModal();
+      return;
+    }
+
+    allEpisodes = response.episodes || [];
+
+    if (allEpisodes.length === 0) {
+      showNotification(chrome.i18n.getMessage('notification_noEpisodesFound'), 'error');
+      showSearchViewInMixModal();
+      return;
+    }
+
+    // Helper to get current filter/sort state
+    const getFilterSortState = () => {
+      const filterInput = document.getElementById('episode-filter-input');
+      const sortSelect = document.getElementById('episode-sort-select');
+      return {
+        filterTerm: filterInput?.value.trim().toLowerCase() || '',
+        sortOrder: sortSelect?.value || 'newest'
+      };
+    };
+
+    renderMixEpisodeList(podcast, allEpisodes);
+
+    const filterInput = document.getElementById('episode-filter-input');
+    const sortSelect = document.getElementById('episode-sort-select');
+
+    if (filterInput) {
+      filterInput.addEventListener('input', function() {
+        const { filterTerm, sortOrder } = getFilterSortState();
+        renderMixEpisodeList(podcast, allEpisodes, filterTerm, sortOrder);
+      });
+    }
+
+    if (sortSelect) {
+      sortSelect.addEventListener('change', function() {
+        const { filterTerm, sortOrder } = getFilterSortState();
+        renderMixEpisodeList(podcast, allEpisodes, filterTerm, sortOrder);
+      });
+    }
+
+    const selectAllBtn = document.getElementById('select-all-episodes-btn');
+    const deselectAllBtn = document.getElementById('deselect-all-episodes-btn');
+
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', function() {
+        allEpisodes.forEach(episode => {
+          if (!isEpisodeInQueue(podcast.id, episode.id)) {
+            addEpisodeToQueue(episode, podcast);
+          }
+        });
+        const { filterTerm, sortOrder } = getFilterSortState();
+        renderMixEpisodeList(podcast, allEpisodes, filterTerm, sortOrder);
+        updateQueueFooter();
+      });
+    }
+
+    if (deselectAllBtn) {
+      deselectAllBtn.addEventListener('click', function() {
+        allEpisodes.forEach(episode => {
+          if (isEpisodeInQueue(podcast.id, episode.id)) {
+            removeEpisodeFromQueueByIds(podcast.id, episode.id);
+          }
+        });
+        const { filterTerm, sortOrder } = getFilterSortState();
+        renderMixEpisodeList(podcast, allEpisodes, filterTerm, sortOrder);
+        updateQueueFooter();
+      });
+    }
+
+  } catch (error) {
+    showNotification(chrome.i18n.getMessage('notification_failedToLoadPodcastEpisodes'), 'error');
+    showSearchViewInMixModal();
+  }
+}
+
+function renderMixEpisodeList(podcast, episodes, filterTerm = '', sortOrder = 'newest') {
+  const listContainer = document.getElementById('mix-episode-list');
+  if (!listContainer) return;
+
+  // Filter first
+  let processedEpisodes = filterTerm
+    ? episodes.filter(ep => ep.title.toLowerCase().includes(filterTerm))
+    : [...episodes];
+
+  // Then sort by publish date
+  processedEpisodes.sort((a, b) => {
+    const dateA = a.pub_date_ms || 0;
+    const dateB = b.pub_date_ms || 0;
+    return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+  });
+
+  if (processedEpisodes.length === 0 && filterTerm) {
+    listContainer.innerHTML = `
+      <div style="padding: 24px; text-align: center; color: #6b7280;">
+        <p style="margin: 0;">${chrome.i18n.getMessage('label_noEpisodesMatch') || 'No episodes match your filter'}</p>
+      </div>
+    `;
+    return;
+  }
+
+  listContainer.innerHTML = processedEpisodes.map((ep, processedIndex) => {
+    const originalIndex = episodes.indexOf(ep);
+    const isInQueue = isEpisodeInQueue(podcast.id, ep.id);
+    const isOverLimit = ep.audio_length_sec > 3600;
+    const durationColor = isOverLimit ? '#ef4444' : '#6b7280';
+    const warningAsterisk = isOverLimit ? '*' : '';
+
+    return `
+      <div class="podcast-episode-row" data-episode-index="${originalIndex}" style="
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+        background: white;
+        transition: background 0.15s;
+      ">
+        <div style="flex: 1; min-width: 0; margin-right: 12px;">
+          <div style="font-weight: 500; color: #1f2937; margin-bottom: 4px; font-size: 14px;">
+            ${ep.title}
+          </div>
+          <div style="font-size: 12px; color: ${durationColor};">
+            ${formatDuration(ep.audio_length_sec)}${warningAsterisk}
+            ${ep.pub_date_ms ? ` • ${new Date(ep.pub_date_ms).toLocaleDateString()}` : ''}
+          </div>
+        </div>
+        <button class="episode-add-btn" data-podcast-id="${podcast.id}" data-episode-index="${originalIndex}" style="
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          background: ${isInQueue ? '#dcfce7' : '#f3f4f6'};
+          color: ${isInQueue ? '#16a34a' : '#374151'};
+          border: 1px solid ${isInQueue ? '#86efac' : '#d1d5db'};
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 500;
+          transition: all 0.15s;
+          white-space: nowrap;
+        ">
+          ${isInQueue ? getSvgIcon('check') : getSvgIcon('add')}
+          ${isInQueue ? (chrome.i18n.getMessage('button_added') || 'Added') : (chrome.i18n.getMessage('button_addToQueue') || 'Add')}
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  if (processedEpisodes.some(ep => ep.audio_length_sec > 3600)) {
+    listContainer.innerHTML += `
+      <p style="margin: 12px; font-size: 12px; color: #6b7280; font-style: italic;">
+        <span style="color: #ef4444;">*</span> Episodes over 60 minutes may exceed Yoto's official track limit.
+      </p>
+    `;
+  }
+
+  listContainer.querySelectorAll('.episode-add-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const episodeIndex = parseInt(this.dataset.episodeIndex);
+      const episode = episodes[episodeIndex];
+
+      if (isEpisodeInQueue(podcast.id, episode.id)) {
+        removeEpisodeFromQueueByIds(podcast.id, episode.id);
+      } else {
+        addEpisodeToQueue(episode, podcast);
+      }
+
+      const currentFilter = document.getElementById('episode-filter-input')?.value.trim().toLowerCase() || '';
+      const currentSort = document.getElementById('episode-sort-select')?.value || 'newest';
+      renderMixEpisodeList(podcast, episodes, currentFilter, currentSort);
+      updateQueueFooter();
+    });
+  });
+}
+
+function updateQueueFooter() {
+  const footer = document.getElementById('podcast-queue-footer');
+  if (!footer) return;
+
+  const queueLength = podcastEpisodeQueue.length;
+
+  if (queueLength === 0) {
+    footer.style.display = 'none';
+    return;
+  }
+
+  footer.style.display = 'block';
+  const podcasts = getQueuedPodcasts();
+  const isExpanded = footer.dataset.expanded === 'true';
+
+  footer.innerHTML = `
+    <div style="padding: 12px 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <button id="queue-toggle" style="
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 0;
+          font-size: 14px;
+          font-weight: 500;
+          color: #374151;
+        ">
+          ${isExpanded ? getSvgIcon('chevronDown') : getSvgIcon('chevronUp')}
+          <span>${queueLength} ${queueLength === 1 ? 'episode' : 'episodes'} from ${podcasts.length} ${podcasts.length === 1 ? 'podcast' : 'podcasts'}</span>
+        </button>
+        <button id="review-import-btn" style="
+          padding: 8px 16px;
+          background: #3b82f6;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        ">
+          ${chrome.i18n.getMessage('button_reviewAndImport') || 'Review & Import'}
+        </button>
+      </div>
+      ${isExpanded ? `
+        <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
+          ${podcasts.map(p => `
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              padding: 6px 10px;
+              background: white;
+              border: 1px solid #e5e7eb;
+              border-radius: 6px;
+            ">
+              ${p.thumbnail ?
+                `<img src="${p.thumbnail}" style="width: 24px; height: 24px; border-radius: 4px; object-fit: cover;">` :
+                `<div style="width: 24px; height: 24px; border-radius: 4px; background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%); display: flex; align-items: center; justify-content: center; font-size: 12px;">🎙️</div>`
+              }
+              <span style="font-size: 13px; color: #374151;">${p.title}</span>
+              <span style="font-size: 12px; color: #6b7280; background: #f3f4f6; padding: 2px 6px; border-radius: 4px;">${p.count}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  document.getElementById('queue-toggle').addEventListener('click', () => {
+    footer.dataset.expanded = isExpanded ? 'false' : 'true';
+    updateQueueFooter();
+  });
+
+  document.getElementById('review-import-btn').addEventListener('click', showPodcastReviewModal);
+}
+
+function showPodcastReviewModal() {
+  if (podcastEpisodeQueue.length === 0) {
+    showNotification(chrome.i18n.getMessage('notification_selectAtLeastOneEpisode') || 'Please add at least one episode', 'warning');
+    return;
+  }
+
+  const firstPodcast = podcastEpisodeQueue[0].podcast;
+
+  const modal = document.createElement('div');
+  modal.id = 'podcast-review-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 100000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  `;
+
+  const podcasts = getQueuedPodcasts();
+
+  content.innerHTML = `
+    <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 style="margin: 0; color: #2c3e50; font-size: 20px;">${chrome.i18n.getMessage('modal_reviewYourPlaylist') || 'Review Your Playlist'}</h2>
+        <button id="review-close" style="background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280;">
+          ${getSvgIcon('remove')}
+        </button>
+      </div>
+      <div style="display: flex; gap: 16px; align-items: center;">
+        ${firstPodcast.thumbnail ?
+          `<img src="${firstPodcast.thumbnail}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; background: #f3f4f6;">` :
+          `<div style="width: 60px; height: 60px; border-radius: 8px; background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%); display: flex; align-items: center; justify-content: center; font-size: 24px; color: white;">🎙️</div>`
+        }
+        <div style="flex: 1;">
+          <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #6b7280;">${chrome.i18n.getMessage('label_playlistName') || 'Playlist Name'}</label>
+          <input type="text" id="playlist-name-input" value="${podcasts.length === 1 ? firstPodcast.title + ' - Podcast' : (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape')}" style="
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+          " />
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1; overflow-y: auto; padding: 16px 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="font-size: 14px; color: #6b7280;">${podcastEpisodeQueue.length} ${podcastEpisodeQueue.length === 1 ? 'episode' : 'episodes'}</span>
+        <span style="font-size: 12px; color: #9ca3af;">${chrome.i18n.getMessage('label_dragToReorder') || 'Drag to reorder'}</span>
+      </div>
+      <div id="review-episode-list" style="
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        overflow: hidden;
+      "></div>
+    </div>
+
+    <div id="review-progress" style="display: none; padding: 16px 24px; border-top: 1px solid #e5e7eb;">
+      <div style="background: #f0f0f0; border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 12px;">
+        <div id="review-progress-bar" style="background: #3b82f6; height: 100%; width: 0%; transition: width 0.3s;"></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div id="review-spinner" style="
+          width: 18px;
+          height: 18px;
+          border: 2px solid #e5e7eb;
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        "></div>
+        <p id="review-status" style="margin: 0; color: #666; font-size: 14px;"></p>
+      </div>
+    </div>
+
+    <div id="review-buttons" style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="review-cancel" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">${chrome.i18n.getMessage('button_cancel')}</button>
+      <button id="review-import" style="
+        padding: 10px 20px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+      ">${chrome.i18n.getMessage('button_import') || 'Import'}</button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  renderReviewEpisodeList();
+
+  document.getElementById('review-close').addEventListener('click', () => modal.remove());
+  document.getElementById('review-cancel').addEventListener('click', () => modal.remove());
+
+  document.getElementById('review-import').addEventListener('click', async () => {
+    const playlistName = document.getElementById('playlist-name-input').value.trim() || (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape');
+    const coverImageUrl = firstPodcast.thumbnail || null;
+
+    const progressDiv = document.getElementById('review-progress');
+    const progressBar = document.getElementById('review-progress-bar');
+    const statusText = document.getElementById('review-status');
+    const buttonsDiv = document.getElementById('review-buttons');
+    const importBtn = document.getElementById('review-import');
+
+    progressDiv.style.display = 'block';
+    importBtn.disabled = true;
+    importBtn.textContent = chrome.i18n.getMessage('button_importing') || 'Importing...';
+    statusText.textContent = chrome.i18n.getMessage('status_startingImport') || 'Starting import...';
+    progressBar.style.width = '5%';
+
+    try {
+      const startResponse = await chrome.runtime.sendMessage({
+        action: 'IMPORT_PODCAST_EPISODES',
+        episodes: podcastEpisodeQueue,
+        playlistName: playlistName,
+        coverImageUrl: coverImageUrl
+      });
+
+      if (startResponse.error) {
+        showNotification(startResponse.error, 'error');
+        progressDiv.style.display = 'none';
+        importBtn.disabled = false;
+        importBtn.textContent = chrome.i18n.getMessage('button_import') || 'Import';
+        return;
+      }
+
+      let importComplete = false;
+      const INACTIVITY_TIMEOUT_SECONDS = 300;
+      let lastProgressCount = 0;
+      let lastProgressTime = Date.now();
+
+      while (!importComplete) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const statusResponse = await chrome.runtime.sendMessage({
+          action: 'GET_PODCAST_IMPORT_STATUS'
+        });
+
+        if (statusResponse) {
+          if (statusResponse.progress) {
+            const progress = statusResponse.progress;
+            if (progress.status === 'in_progress') {
+              const percent = progress.total > 0
+                ? Math.min(10 + (progress.current / progress.total * 80), 90)
+                : 10;
+              progressBar.style.width = `${percent}%`;
+              statusText.textContent = progress.message || chrome.i18n.getMessage('status_processing');
+
+              const currentCount = progress.current || 0;
+              if (currentCount > lastProgressCount) {
+                lastProgressCount = currentCount;
+                lastProgressTime = Date.now();
+              }
+            }
+          }
+
+          if (statusResponse.success) {
+            importComplete = true;
+            progressBar.style.width = '100%';
+            document.getElementById('review-spinner').style.display = 'none';
+
+            if (statusResponse.partial) {
+              const imported = statusResponse.tracksImported || 0;
+              const failed = statusResponse.failedCount || 0;
+              statusText.innerHTML = `
+                <div style="color: #28a745;">
+                  ${chrome.i18n.getMessage('status_successfullyImportedEpisodes', [imported])}
+                  ${failed > 0 ? `<br><span style="color: #856404; font-size: 13px;">${failed} episode${failed !== 1 ? 's' : ''} could not be imported</span>` : ''}
+                </div>
+              `;
+
+              importBtn.textContent = chrome.i18n.getMessage('status_completed') || 'Completed!';
+              buttonsDiv.innerHTML = `
+                <button id="review-done" style="
+                  padding: 10px 20px;
+                  background: #28a745;
+                  color: white;
+                  border: none;
+                  border-radius: 6px;
+                  cursor: pointer;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">${chrome.i18n.getMessage('button_done') || 'Done'}</button>
+              `;
+
+              document.getElementById('review-done').addEventListener('click', () => {
+                modal.remove();
+                if (podcastMixModalRef) {
+                  podcastMixModalRef.remove();
+                  podcastMixModalRef = null;
+                }
+                clearEpisodeQueue();
+                window.location.reload();
+              });
+            } else {
+              statusText.textContent = chrome.i18n.getMessage('status_successfullyImportedEpisodes', [statusResponse.tracksImported || podcastEpisodeQueue.length]);
+              buttonsDiv.style.display = 'none';
+
+              setTimeout(() => {
+                modal.remove();
+                if (podcastMixModalRef) {
+                  podcastMixModalRef.remove();
+                  podcastMixModalRef = null;
+                }
+                clearEpisodeQueue();
+                window.location.reload();
+              }, 1500);
+            }
+
+            return;
+          }
+
+          if (statusResponse.error) {
+            throw new Error(statusResponse.error);
+          }
+        }
+
+        const secondsSinceProgress = (Date.now() - lastProgressTime) / 1000;
+        if (secondsSinceProgress >= INACTIVITY_TIMEOUT_SECONDS) {
+          throw new Error(chrome.i18n.getMessage('error_importTakingTooLong') || 'Import is taking too long');
+        }
+      }
+
+    } catch (error) {
+      showNotification(error.message || chrome.i18n.getMessage('error_importFailed'), 'error');
+      progressDiv.style.display = 'none';
+      importBtn.disabled = false;
+      importBtn.textContent = chrome.i18n.getMessage('button_import') || 'Import';
+    }
+  });
+
+  function renderReviewEpisodeList() {
+    const listContainer = document.getElementById('review-episode-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = podcastEpisodeQueue.map((item, index) => `
+      <div class="review-episode-item" data-index="${index}" draggable="true" style="
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: white;
+        border-bottom: 1px solid #e5e7eb;
+        cursor: grab;
+        transition: background 0.15s;
+      ">
+        <span class="drag-handle" style="color: #9ca3af; cursor: grab;">
+          ${getSvgIcon('dragHandle')}
+        </span>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 500; color: #1f2937; font-size: 14px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${item.title}
+          </div>
+          <div style="font-size: 12px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${item.podcast.title} • ${formatDuration(item.audio_length_sec)}
+          </div>
+        </div>
+        <button class="remove-episode-btn" data-index="${index}" style="
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 4px;
+          color: #9ca3af;
+          transition: color 0.15s;
+        " onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">
+          ${getSvgIcon('remove')}
+        </button>
+      </div>
+    `).join('');
+
+    listContainer.querySelectorAll('.remove-episode-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const index = parseInt(this.dataset.index);
+        podcastEpisodeQueue.splice(index, 1);
+
+        if (podcastEpisodeQueue.length === 0) {
+          modal.remove();
+          updateQueueFooter();
+          return;
+        }
+
+        renderReviewEpisodeList();
+      });
+    });
+
+    let draggedIndex = null;
+
+    listContainer.querySelectorAll('.review-episode-item').forEach(item => {
+      item.addEventListener('dragstart', function(e) {
+        draggedIndex = parseInt(this.dataset.index);
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      item.addEventListener('dragend', function() {
+        this.classList.remove('dragging');
+        listContainer.querySelectorAll('.review-episode-item').forEach(el => {
+          el.classList.remove('drag-over');
+        });
+        draggedIndex = null;
+      });
+
+      item.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const targetIndex = parseInt(this.dataset.index);
+        if (draggedIndex !== null && targetIndex !== draggedIndex) {
+          this.classList.add('drag-over');
+        }
+      });
+
+      item.addEventListener('dragleave', function() {
+        this.classList.remove('drag-over');
+      });
+
+      item.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.classList.remove('drag-over');
+        const targetIndex = parseInt(this.dataset.index);
+
+        if (draggedIndex !== null && targetIndex !== draggedIndex) {
+          const [removed] = podcastEpisodeQueue.splice(draggedIndex, 1);
+          podcastEpisodeQueue.splice(targetIndex, 0, removed);
+          renderReviewEpisodeList();
+        }
+      });
+    });
+  }
+}
+
 function formatDuration(seconds) {
   if (!seconds) return chrome.i18n.getMessage('label_unknown');
   const mins = Math.floor(seconds / 60);
