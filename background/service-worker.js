@@ -2828,6 +2828,10 @@ async function importPodcastEpisodes(episodes, options = {}) {
         podcast = null
     } = options;
 
+    podcastImportAbortController = new AbortController();
+    const signal = podcastImportAbortController.signal;
+    const isCancelled = () => signal.aborted;
+
     const audioTracks = [];
     let processedCount = 0;
     let failedCount = 0;
@@ -2886,11 +2890,16 @@ async function importPodcastEpisodes(episodes, options = {}) {
             let lastError = null;
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                if (isCancelled()) {
+                    return { success: false, error: 'Import cancelled', cancelled: true };
+                }
+
                 try {
                     try {
                         const headResponse = await fetch(audioUrl, {
                             method: 'HEAD',
-                            redirect: 'follow'
+                            redirect: 'follow',
+                            signal
                         });
 
                         if (headResponse.url !== audioUrl) {
@@ -2904,16 +2913,25 @@ async function importPodcastEpisodes(episodes, options = {}) {
                             }
                         }
                     } catch (headError) {
-                        // HEAD request failed, continue with GET
+                        if (headError.name === 'AbortError') {
+                            return { success: false, error: 'Import cancelled', cancelled: true };
+                        }
                     }
 
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 120000);
+                    if (isCancelled()) {
+                        return { success: false, error: 'Import cancelled', cancelled: true };
+                    }
+
+                    const timeoutId = setTimeout(() => {
+                        if (!isCancelled()) {
+                            podcastImportAbortController?.abort();
+                        }
+                    }, 120000);
 
                     const audioResponse = await fetch(audioUrl, {
                         method: 'GET',
                         redirect: 'follow',
-                        signal: controller.signal
+                        signal
                     });
 
                     clearTimeout(timeoutId);
@@ -2941,6 +2959,10 @@ async function importPodcastEpisodes(episodes, options = {}) {
                     return { success: true, blob: audioBlob };
 
                 } catch (fetchError) {
+                    if (fetchError.name === 'AbortError' || isCancelled()) {
+                        return { success: false, error: 'Import cancelled', cancelled: true };
+                    }
+
                     lastError = fetchError;
                     const isNetworkError = fetchError.message?.includes('Failed to fetch') || fetchError.message?.includes('NetworkError');
 
@@ -2949,11 +2971,10 @@ async function importPodcastEpisodes(episodes, options = {}) {
                             const url = new URL(audioUrl);
                             encounteredDomains.add(`${url.protocol}//${url.hostname}/*`);
                         } catch (e) {
-                            // Ignore URL parse errors
                         }
                     }
 
-                    if (attempt < maxAttempts) {
+                    if (attempt < maxAttempts && !isCancelled()) {
                         const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
                         await new Promise(resolve => setTimeout(resolve, delay));
                     }
@@ -2964,6 +2985,10 @@ async function importPodcastEpisodes(episodes, options = {}) {
         };
 
         const processEpisode = async (episode, index) => {
+            if (isCancelled()) {
+                return { cancelled: true };
+            }
+
             if (episode.audio_length_sec > 3600) {
                 console.warn(`Episode "${episode.title}" exceeds 60 minutes, may be truncated by Yoto`);
             }
@@ -2971,9 +2996,17 @@ async function importPodcastEpisodes(episodes, options = {}) {
             try {
                 const fetchResult = await fetchAudioWithRetry(episode.audio, episode.title);
 
+                if (fetchResult.cancelled || isCancelled()) {
+                    return { cancelled: true };
+                }
+
                 if (!fetchResult.success) {
                     failedCount++;
                     return null;
+                }
+
+                if (isCancelled()) {
+                    return { cancelled: true };
                 }
 
                 const uploadResult = await uploadAudioFile({
@@ -2981,6 +3014,10 @@ async function importPodcastEpisodes(episodes, options = {}) {
                     name: `${episode.title}.mp3`,
                     type: 'audio/mpeg'
                 });
+
+                if (isCancelled()) {
+                    return { cancelled: true };
+                }
 
                 if (uploadResult.error) {
                     console.error(`Upload failed for "${episode.title}":`, uploadResult.error);
@@ -2995,16 +3032,25 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 };
 
             } catch (error) {
+                if (isCancelled()) {
+                    return { cancelled: true };
+                }
                 console.error(`Error processing "${episode.title}":`, error.message);
                 failedCount++;
                 return null;
             } finally {
-                processedCount++;
-                await updateProgress(index);
+                if (!isCancelled()) {
+                    processedCount++;
+                    await updateProgress(index);
+                }
             }
         };
 
         for (let i = 0; i < episodes.length; i += CONCURRENT_LIMIT) {
+            if (isCancelled()) {
+                return { cancelled: true, message: 'Import cancelled by user' };
+            }
+
             const batch = episodes.slice(i, Math.min(i + CONCURRENT_LIMIT, episodes.length));
 
             try {
@@ -3014,8 +3060,12 @@ async function importPodcastEpisodes(episodes, options = {}) {
 
                 const batchResults = await Promise.all(batchPromises);
 
+                if (isCancelled() || batchResults.some(r => r?.cancelled)) {
+                    return { cancelled: true, message: 'Import cancelled by user' };
+                }
+
                 const batchTracks = batchResults
-                    .filter(track => track !== null)
+                    .filter(track => track !== null && !track.cancelled)
                     .sort((a, b) => a.originalIndex - b.originalIndex)
                     .map(track => ({
                         title: track.title,
@@ -3025,6 +3075,9 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 audioTracks.push(...batchTracks);
 
             } catch (batchError) {
+                if (isCancelled()) {
+                    return { cancelled: true, message: 'Import cancelled by user' };
+                }
                 console.error(`Batch processing error:`, batchError.message);
                 for (let j = 0; j < batch.length; j++) {
                     failedCount++;
@@ -3063,11 +3116,14 @@ async function importPodcastEpisodes(episodes, options = {}) {
             thumbnailSource = episodes[0].podcast.thumbnail;
         }
 
-        if (thumbnailSource) {
+        if (thumbnailSource && !isCancelled()) {
             try {
-                const imageResponse = await fetch(thumbnailSource, { method: 'GET' });
+                const imageResponse = await fetch(thumbnailSource, {
+                    method: 'GET',
+                    signal
+                });
 
-                if (imageResponse.ok) {
+                if (imageResponse.ok && !isCancelled()) {
                     const imageBlob = await imageResponse.blob();
                     const reader = new FileReader();
                     const imageData = await new Promise((resolve) => {
@@ -3090,6 +3146,10 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 }
             } catch (error) {
             }
+        }
+
+        if (isCancelled()) {
+            return { cancelled: true, message: 'Import cancelled by user' };
         }
 
         await chrome.storage.local.set({
@@ -3201,6 +3261,8 @@ async function importPodcastEpisodes(episodes, options = {}) {
         });
 
         return errorResult;
+    } finally {
+        podcastImportAbortController = null;
     }
 }
 
@@ -4047,8 +4109,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'CANCEL_PODCAST_IMPORT':
+                    if (podcastImportAbortController) {
+                        podcastImportAbortController.abort();
+                    }
+
                     await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
-                    
+
                     await chrome.storage.local.set({
                         podcastImportResult: {cancelled: true, message: 'Import cancelled by user'},
                         podcastImportTimestamp: Date.now()
@@ -4236,6 +4302,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 let offscreenDocument = null;
 let exportManifests = new Map();
+
+let podcastImportAbortController = null;
 
 /**
  * Ensure offscreen document exists
