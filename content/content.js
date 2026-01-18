@@ -6979,12 +6979,16 @@ async function showEpisodesInMixModal(podcast) {
 
     if (selectAllBtn) {
       selectAllBtn.addEventListener('click', function() {
-        allEpisodes.forEach(episode => {
+        const { filterTerm, sortOrder } = getFilterSortState();
+        const episodesToSelect = filterTerm
+          ? allEpisodes.filter(ep => ep.title.toLowerCase().includes(filterTerm))
+          : allEpisodes;
+
+        episodesToSelect.forEach(episode => {
           if (!isEpisodeInQueue(podcast.id, episode.id)) {
             addEpisodeToQueue(episode, podcast);
           }
         });
-        const { filterTerm, sortOrder } = getFilterSortState();
         renderMixEpisodeList(podcast, allEpisodes, filterTerm, sortOrder);
         updateQueueFooter();
       });
@@ -6992,12 +6996,16 @@ async function showEpisodesInMixModal(podcast) {
 
     if (deselectAllBtn) {
       deselectAllBtn.addEventListener('click', function() {
-        allEpisodes.forEach(episode => {
+        const { filterTerm, sortOrder } = getFilterSortState();
+        const episodesToDeselect = filterTerm
+          ? allEpisodes.filter(ep => ep.title.toLowerCase().includes(filterTerm))
+          : allEpisodes;
+
+        episodesToDeselect.forEach(episode => {
           if (isEpisodeInQueue(podcast.id, episode.id)) {
             removeEpisodeFromQueueByIds(podcast.id, episode.id);
           }
         });
-        const { filterTerm, sortOrder } = getFilterSortState();
         renderMixEpisodeList(podcast, allEpisodes, filterTerm, sortOrder);
         updateQueueFooter();
       });
@@ -7247,7 +7255,7 @@ function showPodcastReviewModal() {
         }
         <div style="flex: 1;">
           <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #6b7280;">${chrome.i18n.getMessage('label_playlistName') || 'Playlist Name'}</label>
-          <input type="text" id="playlist-name-input" value="${podcasts.length === 1 ? firstPodcast.title + ' - Podcast' : (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape')}" style="
+          <input type="text" id="playlist-name-input" style="
             width: 100%;
             padding: 8px 12px;
             border: 1px solid #d1d5db;
@@ -7314,10 +7322,48 @@ function showPodcastReviewModal() {
   modal.appendChild(content);
   document.body.appendChild(modal);
 
+  // Set the playlist name input value programmatically to avoid HTML escaping issues with special characters
+  const playlistNameInput = document.getElementById('playlist-name-input');
+  if (playlistNameInput) {
+    const defaultPlaylistName = podcasts.length === 1
+      ? firstPodcast.title + ' - Podcast'
+      : (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape');
+    playlistNameInput.value = defaultPlaylistName;
+  }
+
   renderReviewEpisodeList();
 
   document.getElementById('review-close').addEventListener('click', () => modal.remove());
-  document.getElementById('review-cancel').addEventListener('click', () => modal.remove());
+
+  let importCancelled = false;
+  const cancelBtn = document.getElementById('review-cancel');
+
+  cancelBtn.addEventListener('click', async () => {
+    if (importCancelled) {
+      modal.remove();
+      return;
+    }
+
+    const importBtn = document.getElementById('review-import');
+    if (importBtn && importBtn.disabled) {
+      importCancelled = true;
+      cancelBtn.disabled = true;
+      cancelBtn.textContent = chrome.i18n.getMessage('status_cancellingImport') || 'Cancelling...';
+
+      try {
+        await chrome.runtime.sendMessage({ action: 'CANCEL_PODCAST_IMPORT' });
+      } catch (e) {
+      }
+
+      await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
+
+      setTimeout(() => {
+        modal.remove();
+      }, 500);
+    } else {
+      modal.remove();
+    }
+  });
 
   document.getElementById('review-import').addEventListener('click', async () => {
     const playlistName = document.getElementById('playlist-name-input').value.trim() || (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape');
@@ -7332,6 +7378,7 @@ function showPodcastReviewModal() {
     progressDiv.style.display = 'block';
     importBtn.disabled = true;
     importBtn.textContent = chrome.i18n.getMessage('button_importing') || 'Importing...';
+    cancelBtn.textContent = chrome.i18n.getMessage('button_cancel') || 'Cancel';
     statusText.textContent = chrome.i18n.getMessage('status_startingImport') || 'Starting import...';
     progressBar.style.width = '5%';
 
@@ -7356,14 +7403,22 @@ function showPodcastReviewModal() {
       let lastProgressCount = 0;
       let lastProgressTime = Date.now();
 
-      while (!importComplete) {
+      while (!importComplete && !importCancelled) {
         await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (importCancelled) {
+          return;
+        }
 
         const statusResponse = await chrome.runtime.sendMessage({
           action: 'GET_PODCAST_IMPORT_STATUS'
         });
 
         if (statusResponse) {
+          if (statusResponse.cancelled) {
+            return;
+          }
+
           if (statusResponse.progress) {
             const progress = statusResponse.progress;
             if (progress.status === 'in_progress') {
