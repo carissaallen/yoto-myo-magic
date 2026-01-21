@@ -1994,19 +1994,21 @@ async function uploadAudioFile(audioFileData) {
         let transcodedAudio = null;
         let attempts = 0;
 
-        // Adaptive timeout based on file size
-        const baseAttempts = 30;
-        const additionalAttempts = fileSizeMB > 35 ? Math.floor((fileSizeMB - 35) / 5) : 0;
-        const maxAttempts = Math.min(baseAttempts + additionalAttempts, 120);
+        // Adaptive timeout based on file size - podcast files need more time
+        // Base: 60 attempts for files up to 10MB
+        // Add 5 attempts per MB above 10MB (e.g., 20MB file = 60 + 50 = 110 attempts)
+        const baseAttempts = 60;
+        const additionalAttempts = fileSizeMB > 10 ? Math.floor((fileSizeMB - 10) * 5) : 0;
+        const maxAttempts = Math.min(baseAttempts + additionalAttempts, 180);
 
         // Initial delay before polling - transcoding typically takes 25-60+ seconds
-        // Wait based on file size: ~1.5s per MB, minimum 15s, maximum 30s
-        const estimatedTranscodeSeconds = Math.min(Math.max(fileSizeMB * 1.5, 15), 30);
+        // Wait based on file size: ~2s per MB, minimum 20s, maximum 45s
+        const estimatedTranscodeSeconds = Math.min(Math.max(fileSizeMB * 2, 20), 45);
         await new Promise(resolve => setTimeout(resolve, estimatedTranscodeSeconds * 1000));
 
-        // After initial delay, poll more aggressively (start at 2s instead of 500ms with slow ramp)
-        let pollInterval = 2000;
-        const maxPollInterval = 5000; // Max 5 seconds between polls
+        // After initial delay, poll with gradual ramp (start at 3s, max 6s)
+        let pollInterval = 3000;
+        const maxPollInterval = 6000; // Max 6 seconds between polls
         let totalElapsedTime = estimatedTranscodeSeconds * 1000;
         const transcodingStartTime = Date.now() - totalElapsedTime; // Adjust for initial delay
 
@@ -2055,12 +2057,15 @@ async function uploadAudioFile(audioFileData) {
             totalElapsedTime += pollInterval;
             attempts++;
 
-            pollInterval = Math.min(Math.floor(pollInterval * 1.2), maxPollInterval);
+            pollInterval = Math.min(Math.floor(pollInterval * 1.15), maxPollInterval);
         }
 
         if (!transcodedAudio) {
             const totalTimeSeconds = Math.ceil(totalElapsedTime / 1000);
-            const errorMsg = `Transcoding timed out after ${totalTimeSeconds} seconds (${attempts} attempts). The file may be too large or in an unsupported format.`;
+            const totalTimeMinutes = (totalTimeSeconds / 60).toFixed(1);
+            console.error(`[Transcoding] FAILED "${fileName}" - timed out after ${totalTimeMinutes} min (${attempts} attempts)`);
+            console.error(`[Transcoding] File size: ${fileSizeMB.toFixed(1)}MB, Upload ID: ${upload.uploadId}`);
+            const errorMsg = `Transcoding timed out after ${totalTimeMinutes} minutes (${attempts} attempts). The file may be too large or Yoto servers are busy.`;
             if (typeof YotoAnalytics !== 'undefined') {
                 YotoAnalytics.trackUploadPerformance('audio', Date.now() - uploadStartTime, fileSize, false, errorMsg);
             }
@@ -2828,6 +2833,11 @@ async function importPodcastEpisodes(episodes, options = {}) {
         podcast = null
     } = options;
 
+    // Calculate total estimated duration for logging
+    const totalDurationMin = episodes.reduce((sum, ep) => sum + (ep.audio_length_sec || 0), 0) / 60;
+    console.log(`[PodcastImport] Starting import of ${episodes.length} episodes (~${Math.round(totalDurationMin)} min total audio)`);
+    console.log(`[PodcastImport] Podcast: ${podcast?.title || 'Unknown'}`);
+
     podcastImportAbortController = new AbortController();
     const signal = podcastImportAbortController.signal;
     const isCancelled = () => signal.aborted;
@@ -2836,6 +2846,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
     let processedCount = 0;
     let failedCount = 0;
     const encounteredDomains = new Set();
+    const importStartTime = Date.now();
 
     try {
         await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp']);
@@ -2866,7 +2877,8 @@ async function importPodcastEpisodes(episodes, options = {}) {
             playlistName = 'Podcast Episodes';
         }
 
-        const CONCURRENT_LIMIT = episodes.length >= 50 ? 4 : 3;
+        // Reduce concurrency for stability with large audio files
+        const CONCURRENT_LIMIT = 2;
 
         const updateProgress = async (episodeIndex, additionalInfo = {}) => {
             const failedText = failedCount > 0 ? ` (${failedCount} ${chrome.i18n.getMessage('status_podcastFailed')})` : '';
@@ -2888,6 +2900,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
 
         const fetchAudioWithRetry = async (audioUrl, episodeTitle, maxAttempts = 3) => {
             let lastError = null;
+            const DOWNLOAD_TIMEOUT_MS = 300000; // 5 minutes per episode (increased from 2 min)
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 if (isCancelled()) {
@@ -2895,6 +2908,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 }
 
                 try {
+                    // Check for redirects and permissions
                     try {
                         const headResponse = await fetch(audioUrl, {
                             method: 'HEAD',
@@ -2910,56 +2924,108 @@ async function importPodcastEpisodes(episodes, options = {}) {
 
                             if (!hasPermission) {
                                 encounteredDomains.add(`${finalUrl.protocol}//${finalUrl.hostname}/*`);
+                                console.warn(`[PodcastImport] "${episodeTitle}" - redirect to ${finalUrl.hostname} may require permission`);
                             }
                         }
                     } catch (headError) {
                         if (headError.name === 'AbortError') {
                             return { success: false, error: 'Import cancelled', cancelled: true };
                         }
+                        // HEAD request failure is not fatal, continue with GET
                     }
 
                     if (isCancelled()) {
                         return { success: false, error: 'Import cancelled', cancelled: true };
                     }
 
+                    // Use per-episode AbortController for timeout (doesn't abort entire import)
+                    const episodeController = new AbortController();
                     const timeoutId = setTimeout(() => {
-                        if (!isCancelled()) {
-                            podcastImportAbortController?.abort();
-                        }
-                    }, 120000);
+                        episodeController.abort();
+                    }, DOWNLOAD_TIMEOUT_MS);
 
-                    const audioResponse = await fetch(audioUrl, {
-                        method: 'GET',
-                        redirect: 'follow',
-                        signal
-                    });
+                    // Also abort if the main import is cancelled
+                    const onMainAbort = () => episodeController.abort();
+                    signal.addEventListener('abort', onMainAbort);
 
-                    clearTimeout(timeoutId);
+                    try {
+                        const audioResponse = await fetch(audioUrl, {
+                            method: 'GET',
+                            redirect: 'follow',
+                            signal: episodeController.signal
+                        });
 
-                    if (!audioResponse.ok) {
-                        const errorMsg = `HTTP ${audioResponse.status} ${audioResponse.statusText}`;
-                        if (audioResponse.status >= 400 && audioResponse.status < 500) {
-                            throw new Error(errorMsg);
+                        clearTimeout(timeoutId);
+                        signal.removeEventListener('abort', onMainAbort);
+
+                        if (!audioResponse.ok) {
+                            const errorMsg = `HTTP ${audioResponse.status} ${audioResponse.statusText}`;
+                            console.error(`[PodcastImport] "${episodeTitle}" - server error: ${errorMsg} (attempt ${attempt}/${maxAttempts})`);
+
+                            // Don't retry client errors (4xx)
+                            if (audioResponse.status >= 400 && audioResponse.status < 500) {
+                                return {
+                                    success: false,
+                                    error: `Server rejected request: ${errorMsg}`,
+                                    errorDetails: { status: audioResponse.status, episodeTitle, audioUrl }
+                                };
+                            }
+
+                            lastError = new Error(errorMsg);
+                            if (attempt < maxAttempts) {
+                                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                continue;
+                            }
+                            return {
+                                success: false,
+                                error: `Server error after ${maxAttempts} attempts: ${errorMsg}`,
+                                errorDetails: { status: audioResponse.status, episodeTitle, audioUrl }
+                            };
                         }
-                        lastError = new Error(errorMsg);
-                        if (attempt < maxAttempts) {
-                            const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            continue;
+
+                        const audioBlob = await audioResponse.blob();
+
+                        if (!audioBlob || audioBlob.size === 0) {
+                            console.error(`[PodcastImport] "${episodeTitle}" - empty audio file received`);
+                            return {
+                                success: false,
+                                error: 'Empty audio file received from server',
+                                errorDetails: { episodeTitle, audioUrl }
+                            };
                         }
-                        throw lastError;
+
+                        return { success: true, blob: audioBlob };
+
+                    } finally {
+                        clearTimeout(timeoutId);
+                        signal.removeEventListener('abort', onMainAbort);
                     }
-
-                    const audioBlob = await audioResponse.blob();
-
-                    if (!audioBlob || audioBlob.size === 0) {
-                        throw new Error('Empty audio file received');
-                    }
-
-                    return { success: true, blob: audioBlob };
 
                 } catch (fetchError) {
-                    if (fetchError.name === 'AbortError' || isCancelled()) {
+                    // Check if main import was cancelled
+                    if (isCancelled()) {
+                        return { success: false, error: 'Import cancelled', cancelled: true };
+                    }
+
+                    // Handle per-episode timeout (not a full cancellation)
+                    if (fetchError.name === 'AbortError') {
+                        const wasTimeout = !isCancelled();
+                        if (wasTimeout) {
+                            lastError = new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS / 1000} seconds`);
+
+                            if (attempt < maxAttempts) {
+                                const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+                                await new Promise(resolve => setTimeout(resolve, delay));
+                                continue;
+                            }
+
+                            return {
+                                success: false,
+                                error: `Download timed out after ${maxAttempts} attempts (${DOWNLOAD_TIMEOUT_MS / 1000}s each)`,
+                                errorDetails: { episodeTitle, audioUrl, timeout: DOWNLOAD_TIMEOUT_MS }
+                            };
+                        }
                         return { success: false, error: 'Import cancelled', cancelled: true };
                     }
 
@@ -2971,6 +3037,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
                             const url = new URL(audioUrl);
                             encounteredDomains.add(`${url.protocol}//${url.hostname}/*`);
                         } catch (e) {
+                            // Invalid URL, ignore
                         }
                     }
 
@@ -2981,8 +3048,17 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 }
             }
 
-            return { success: false, error: lastError?.message || 'Failed to fetch audio' };
+            const finalError = lastError?.message || 'Failed to fetch audio';
+            console.error(`[PodcastImport] "${episodeTitle}" - FAILED after ${maxAttempts} attempts: ${finalError}`);
+            return {
+                success: false,
+                error: finalError,
+                errorDetails: { episodeTitle, audioUrl, attempts: maxAttempts }
+            };
         };
+
+        // Track detailed failure reasons for user-facing error messages
+        const failureReasons = [];
 
         const processEpisode = async (episode, index) => {
             if (isCancelled()) {
@@ -2990,7 +3066,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
             }
 
             if (episode.audio_length_sec > 3600) {
-                console.warn(`Episode "${episode.title}" exceeds 60 minutes, may be truncated by Yoto`);
+                console.warn(`[PodcastImport] "${episode.title}" exceeds 60 minutes, may be truncated by Yoto`);
             }
 
             try {
@@ -3002,7 +3078,15 @@ async function importPodcastEpisodes(episodes, options = {}) {
 
                 if (!fetchResult.success) {
                     failedCount++;
-                    return null;
+                    const reason = {
+                        episode: episode.title,
+                        phase: 'download',
+                        error: fetchResult.error,
+                        details: fetchResult.errorDetails
+                    };
+                    failureReasons.push(reason);
+                    console.error(`[PodcastImport] EPISODE FAILED - "${episode.title}": ${fetchResult.error}`);
+                    return { failed: true, reason };
                 }
 
                 if (isCancelled()) {
@@ -3020,9 +3104,15 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 }
 
                 if (uploadResult.error) {
-                    console.error(`Upload failed for "${episode.title}":`, uploadResult.error);
                     failedCount++;
-                    return null;
+                    const reason = {
+                        episode: episode.title,
+                        phase: 'upload',
+                        error: uploadResult.error
+                    };
+                    failureReasons.push(reason);
+                    console.error(`[PodcastImport] EPISODE FAILED - "${episode.title}" upload error: ${uploadResult.error}`);
+                    return { failed: true, reason };
                 }
 
                 return {
@@ -3035,9 +3125,15 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 if (isCancelled()) {
                     return { cancelled: true };
                 }
-                console.error(`Error processing "${episode.title}":`, error.message);
                 failedCount++;
-                return null;
+                const reason = {
+                    episode: episode.title,
+                    phase: 'processing',
+                    error: error.message
+                };
+                failureReasons.push(reason);
+                console.error(`[PodcastImport] EPISODE FAILED - "${episode.title}" unexpected error:`, error.message);
+                return { failed: true, reason };
             } finally {
                 if (!isCancelled()) {
                     processedCount++;
@@ -3078,10 +3174,15 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 if (isCancelled()) {
                     return { cancelled: true, message: 'Import cancelled by user' };
                 }
-                console.error(`Batch processing error:`, batchError.message);
+                console.error(`[PodcastImport] Batch processing error for episodes ${i + 1}-${i + batch.length}:`, batchError.message);
                 for (let j = 0; j < batch.length; j++) {
                     failedCount++;
                     processedCount++;
+                    failureReasons.push({
+                        episode: batch[j].title,
+                        phase: 'batch',
+                        error: batchError.message
+                    });
                 }
                 await updateProgress(i + batch.length - 1, { batchError: batchError.message });
             }
@@ -3092,19 +3193,57 @@ async function importPodcastEpisodes(episodes, options = {}) {
         }
 
         if (audioTracks.length === 0) {
-            if (encounteredDomains.size > 0 && failedCount > 0) {
+            // Log detailed failure summary to console
+            console.error(`[PodcastImport] IMPORT FAILED - All ${episodes.length} episodes failed to import`);
+            console.error(`[PodcastImport] Failure summary:`);
+            failureReasons.forEach((reason, i) => {
+                console.error(`  ${i + 1}. "${reason.episode}" - ${reason.phase} error: ${reason.error}`);
+            });
+
+            // Categorize failures for user-facing message
+            const downloadTimeouts = failureReasons.filter(r => r.error?.includes('timed out'));
+            const serverErrors = failureReasons.filter(r => r.error?.includes('HTTP') || r.error?.includes('Server'));
+            const networkErrors = failureReasons.filter(r => r.error?.includes('network') || r.error?.includes('Failed to fetch'));
+            const uploadErrors = failureReasons.filter(r => r.phase === 'upload');
+
+            let userErrorMessage = 'Failed to import episodes. ';
+
+            if (encounteredDomains.size > 0 && networkErrors.length > 0) {
+                console.error(`[PodcastImport] Domains that may need permissions: ${Array.from(encounteredDomains).join(', ')}`);
                 return {
-                    error: 'Failed to import episodes. The podcast audio is hosted on external domains that require additional permissions.',
+                    error: userErrorMessage + 'The podcast audio is hosted on external domains that require additional permissions.',
                     needsPermission: true,
-                    requiredDomains: Array.from(encounteredDomains)
+                    requiredDomains: Array.from(encounteredDomains),
+                    failureReasons: failureReasons
                 };
             }
-            return { error: 'Failed to import episodes. The podcast audio may be hosted on a domain that requires additional permissions.' };
+
+            if (downloadTimeouts.length > 0) {
+                userErrorMessage += `${downloadTimeouts.length} episode(s) timed out during download. The podcast server may be slow or your connection may be unstable.`;
+            } else if (serverErrors.length > 0) {
+                userErrorMessage += `The podcast server returned errors for ${serverErrors.length} episode(s). The audio files may be unavailable.`;
+            } else if (uploadErrors.length > 0) {
+                userErrorMessage += `Failed to upload ${uploadErrors.length} episode(s) to Yoto. Please try again later.`;
+            } else if (networkErrors.length > 0) {
+                userErrorMessage += 'Network errors occurred. Check your internet connection and try again.';
+            } else {
+                userErrorMessage += 'An unexpected error occurred. Check the browser console for details.';
+            }
+
+            return {
+                error: userErrorMessage,
+                failureReasons: failureReasons,
+                failedCount: failedCount
+            };
         }
 
         const isPartialImport = audioTracks.length < episodes.length;
         if (isPartialImport) {
-            console.info(`Partial import: ${audioTracks.length}/${episodes.length} episodes succeeded`);
+            console.warn(`[PodcastImport] Partial import: ${audioTracks.length}/${episodes.length} episodes succeeded`);
+            console.warn(`[PodcastImport] Failed episodes:`);
+            failureReasons.forEach((reason, i) => {
+                console.warn(`  ${i + 1}. "${reason.episode}" - ${reason.phase} error: ${reason.error}`);
+            });
         }
 
         let coverImageUrl = null;
@@ -3186,8 +3325,16 @@ async function importPodcastEpisodes(episodes, options = {}) {
             totalEpisodes: episodes.length,
             failedCount: failedCount,
             partial: isPartialImport,
-            updated: updateMode
+            updated: updateMode,
+            failureReasons: isPartialImport ? failureReasons : undefined
         };
+
+        const totalImportTime = ((Date.now() - importStartTime) / 1000 / 60).toFixed(1);
+        if (isPartialImport) {
+            console.log(`[PodcastImport] Import completed with ${audioTracks.length}/${episodes.length} episodes in ${totalImportTime} min`);
+        } else {
+            console.log(`[PodcastImport] Import completed successfully - all ${audioTracks.length} episodes imported in ${totalImportTime} min`);
+        }
 
         await chrome.storage.local.set({
             podcastImportResult: successResult,

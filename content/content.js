@@ -6164,7 +6164,9 @@ async function selectPodcast(podcast) {
         let importComplete = false;
         const episodeCount = selectedEpisodes.length;
 
-        const INACTIVITY_TIMEOUT_SECONDS = 300; // 5 minutes without progress = timeout
+        // Scale inactivity timeout based on episode count - large imports need more time per episode
+        // 5 min base + 2 min per episode (e.g., 21 episodes = 5 + 42 = 47 min max inactivity)
+        const INACTIVITY_TIMEOUT_SECONDS = Math.max(300, 300 + (episodeCount * 120));
         let lastProgressCount = 0;
         let lastProgressTime = Date.now();
         let totalElapsedSeconds = 0;
@@ -6211,11 +6213,20 @@ async function selectPodcast(podcast) {
                 const total = statusResponse.totalEpisodes || selectedEpisodes.length;
                 const failed = statusResponse.failedCount || (total - imported);
 
+                // Log failed episodes to console for debugging
+                console.warn(`[PodcastImport:UI] Partial import: ${imported}/${total} episodes succeeded, ${failed} failed`);
+                if (statusResponse.failureReasons && statusResponse.failureReasons.length > 0) {
+                  console.warn(`[PodcastImport:UI] Failed episodes:`);
+                  statusResponse.failureReasons.forEach((reason, i) => {
+                    console.warn(`  ${i + 1}. "${reason.episode}" - ${reason.phase}: ${reason.error}`);
+                  });
+                }
+
                 statusText.innerHTML = `
                   <div style="color: #28a745;">
                     <p>${chrome.i18n.getMessage("status_successfullyImportedEpisodes", [imported])}</p>
                     <p style="font-size: 14px; margin-top: 8px; color: #856404;">
-                      Note: ${failed} episode${failed !== 1 ? 's' : ''} could not be imported due to errors.
+                      Note: ${failed} episode${failed !== 1 ? 's' : ''} could not be imported due to errors. Check browser console for details.
                     </p>
                   </div>
                 `;
@@ -6248,6 +6259,17 @@ async function selectPodcast(podcast) {
               importBtn.style.display = 'none';
               cancelBtn.textContent = chrome.i18n.getMessage('button_close');
             } else if (statusResponse.error) {
+              // Log detailed failure info to console for debugging
+              console.error(`[PodcastImport:UI] Import failed: ${statusResponse.error}`);
+              if (statusResponse.failureReasons && statusResponse.failureReasons.length > 0) {
+                console.error(`[PodcastImport:UI] Detailed failure reasons:`);
+                statusResponse.failureReasons.forEach((reason, i) => {
+                  console.error(`  ${i + 1}. "${reason.episode}" - ${reason.phase}: ${reason.error}`);
+                  if (reason.details) {
+                    console.error(`     Details:`, reason.details);
+                  }
+                });
+              }
               throw new Error(statusResponse.error);
             }
           }
@@ -6283,6 +6305,8 @@ async function selectPodcast(podcast) {
         }
 
       } catch (error) {
+        console.error(`[PodcastImport:UI] Import error:`, error.message);
+
         statusText.textContent = `${chrome.i18n.getMessage("error_generic", [error.message])}`;
         progressBar.style.width = '0%';
         importBtn.disabled = false;
