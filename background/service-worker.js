@@ -3317,7 +3317,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 }
 
                 const batchTracks = batchResults
-                    .filter(track => track !== null && !track.cancelled)
+                    .filter(track => track !== null && !track.cancelled && !track.failed)
                     .sort((a, b) => a.originalIndex - b.originalIndex)
                     .map(track => ({
                         title: track.title,
@@ -3362,12 +3362,12 @@ async function importPodcastEpisodes(episodes, options = {}) {
             const networkErrors = failureReasons.filter(r => r.error?.includes('network') || r.error?.includes('Failed to fetch'));
             const uploadErrors = failureReasons.filter(r => r.phase === 'upload');
 
-            let userErrorMessage = 'Failed to import episodes. ';
+            let userErrorMessage = chrome.i18n.getMessage('error_failedToImportEpisodes') + ' ';
 
             if (encounteredDomains.size > 0 && networkErrors.length > 0) {
                 console.error(`[PodcastImport] Domains that may need permissions: ${Array.from(encounteredDomains).join(', ')}`);
                 return {
-                    error: userErrorMessage + 'The podcast audio is hosted on external domains that require additional permissions.',
+                    error: userErrorMessage + chrome.i18n.getMessage('error_podcastExternalDomainPermission'),
                     needsPermission: true,
                     requiredDomains: Array.from(encounteredDomains),
                     failureReasons: failureReasons
@@ -3375,15 +3375,15 @@ async function importPodcastEpisodes(episodes, options = {}) {
             }
 
             if (downloadTimeouts.length > 0) {
-                userErrorMessage += `${downloadTimeouts.length} episode(s) timed out during download. The podcast server may be slow or your connection may be unstable.`;
+                userErrorMessage += chrome.i18n.getMessage('error_podcastDownloadTimeout', [String(downloadTimeouts.length)]);
             } else if (serverErrors.length > 0) {
-                userErrorMessage += `The podcast server returned errors for ${serverErrors.length} episode(s). The audio files may be unavailable.`;
+                userErrorMessage += chrome.i18n.getMessage('error_podcastServerErrors', [String(serverErrors.length)]);
             } else if (uploadErrors.length > 0) {
-                userErrorMessage += `Failed to upload ${uploadErrors.length} episode(s) to Yoto. Please try again later.`;
+                userErrorMessage += chrome.i18n.getMessage('error_podcastUploadFailed', [String(uploadErrors.length)]);
             } else if (networkErrors.length > 0) {
-                userErrorMessage += 'Network errors occurred. Check your internet connection and try again.';
+                userErrorMessage += chrome.i18n.getMessage('error_podcastNetworkError');
             } else {
-                userErrorMessage += 'An unexpected error occurred. Check the browser console for details.';
+                userErrorMessage += chrome.i18n.getMessage('error_podcastUnexpectedError');
             }
 
             return {
@@ -3536,7 +3536,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
                         podcastImportProgress: {
                             status: 'complete',
                             partial: true,
-                            message: `Imported ${audioTracks.length} of ${episodes.length} episodes (some failed)`
+                            message: chrome.i18n.getMessage('status_partialImportComplete', [String(audioTracks.length), String(episodes.length)])
                         }
                     });
 
@@ -3548,7 +3548,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
         }
 
         const errorResult = {
-            error: error.message || 'Failed to import podcast episodes',
+            error: error.message || chrome.i18n.getMessage('error_failedToImportPodcastEpisodes'),
             tracksProcessed: audioTracks.length,
             failedCount: failedCount
         };
