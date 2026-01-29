@@ -571,6 +571,31 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
 
         return await response.json();
     } catch (error) {
+        // Retry network-level failures (e.g., "Failed to fetch", connection reset)
+        const isNetworkError = error.message?.includes('Failed to fetch') ||
+            error.message?.includes('NetworkError') ||
+            error.message?.includes('network') ||
+            error.message?.includes('ECONNRESET') ||
+            error.message?.includes('ETIMEDOUT') ||
+            error.name === 'TypeError'; // fetch throws TypeError for network failures
+
+        if (isNetworkError && currentRetry < maxRetries) {
+            const delay = baseDelay * Math.pow(2, currentRetry);
+            const jitter = delay * Math.random() * 0.1;
+            const totalDelay = Math.min(delay + jitter, 30000);
+
+            console.warn(`[API] Network error on ${endpoint}, retry ${currentRetry + 1}/${maxRetries} in ${Math.ceil(totalDelay / 1000)}s: ${error.message}`);
+
+            await new Promise(resolve => setTimeout(resolve, totalDelay));
+
+            return makeAuthenticatedRequest(endpoint, {
+                ...options,
+                currentRetry: currentRetry + 1,
+                maxRetries,
+                baseDelay
+            });
+        }
+
         throw error;
     }
 }
@@ -2133,10 +2158,33 @@ async function uploadAudioFile(audioFileData) {
         let totalElapsedTime = estimatedTranscodeSeconds * 1000;
         const transcodingStartTime = Date.now() - totalElapsedTime; // Adjust for initial delay
 
+        let consecutiveNetworkErrors = 0;
+        const maxConsecutiveNetworkErrors = 5;
+
         while (attempts < maxAttempts) {
-            const transcodeResponse = await makeAuthenticatedRequest(
-                `/media/upload/${upload.uploadId}/transcoded?loudnorm=false`
-            );
+            let transcodeResponse;
+
+            try {
+                transcodeResponse = await makeAuthenticatedRequest(
+                    `/media/upload/${upload.uploadId}/transcoded?loudnorm=false`
+                );
+                consecutiveNetworkErrors = 0; // Reset on successful request
+            } catch (pollError) {
+                // Network error during poll - continue polling unless too many consecutive failures
+                consecutiveNetworkErrors++;
+                console.warn(`[Transcoding] Poll failed for ${fileName} (${consecutiveNetworkErrors}/${maxConsecutiveNetworkErrors}): ${pollError.message}`);
+
+                if (consecutiveNetworkErrors >= maxConsecutiveNetworkErrors) {
+                    console.error(`[Transcoding] Too many consecutive poll failures for ${fileName}`);
+                    return { error: `Upload status check failed after ${maxConsecutiveNetworkErrors} attempts: ${pollError.message}` };
+                }
+
+                // Wait longer after network errors before retrying
+                await new Promise(resolve => setTimeout(resolve, pollInterval * 2));
+                totalElapsedTime += pollInterval * 2;
+                attempts++;
+                continue;
+            }
 
             if (transcodeResponse.error) {
                 // If we get a specific error, don't keep retrying
