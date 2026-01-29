@@ -212,6 +212,7 @@ async function invalidateSession(reason) {
 }
 
 let cookieOverwriteDebounceTimer = null;
+let cookieExpirationDebounceTimer = null;
 let isOAuthFlowInProgress = false;
 
 chrome.cookies.onChanged.addListener(async (changeInfo) => {
@@ -238,14 +239,47 @@ chrome.cookies.onChanged.addListener(async (changeInfo) => {
 
         cookieOverwriteDebounceTimer = setTimeout(async () => {
             cookieOverwriteDebounceTimer = null;
-            await invalidateSession('yoto_session_replaced');
+            // Verify our OAuth token is still valid before invalidating
+            const tokens = await TokenManager.getTokens();
+            if (!tokens || !tokens.access_token || isTokenExpired(tokens.access_token)) {
+                await invalidateSession('yoto_session_replaced');
+            }
         }, 1000);
 
         return;
     }
 
-    if (removed && (cause === 'explicit' || cause === 'expired' || cause === 'evicted')) {
+    // Only invalidate immediately on explicit logout (user clicked "Log out")
+    if (removed && cause === 'explicit') {
         await invalidateSession('yoto_logout_detected');
+        return;
+    }
+
+    // For expired/evicted cookies, debounce and verify our OAuth token is still valid
+    // This prevents sign-out during active extension use when Yoto's session cookies expire
+    if (removed && (cause === 'expired' || cause === 'evicted')) {
+        if (cookieExpirationDebounceTimer) {
+            clearTimeout(cookieExpirationDebounceTimer);
+        }
+
+        cookieExpirationDebounceTimer = setTimeout(async () => {
+            cookieExpirationDebounceTimer = null;
+            // Only invalidate if our OAuth token is also expired/invalid
+            const tokens = await TokenManager.getTokens();
+            if (!tokens || !tokens.access_token) {
+                await invalidateSession('yoto_session_expired');
+            } else if (isTokenExpired(tokens.access_token)) {
+                // Try to refresh the token before giving up
+                try {
+                    await TokenManager.refreshToken();
+                    // Token refreshed successfully, don't invalidate
+                } catch (error) {
+                    console.warn('[Session] Token refresh failed after cookie expiration:', error.message);
+                    await invalidateSession('yoto_session_expired');
+                }
+            }
+            // If token is still valid, don't invalidate - user can continue using extension
+        }, 2000);
     }
 });
 
