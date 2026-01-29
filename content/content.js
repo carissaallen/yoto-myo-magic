@@ -7477,10 +7477,11 @@ function showPodcastReviewModal() {
   // Set the playlist name input value programmatically to avoid HTML escaping issues with special characters
   const playlistNameInput = document.getElementById('playlist-name-input');
   if (playlistNameInput) {
-    // Use first podcast title, add "& More" if episodes from multiple podcasts
+    // Use first podcast title, add localized "& More" suffix if episodes from multiple podcasts
+    const andMoreSuffix = chrome.i18n.getMessage('suffix_andMore') || '& More';
     const defaultPlaylistName = podcasts.length === 1
       ? firstPodcast.title
-      : firstPodcast.title + ' & More';
+      : `${firstPodcast.title} ${andMoreSuffix}`;
     playlistNameInput.value = defaultPlaylistName;
   }
 
@@ -7519,8 +7520,9 @@ function showPodcastReviewModal() {
   });
 
   document.getElementById('review-import').addEventListener('click', async () => {
-    // Fallback to first podcast title (with "& More" if multiple podcasts)
-    const fallbackName = podcasts.length === 1 ? firstPodcast.title : firstPodcast.title + ' & More';
+    // Fallback to first podcast title (with localized "& More" suffix if multiple podcasts)
+    const andMoreFallback = chrome.i18n.getMessage('suffix_andMore') || '& More';
+    const fallbackName = podcasts.length === 1 ? firstPodcast.title : `${firstPodcast.title} ${andMoreFallback}`;
     const playlistName = document.getElementById('playlist-name-input').value.trim() || fallbackName;
     const coverImageUrl = firstPodcast.thumbnail || null;
 

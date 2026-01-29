@@ -1639,6 +1639,10 @@
     "message": "Visita la pagina Playlist Yoto per utilizzare le funzionalità.",
     "description": "Footer note in popup"
   },
+  "suffix_andMore": {
+    "message": "e altro",
+    "description": "Suffix added to playlist name when importing episodes from multiple podcasts (e.g. 'Podcast Name & More')"
+  },
   "status_analyzingFolder": {
     "message": "Analisi della struttura delle cartelle...",
     "description": "Status when analyzing folder"

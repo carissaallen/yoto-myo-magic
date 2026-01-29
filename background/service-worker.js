@@ -2936,18 +2936,19 @@ async function importPodcastEpisodes(episodes, options = {}) {
         }
 
         let playlistName;
+        const andMoreSuffix = chrome.i18n.getMessage('suffix_andMore') || '& More';
         if (providedPlaylistName) {
             playlistName = providedPlaylistName;
         } else if (podcast && podcast.title) {
-            // Use first podcast title, add "& More" if episodes from multiple podcasts
+            // Use first podcast title, add localized "& More" suffix if episodes from multiple podcasts
             const uniquePodcasts = [...new Set(episodes.map(ep => ep.podcast?.title).filter(Boolean))];
-            playlistName = uniquePodcasts.length > 1 ? `${podcast.title} & More` : podcast.title;
+            playlistName = uniquePodcasts.length > 1 ? `${podcast.title} ${andMoreSuffix}` : podcast.title;
         } else if (episodes.length > 0 && episodes[0].podcast && episodes[0].podcast.title) {
             const uniquePodcasts = [...new Set(episodes.map(ep => ep.podcast?.title).filter(Boolean))];
             const firstPodcastTitle = episodes[0].podcast.title;
-            playlistName = uniquePodcasts.length === 1 ? firstPodcastTitle : `${firstPodcastTitle} & More`;
+            playlistName = uniquePodcasts.length === 1 ? firstPodcastTitle : `${firstPodcastTitle} ${andMoreSuffix}`;
         } else {
-            playlistName = 'Podcast Episodes';
+            playlistName = chrome.i18n.getMessage('label_podcastEpisodes') || 'Podcast Episodes';
         }
 
         // Reduce concurrency for stability with large audio files

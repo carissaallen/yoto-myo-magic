@@ -1653,6 +1653,10 @@
     "message": "Obiščite stran s predvajalnimi seznami Yoto za uporabo funkcij.",
     "description": "Footer note in popup"
   },
+  "suffix_andMore": {
+    "message": "in več",
+    "description": "Suffix added to playlist name when importing episodes from multiple podcasts (e.g. 'Podcast Name & More')"
+  },
   "status_analyzingFolder": {
     "message": "Analiza strukture mape...",
     "description": "Status when analyzing folder"

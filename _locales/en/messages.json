@@ -7,6 +7,10 @@
     "message": "Transform how you create Yoto MYO cards with smart imports, automatic icon matching, and more delightful shortcuts.",
     "description": "Description of the extension"
   },
+  "suffix_andMore": {
+    "message": "& More",
+    "description": "Suffix added to playlist name when importing episodes from multiple podcasts (e.g. 'Podcast Name & More')"
+  },
   "category_animals": {
     "message": "Animals",
     "description": "Category name for animals"
