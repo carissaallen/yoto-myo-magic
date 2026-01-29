@@ -2752,5 +2752,69 @@
         "example": "Network error"
       }
     }
+  },
+  "error_failedToImportEpisodes": {
+    "message": "Episoden konnten nicht importiert werden.",
+    "description": "Base error message when episode import fails"
+  },
+  "error_podcastExternalDomainPermission": {
+    "message": "Das Podcast-Audio wird auf externen Domains gehostet, die zusätzliche Berechtigungen erfordern.",
+    "description": "Error when podcast audio requires permission for external domains"
+  },
+  "error_podcastDownloadTimeout": {
+    "message": "$COUNT$ Episode(n) sind beim Herunterladen abgelaufen. Der Podcast-Server ist möglicherweise langsam oder Ihre Verbindung instabil.",
+    "description": "Error when podcast episodes timeout during download",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "error_podcastServerErrors": {
+    "message": "Der Podcast-Server hat Fehler für $COUNT$ Episode(n) zurückgegeben. Die Audiodateien sind möglicherweise nicht verfügbar.",
+    "description": "Error when podcast server returns errors",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "error_podcastUploadFailed": {
+    "message": "$COUNT$ Episode(n) konnten nicht zu Yoto hochgeladen werden. Bitte versuchen Sie es später erneut.",
+    "description": "Error when podcast upload fails",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "error_podcastNetworkError": {
+    "message": "Netzwerkfehler aufgetreten. Überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.",
+    "description": "Error when network issues prevent podcast import"
+  },
+  "error_podcastUnexpectedError": {
+    "message": "Ein unerwarteter Fehler ist aufgetreten. Überprüfen Sie die Browser-Konsole für Details.",
+    "description": "Error when an unexpected error occurs during podcast import"
+  },
+  "status_partialImportComplete": {
+    "message": "$IMPORTED$ von $TOTAL$ Episoden importiert (einige fehlgeschlagen)",
+    "description": "Status when partial import completes with some failures",
+    "placeholders": {
+      "imported": {
+        "content": "$1",
+        "example": "8"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "error_failedToImportPodcastEpisodes": {
+    "message": "Podcast-Episoden konnten nicht importiert werden",
+    "description": "Generic error when podcast episode import fails"
   }
 }

@@ -2722,5 +2722,69 @@
         "example": "Network error"
       }
     }
+  },
+  "error_failedToImportEpisodes": {
+    "message": "Uvoz epizod ni uspel.",
+    "description": "Base error message when episode import fails"
+  },
+  "error_podcastExternalDomainPermission": {
+    "message": "Zvok podcasta je gostovan na zunanjih domenah, ki zahtevajo dodatna dovoljenja.",
+    "description": "Error when podcast audio requires permission for external domains"
+  },
+  "error_podcastDownloadTimeout": {
+    "message": "$COUNT$ epizod(a) je med prenosom potekla. Strežnik podcasta je morda počasen ali pa je vaša povezava nestabilna.",
+    "description": "Error when podcast episodes timeout during download",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "3"
+      }
+    }
+  },
+  "error_podcastServerErrors": {
+    "message": "Strežnik podcasta je vrnil napake za $COUNT$ epizod(o). Zvočne datoteke morda niso na voljo.",
+    "description": "Error when podcast server returns errors",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "error_podcastUploadFailed": {
+    "message": "Nalaganje $COUNT$ epizod(e) na Yoto ni uspelo. Poskusite znova pozneje.",
+    "description": "Error when podcast upload fails",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "1"
+      }
+    }
+  },
+  "error_podcastNetworkError": {
+    "message": "Prišlo je do omrežnih napak. Preverite internetno povezavo in poskusite znova.",
+    "description": "Error when network issues prevent podcast import"
+  },
+  "error_podcastUnexpectedError": {
+    "message": "Prišlo je do nepričakovane napake. Preverite konzolo brskalnika za podrobnosti.",
+    "description": "Error when an unexpected error occurs during podcast import"
+  },
+  "status_partialImportComplete": {
+    "message": "Uvoženih $IMPORTED$ od $TOTAL$ epizod (nekatere niso uspele)",
+    "description": "Status when partial import completes with some failures",
+    "placeholders": {
+      "imported": {
+        "content": "$1",
+        "example": "8"
+      },
+      "total": {
+        "content": "$2",
+        "example": "10"
+      }
+    }
+  },
+  "error_failedToImportPodcastEpisodes": {
+    "message": "Uvoz epizod podcasta ni uspel",
+    "description": "Generic error when podcast episode import fails"
   }
 }
