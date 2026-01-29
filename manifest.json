@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_extensionName__",
-  "version": "1.17.2",
+  "version": "1.18.0",
   "description": "__MSG_extensionDescription__",
 
   "permissions": [
@@ -11,7 +11,8 @@
     "tabs",
     "identity",
     "offscreen",
-    "downloads"
+    "downloads",
+    "cookies"
   ],
 
   "minimum_chrome_version": "109",
@@ -23,7 +24,7 @@
     "https://share.yoto.co/*",
     "https://www.yotoicons.com/*",
     "https://www.google-analytics.com/*",
-    "https://itunes.apple.com/*",
+    "https://api.yotomyomagic.com/*",
     "https://*.cloudfront.net/*",
     "https://*.amazonaws.com/*",
     "https://cdn.yotoplay.com/*",
@@ -79,6 +80,7 @@
         "assets/timer/covers/*.png",
         "assets/timer/icons/*.png",
         "assets/timer/icons/*.gif",
+        "images/podcasts/*.webp",
         "lib/*.js",
         "utils/timerIconGenerator.js",
         "callback.html",

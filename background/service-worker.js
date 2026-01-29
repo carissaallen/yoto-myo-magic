@@ -136,15 +136,134 @@ function isTokenExpired(token) {
     }
 }
 
+// Session Management - Multi-Account Support
+
+async function getStoredUserInfo() {
+    try {
+        const tokens = await TokenManager.getTokens();
+        if (!tokens?.access_token) return null;
+
+        const payload = JSON.parse(atob(tokens.access_token.split('.')[1]));
+        return {
+            userId: payload.sub || null,
+            email: payload.email || payload.preferred_username || payload.name || null
+        };
+    } catch (error) {
+        console.warn('[Session] Failed to extract user info from token:', error.message);
+        return null;
+    }
+}
+
+async function verifyAccountMatch() {
+    try {
+        const storedUser = await getStoredUserInfo();
+        if (!storedUser) {
+            return { valid: false, mismatch: false, needsReauth: true, error: 'No stored authentication', previousEmail: null };
+        }
+
+        const response = await makeAuthenticatedRequest('/content/mine');
+
+        if (response.error) {
+            if (response.needsAuth || response.error.includes('401') || response.error.includes('403')) {
+                return { valid: false, mismatch: true, needsReauth: true, error: 'Session expired or account changed', previousEmail: storedUser.email };
+            }
+            return { valid: true, mismatch: false, needsReauth: false, userEmail: storedUser.email };
+        }
+
+        return { valid: true, mismatch: false, needsReauth: false, userEmail: storedUser.email };
+    } catch (error) {
+        const storedUser = await getStoredUserInfo();
+        if (error.message?.includes('403')) {
+            return { valid: false, mismatch: true, needsReauth: true, error: 'Account mismatch - please sign in again', previousEmail: storedUser?.email };
+        }
+        console.warn('[Session] Account verification error:', error.message);
+        return { valid: true, mismatch: false, needsReauth: false, userEmail: storedUser?.email };
+    }
+}
+
+async function invalidateSession(reason) {
+    await TokenManager.clearAllAuthData();
+    yotoIconsCache.clear();
+
+    try {
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+            try {
+                await chrome.tabs.sendMessage(tab.id, {
+                    action: 'AUTH_STATUS',
+                    authenticated: false,
+                    reason: reason
+                });
+            } catch (e) {
+                // Tab might not have content script
+            }
+        }
+    } catch (e) {
+        console.warn('[Session] Failed to notify tabs:', e.message);
+    }
+
+    try {
+        if (typeof YotoAnalytics !== 'undefined' && YotoAnalytics.track) {
+            YotoAnalytics.track('session_invalidated', 'auth', reason);
+        }
+    } catch (e) {
+        console.warn('[Session] Analytics tracking failed:', e.message);
+    }
+}
+
+let cookieOverwriteDebounceTimer = null;
+let isOAuthFlowInProgress = false;
+
+chrome.cookies.onChanged.addListener(async (changeInfo) => {
+    if (isOAuthFlowInProgress) return;
+
+    const { cookie, removed, cause } = changeInfo;
+
+    if (!cookie.domain.includes('yotoplay.com') && !cookie.domain.includes('yoto.co')) {
+        return;
+    }
+
+    const authCookiePatterns = ['auth0', 'appSession', 'session', 'token'];
+    const isAuthCookie = authCookiePatterns.some(pattern =>
+        cookie.name.toLowerCase().includes(pattern)
+    );
+
+    if (!isAuthCookie) return;
+
+    // 'overwrite' cause means a new session is replacing an old session (user switching accounts)
+    if (removed && cause === 'overwrite') {
+        if (cookieOverwriteDebounceTimer) {
+            clearTimeout(cookieOverwriteDebounceTimer);
+        }
+
+        cookieOverwriteDebounceTimer = setTimeout(async () => {
+            cookieOverwriteDebounceTimer = null;
+            await invalidateSession('yoto_session_replaced');
+        }, 1000);
+
+        return;
+    }
+
+    if (removed && (cause === 'explicit' || cause === 'expired' || cause === 'evicted')) {
+        await invalidateSession('yoto_logout_detected');
+    }
+});
+
+// ============================================================================
+// End Session Management
+// ============================================================================
+
 async function startOAuthFlow(interactive = true) {
     const authUrl = 'https://login.yotoplay.com/authorize';
+
+    isOAuthFlowInProgress = true;
 
     const state = crypto.randomUUID();
 
     await chrome.storage.local.set({
         'oauth_state': state
     });
-    
+
     const params = new URLSearchParams({
         audience: 'https://api.yotoplay.com',
         scope: 'offline_access openid profile',
@@ -156,7 +275,7 @@ async function startOAuthFlow(interactive = true) {
     });
 
     const fullAuthUrl = `${authUrl}?${params.toString()}`;
-    
+
     try {
         const responseUrl = await chrome.identity.launchWebAuthFlow({
             url: fullAuthUrl,
@@ -164,6 +283,7 @@ async function startOAuthFlow(interactive = true) {
         });
 
         if (!responseUrl) {
+            isOAuthFlowInProgress = false;
             return {success: false, error: 'No response URL received'};
         }
 
@@ -173,6 +293,7 @@ async function startOAuthFlow(interactive = true) {
         const returnedState = url.searchParams.get('state');
 
         if (error) {
+            isOAuthFlowInProgress = false;
             if (error === 'access_denied') {
                 return {success: false, cancelled: true};
             }
@@ -180,6 +301,7 @@ async function startOAuthFlow(interactive = true) {
         }
 
         if (!code) {
+            isOAuthFlowInProgress = false;
             return {success: false, error: 'No authorization code received'};
         }
 
@@ -187,24 +309,30 @@ async function startOAuthFlow(interactive = true) {
         const expectedState = storedData.oauth_state;
 
         if (returnedState !== expectedState) {
+            isOAuthFlowInProgress = false;
             return {success: false, error: 'Invalid state parameter - possible CSRF attack'};
         }
 
         const tokenResult = await exchangeCodeForTokens(code);
 
         await chrome.storage.local.remove(['oauth_state']);
+
+        isOAuthFlowInProgress = false;
+
         if (tokenResult.success) {
             return {
-                success: true, 
-                authenticated: true, 
+                success: true,
+                authenticated: true,
                 silent: !interactive,
                 tokens: tokenResult.tokens
             };
         } else {
             return {success: false, error: tokenResult.error};
         }
-        
+
     } catch (error) {
+        isOAuthFlowInProgress = false;
+
         if (error.message && error.message.includes('user did not approve')) {
             return {success: false, cancelled: true};
         }
@@ -212,12 +340,16 @@ async function startOAuthFlow(interactive = true) {
         if (!interactive) {
             return {success: false, error: 'Silent authentication failed', needsInteractive: true};
         }
-        
-        YotoAnalytics.trackCriticalError(error, {
-            action: 'oauth_flow',
-            component: 'service-worker',
-            authenticated: false
-        });
+
+        try {
+            YotoAnalytics.trackCriticalError(error, {
+                action: 'oauth_flow',
+                component: 'service-worker',
+                authenticated: false
+            });
+        } catch (e) {
+            // Ignore analytics errors
+        }
         return {success: false, error: error.message};
     }
 }
@@ -341,13 +473,11 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
             let delay;
 
             if (retryAfter) {
-                // If server provides Retry-After, use it (convert to milliseconds)
                 delay = parseInt(retryAfter) * 1000;
-                console.log(`[API] Rate limited on ${endpoint}, server says retry after ${retryAfter} seconds`);
+                console.warn(`[API] Rate limited on ${endpoint}, retry after ${retryAfter}s`);
             } else {
-                // Otherwise use exponential backoff: 1s, 2s, 4s, 8s, etc.
                 delay = baseDelay * Math.pow(2, currentRetry);
-                console.log(`[API] Rate limited on ${endpoint}, retrying after ${delay}ms (attempt ${currentRetry + 1}/${maxRetries})`);
+                console.warn(`[API] Rate limited on ${endpoint}, retry ${currentRetry + 1}/${maxRetries}`);
             }
 
             // Add jitter to prevent thundering herd (random 0-10% additional delay)
@@ -396,8 +526,7 @@ async function makeAuthenticatedRequest(endpoint, options = {}) {
         // Check if response is JSON or HTML
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('text/html')) {
-            // If HTML is returned, it's likely a redirect or error page
-            console.log(`[API] Received HTML response from ${endpoint}, likely a redirect`);
+            console.warn(`[API] Received HTML response from ${endpoint}, likely a redirect`);
             const htmlContent = await response.text();
             // Check if it's a redirect to share.yoto.co
             if (htmlContent.includes('share.yoto.co')) {
@@ -457,19 +586,13 @@ async function getUserCards() {
 
 async function resolvePlaylist(playlistId) {
     try {
-        console.log(`[Resolve API] Attempting to resolve playlist ${playlistId}`);
+        const tokens = await TokenManager.getTokens();
+        if (!tokens || !tokens.access_token) {
+            throw new Error('No authentication token available');
+        }
 
-        // Try the exact endpoints specified by the user
-        // First try /card/resolve/{playlistId}
+        // Try /card/resolve/{playlistId} first
         try {
-            console.log(`[Resolve API] Trying /card/resolve/${playlistId}`);
-
-            // Make a direct fetch request to handle potential redirects
-            const tokens = await TokenManager.getTokens();
-            if (!tokens || !tokens.access_token) {
-                throw new Error('No authentication token available');
-            }
-
             const cardResolveUrl = `https://api.yotoplay.com/card/resolve/${playlistId}`;
             const response = await fetch(cardResolveUrl, {
                 method: 'GET',
@@ -478,29 +601,12 @@ async function resolvePlaylist(playlistId) {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json'
                 },
-                redirect: 'manual' // Don't follow redirects automatically
+                redirect: 'manual'
             });
 
-            console.log(`[Resolve API] Response status: ${response.status}, type: ${response.type}`);
-            console.log(`[Resolve API] Response headers:`, {
-                contentType: response.headers.get('content-type'),
-                location: response.headers.get('location'),
-                redirected: response.redirected,
-                url: response.url
-            });
-
-            // Check if it's a redirect or opaqueredirect
-            if (response.type === 'opaqueredirect') {
-                console.log('[Resolve API] Got opaque redirect, cannot access details');
-            } else if (response.status === 301 || response.status === 302 || response.status === 303 || response.status === 307 || response.status === 308) {
+            if (response.status === 301 || response.status === 302 || response.status === 303 || response.status === 307 || response.status === 308) {
                 const redirectUrl = response.headers.get('location');
-                console.log(`[Resolve API] Redirect detected to: ${redirectUrl}`);
-
-                // If it redirects to share.yoto.co, we can't use this endpoint for API access
-                if (redirectUrl && redirectUrl.includes('share.yoto.co')) {
-                    console.log('[Resolve API] Endpoint redirects to share page, not suitable for API access');
-                } else if (redirectUrl) {
-                    // Try following the redirect with auth header
+                if (redirectUrl && !redirectUrl.includes('share.yoto.co')) {
                     const redirectResponse = await fetch(redirectUrl, {
                         headers: {
                             'Authorization': `Bearer ${tokens.access_token}`,
@@ -512,8 +618,6 @@ async function resolvePlaylist(playlistId) {
                         const contentType = redirectResponse.headers.get('content-type');
                         if (contentType && contentType.includes('application/json')) {
                             const data = await redirectResponse.json();
-                            console.log('[Resolve API] Got JSON from redirect');
-                            //console.log('[Resolve API] Raw response data:', JSON.stringify(data, null, 2));
                             return { data };
                         }
                     }
@@ -522,53 +626,36 @@ async function resolvePlaylist(playlistId) {
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     const data = await response.json();
-                    console.log('[Resolve API] Successfully resolved via /card/resolve');
-                    //console.log('[Resolve API] Raw response data:', JSON.stringify(data, null, 2));
                     return { data };
                 }
             }
         } catch (err) {
-            console.log(`[Resolve API] /card/resolve failed:`, err.message);
+            // /card/resolve failed, try next endpoint
         }
 
+        // Try /content/resolve/{playlistId}
         try {
-            console.log(`[Resolve API] Trying /content/resolve/${playlistId}`);
             const contentResolveResponse = await makeAuthenticatedRequest(`/content/resolve/${playlistId}`);
-
             if (!contentResolveResponse.error) {
-                console.log('[Resolve API] Successfully resolved via /content/resolve');
-                //console.log('[Resolve API] Raw response data:', JSON.stringify(contentResolveResponse, null, 2));
                 return { data: contentResolveResponse };
             }
         } catch (err) {
-            console.log(`[Resolve API] /content/resolve failed:`, err.message);
+            // /content/resolve failed, try fallback
         }
 
-        // If both resolve endpoints fail, fall back to regular content endpoint
-        console.log('[Resolve API] Both resolve endpoints failed, using standard content endpoint');
+        // Fall back to regular content endpoint
         const contentResponse = await getCardContent(playlistId);
-
         if (!contentResponse.error && contentResponse.card) {
-            console.log('[Resolve API] Got card data from content endpoint');
-            console.log('[Resolve API] Card structure has:', {
-                hasContent: !!contentResponse.card.content,
-                hasChapters: !!contentResponse.card.content?.chapters,
-                chapterCount: contentResponse.card.content?.chapters?.length || 0,
-                hasMetadata: !!contentResponse.card.metadata,
-                cardKeys: Object.keys(contentResponse.card)
-            });
             return {
                 data: contentResponse.card,
                 warning: 'Audio URLs not available - resolve endpoints did not return playable content'
             };
         }
 
-        return {
-            error: `Could not resolve playlist ${playlistId}`
-        };
+        return { error: `Could not resolve playlist ${playlistId}` };
 
     } catch (error) {
-        console.error('[Resolve API] Unexpected error:', error);
+        console.error('[Resolve API] Error:', error.message);
         return { error: error.message };
     }
 }
@@ -2434,112 +2521,96 @@ const apiCache = {
     }
 };
 
-// Curated podcast recommendations with iTunes IDs
-// To add more: find iTunes ID from podcast URL (e.g., .../id1233834541 -> '1233834541')
-const CURATED_PODCASTS = [
-    { itunesId: '1233834541', name: 'Wow in the World' },
-    { itunesId: '719585944', name: 'Story Pirates' },
-    { itunesId: '1103320303', name: 'But Why' },
-    { itunesId: '703720228', name: 'Brains On!' },
-    { itunesId: '1483233279', name: 'Greeking Out' },
-    { itunesId: '1504895463', name: 'Terrestrials' },
-    { itunesId: '1718989781', name: 'Work It Out Wombats!' },
-    { itunesId: '984771479', name: 'Tumble Science' },
-    { itunesId: '1561861786', name: 'Goodnight World!' },
-    { itunesId: '1506815544', name: 'Thomas & Friends' },
-    { itunesId: '1746567248', name: 'Smologies' },
-    { itunesId: '1687544181', name: 'Keyshawn Solves It' },
-    { itunesId: '1450820162', name: 'Molly of Denali' },
-    { itunesId: '1565581033', name: "Quentin and Alfie's" },
-    { itunesId: '1479312117', name: 'Eat Your Spanish' },
-    { itunesId: '1139672164', name: 'The Alien Adventures of Finn Caspian' },
-    { itunesId: '1836539554', name: 'The Bedtime Scientist' },
-    { itunesId: '1711281052', name: 'Silly Stories for Kids' },
-    { itunesId: '1648149849', name: 'Arthur' },
-    { itunesId: '1348469682', name: 'The Big Fib' },
-    { itunesId: '1771688947', name: 'Momma Bear Audio' },
-    { itunesId: '1597620394', name: 'Koala Moon' },
-    { itunesId: '1635154611', name: 'Yoto Daily' },
-    { itunesId: '1838933610', name: 'The Download' },
-    { itunesId: '1739331611', name: "Blippi & Meekah's Road Trip" },
-    { itunesId: '1243077660', name: 'The Purple Rocket Podcast' },
-    { itunesId: '1836987791', name: 'The Gnomes of Wondergarten' },
-    { itunesId: '1786330034', name: 'Sleepytime Pups' },
-    { itunesId: '1574162442', name: "Lei's Little Golden Books" },
-    { itunesId: '1613054810', name: 'Ryers Readers' },
-    { itunesId: '1533462141', name: 'Who Smarted?' },
-    { itunesId: '1418029100', name: 'KidNuz' },
-    { itunesId: '1566472174', name: 'Whose Amazing Life?' },
-    { itunesId: '1440083927', name: 'Forever Ago' },
-    { itunesId: '948976028', name: 'Stories Podcast' },
-    { itunesId: '1382789861', name: 'Smash Boom Best' },
-    { itunesId: '1861346448', name: 'Tales of Extinction' }
-];
-
-// Static fallback data for when API is unavailable or limit reached
-const staticPodcastData = {
-    popularKidsPodcasts: [
-        {
-            id: "1233834541",
-            title: "Wow in the World",
-            publisher: "Tinkercast | Wondery",
-            description: "The #1 science podcast for kids and their grown-ups.",
-            thumbnail: null,
-            total_episodes: 500
-        },
-        {
-            id: "719585944",
-            title: "Story Pirates",
-            publisher: "Gimlet",
-            description: "Stories written by kids brought to life by comedy troupe.",
-            thumbnail: null,
-            total_episodes: 200
-        },
-        {
-            id: "1103320303",
-            title: "But Why: A Podcast For Curious Kids",
-            publisher: "Vermont Public",
-            description: "A podcast that answers kids' questions about the world.",
-            thumbnail: null,
-            total_episodes: 300
-        },
-        {
-            id: "703720228",
-            title: "Brains On! Science podcast for kids",
-            publisher: "American Public Media",
-            description: "Science podcast for kids and curious adults.",
-            thumbnail: null,
-            total_episodes: 300
-        },
-        {
-            id: "948976028",
-            title: "Stories Podcast",
-            publisher: "Stories Podcast",
-            description: "A free bedtime story podcast for kids.",
-            thumbnail: null,
-            total_episodes: 400
-        }
+// Curated podcast recommendations organized by age category
+// Uses Podcast Index Feed IDs for static CDN thumbnails
+const CURATED_PODCASTS = {
+    little_listeners: [
+        { feedId: '223557', name: 'Wow in the World', feedUrl: 'https://rss.art19.com/wow-in-the-world' },
+        { feedId: '395836', name: 'Story Pirates', feedUrl: 'https://www.omnycontent.com/d/playlist/796469f9-ea34-46a2-8776-ad0f015d6beb/6600fba2-3fbd-41c4-9aea-b36f01332b48/b3c09fe0-4939-4d3b-b095-b36f01332b52/podcast.rss' },
+        { feedId: '4719708', name: 'Brains On!', feedUrl: 'https://feeds.soundcloud.com/users/soundcloud:users:37438922/sounds.rss' },
+        { feedId: '6704828', name: 'Work It Out Wombats!', feedUrl: 'https://feeds.wgbh.org/5538/feed-rss.xml' },
+        { feedId: '964581', name: 'Tumble Science', feedUrl: 'http://feeds.sciencepodcastforkids.com/tumblepodcast' },
+        { feedId: '3692189', name: 'Goodnight World!', feedUrl: 'https://feeds.megaphone.fm/ADL7382912950' },
+        { feedId: '5811234', name: 'Thomas & Friends', feedUrl: 'https://media.rss.com/thomas-friends/feed.xml' },
+        { feedId: '619421', name: 'Molly of Denali', feedUrl: 'https://feeds.wgbh.org/193/feed-rss.xml' },
+        { feedId: '4034828', name: "Quentin and Alfie's ABC Adventures", feedUrl: 'https://feeds.megaphone.fm/abcadventures' },
+        { feedId: '932720', name: 'Eat Your Spanish', feedUrl: 'https://anchor.fm/s/519ab2c0/podcast/rss' },
+        { feedId: '6644600', name: 'Silly Stories for Kids', feedUrl: 'https://rss.buzzsprout.com/2243253.rss' },
+        { feedId: '5726983', name: 'The Arthur Podcast', feedUrl: 'https://feeds.wgbh.org/2469/feed-rss.xml' },
+        { feedId: '7034355', name: 'Momma Bear Audio', feedUrl: 'https://rss.buzzsprout.com/2393063.rss' },
+        { feedId: '4523604', name: 'Koala Moon', feedUrl: 'https://feeds.megaphone.fm/HAPPY1668236391' },
+        { feedId: '5718911', name: 'Yoto Daily', feedUrl: 'https://feeds.acast.com/public/shows/62cebd180ce17d0012d3347b' },
+        { feedId: '6870598', name: "Blippi & Meekah's Road Trip", feedUrl: 'https://feeds.megaphone.fm/MBEL1110102597' },
+        { feedId: '7161049', name: 'Sleepytime Pups', feedUrl: 'https://anchor.fm/s/fef19b50/podcast/rss' },
+        { feedId: '5008839', name: "Lei's Little Golden Books", feedUrl: 'https://media.rss.com/leis-little-golden-books/feed.xml' },
+        { feedId: '5198092', name: 'Ryers Readers', feedUrl: 'https://anchor.fm/s/85a2eda8/podcast/rss' }
+    ],
+    big_kids: [
+        { feedId: '6353677', name: 'Greeking Out', feedUrl: 'https://anchor.fm/s/df9e4f14/podcast/rss' },
+        { feedId: '901426', name: 'Terrestrials', feedUrl: 'http://feeds.feedburner.com/radiolab-kids' },
+        { feedId: '6379742', name: 'Keyshawn Solves It', feedUrl: 'https://feeds.wgbh.org/3822/feed-rss.xml' },
+        { feedId: '424652', name: 'The Alien Adventures of Finn Caspian', feedUrl: 'https://rss.art19.com/finn-caspian' },
+        { feedId: '7465217', name: 'The Bedtime Scientist', feedUrl: 'https://anchor.fm/s/109bb2664/podcast/rss' },
+        { feedId: '410186', name: 'The Big Fib', feedUrl: 'https://rss.art19.com/big-fib' },
+        { feedId: '1384204', name: 'The Download', feedUrl: 'https://feeds.buzzsprout.com/1721159.rss' },
+        { feedId: '879607', name: 'The Purple Rocket Podcast', feedUrl: 'https://feeds.megaphone.fm/TNM5702656702' },
+        { feedId: '7471718', name: 'The Gnomes of Wondergarten', feedUrl: 'https://feeds.libsyn.com/591620/rss' },
+        { feedId: '1365775', name: 'Who Smarted?', feedUrl: 'https://feeds.megaphone.fm/GLSS8637059451' },
+        { feedId: '979771', name: 'KidNuz', feedUrl: 'https://feeds.megaphone.fm/STM6212107967' },
+        { feedId: '4037502', name: 'Whose Amazing Life?', feedUrl: 'https://rss.art19.com/imagined-life-family' },
+        { feedId: '74261', name: 'Forever Ago', feedUrl: 'https://www.omnycontent.com/d/playlist/796469f9-ea34-46a2-8776-ad0f015d6beb/b8875c63-a193-45b5-aa1d-b375011931fc/e0ab420a-193b-4f3c-89bb-b37501193208/podcast.rss' },
+        { feedId: '461564', name: 'Smash Boom Best', feedUrl: 'https://www.omnycontent.com/d/playlist/796469f9-ea34-46a2-8776-ad0f015d6beb/5d004b0f-42f1-42a8-b8d3-b375015c4b2b/703c9d15-2448-4ec6-8572-b375015c4b3f/podcast.rss' },
+        { feedId: '7615341', name: 'Tales of Extinction', feedUrl: 'https://media.rss.com/extinction/feed.xml' },
+        { feedId: '6911815', name: 'Smologies', feedUrl: 'https://feeds.simplecast.com/s1I4c1jt' }
     ]
 };
 
-async function searchPodcasts(query) {
+// Helper to shuffle an array (Fisher-Yates shuffle)
+function shuffleArray(array) {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+async function searchPodcasts(query, searchType = 'bytitle') {
     try {
-        const cached = apiCache.get('search', { q: query });
+        const cacheKey = `${searchType}_${query}`;
+        const cached = apiCache.get('search', { key: cacheKey });
         if (cached) {
             return cached;
         }
 
-        const response = await fetch(
-            `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=podcast&entity=podcast&limit=25`
-        );
+        const proxyUrl = CONFIG.PROXY_SERVER_URL;
+        let endpoint;
+
+        switch (searchType) {
+            case 'byperson':
+                endpoint = `${proxyUrl}/api/podcast/search/byperson`;
+                break;
+            case 'music':
+                endpoint = `${proxyUrl}/api/podcast/search/music`;
+                break;
+            case 'bytitle':
+            default:
+                endpoint = `${proxyUrl}/api/podcast/search/bytitle`;
+                break;
+        }
+
+        const fullUrl = `${endpoint}?q=${encodeURIComponent(query)}`;
+        const response = await fetch(fullUrl);
 
         if (!response.ok) {
-            if (response.status === 403 || response.status === 429) {
+            const errorText = await response.text();
+            console.error('[Podcast Search] Error response body:', errorText);
+
+            if (response.status === 503) {
                 return {
-                    error: 'rate_limited',
-                    rateLimited: true,
-                    message: "We've reached the maximum allowed use of the podcast search service for now. Please try again later, or browse the popular podcasts below.",
-                    podcasts: staticPodcastData.popularKidsPodcasts,
+                    error: 'service_unavailable',
+                    message: "Podcast search service is temporarily unavailable. Please try again later.",
+                    podcasts: [],
                     fromCache: true,
                     isStatic: true
                 };
@@ -2549,97 +2620,97 @@ async function searchPodcasts(query) {
 
         const data = await response.json();
 
-        const podcasts = data.results.slice(0, 10).map(podcast => ({
-            id: String(podcast.collectionId),
-            title: podcast.collectionName,
-            publisher: podcast.artistName,
-            thumbnail: podcast.artworkUrl600 || podcast.artworkUrl100,
-            total_episodes: podcast.trackCount || 0,
-            description: '',
-            feedUrl: podcast.feedUrl
+        // Handle byperson results (returns items/episodes, not feeds)
+        if (searchType === 'byperson') {
+            const episodes = (data.items || []).map(ep => ({
+                id: String(ep.id),
+                title: cleanEpisodeTitle(ep.title || 'Untitled'),
+                description: ep.description || '',
+                audio: ep.enclosureUrl,
+                audio_length_sec: ep.duration || 0,
+                thumbnail: ep.image || ep.feedImage,
+                pub_date_ms: (ep.datePublished || 0) * 1000,
+                feedId: ep.feedId,
+                feedTitle: ep.feedTitle,
+                feedImage: ep.feedImage
+            }));
+
+            const result = { episodes, searchType: 'byperson' };
+            apiCache.set('search', { key: cacheKey }, result);
+            return result;
+        }
+
+        // Handle bytitle and music results (returns feeds)
+        const podcasts = (data.feeds || []).map(feed => ({
+            id: String(feed.id),
+            title: feed.title,
+            publisher: feed.author || feed.ownerName || '',
+            thumbnail: feed.artwork || feed.image,
+            total_episodes: feed.episodeCount || 0,
+            description: feed.description || '',
+            feedUrl: feed.url,
+            feedId: feed.id
         }));
 
-        const result = { podcasts };
-        apiCache.set('search', { q: query }, result);
-
+        const result = { podcasts, searchType };
+        apiCache.set('search', { key: cacheKey }, result);
         return result;
     } catch (error) {
+        console.error('Podcast search error:', error);
         return {
-            podcasts: staticPodcastData.popularKidsPodcasts,
+            podcasts: [],
             fromCache: true,
             isStatic: true,
-            error: 'Using fallback data due to API error'
+            error: 'Search failed - please try again later'
         };
     }
 }
 
 async function getBestPodcasts(genreId = null, page = 1) {
     try {
-        const cached = apiCache.get('best_podcasts', { page: page }, 60);
-        if (cached) {
-            return cached;
-        }
+        // Combine little_listeners and big_kids into one list
+        const allCurated = [
+            ...CURATED_PODCASTS.little_listeners,
+            ...CURATED_PODCASTS.big_kids
+        ];
 
-        // Select random subset from curated list for variety
-        const shuffled = [...CURATED_PODCASTS].sort(() => Math.random() - 0.5);
-        const selected = shuffled.slice(0, Math.min(8, CURATED_PODCASTS.length));
+        // Shuffle and select a random subset for variety
+        const shuffled = shuffleArray(allCurated);
+        const selected = shuffled.slice(0, Math.min(12, shuffled.length));
 
-        const promises = selected.map(async (podcast) => {
-            try {
-                const response = await fetch(
-                    `https://itunes.apple.com/lookup?id=${podcast.itunesId}`
-                );
-                if (!response.ok) return null;
+        // Use local static thumbnails - no API calls needed
+        const podcasts = selected.map(podcast => ({
+            id: podcast.feedId,
+            title: podcast.name,
+            publisher: '',
+            thumbnail: chrome.runtime.getURL(`images/podcasts/${podcast.feedId}.webp`),
+            total_episodes: 0,
+            description: '',
+            feedUrl: podcast.feedUrl,
+            feedId: podcast.feedId
+        }));
 
-                const data = await response.json();
-                const result = data.results[0];
-                if (!result) return null;
-
-                return {
-                    id: String(result.collectionId),
-                    title: result.collectionName,
-                    publisher: result.artistName,
-                    thumbnail: result.artworkUrl600 || result.artworkUrl100,
-                    total_episodes: result.trackCount || 0,
-                    description: '',
-                    feedUrl: result.feedUrl
-                };
-            } catch {
-                return null;
-            }
-        });
-
-        const allPodcasts = (await Promise.all(promises)).filter(p => p !== null);
-        const seenIds = new Set();
-        const podcasts = allPodcasts.filter(p => {
-            if (seenIds.has(p.id)) return false;
-            seenIds.add(p.id);
-            return true;
-        });
-
-        const result = {
-            podcasts: podcasts.length > 0 ? podcasts : staticPodcastData.popularKidsPodcasts,
+        return {
+            podcasts,
             has_next: false,
             has_previous: false,
             page_number: 1,
-            total: podcasts.length || staticPodcastData.popularKidsPodcasts.length,
+            total: podcasts.length,
             fromCache: false,
-            isStatic: podcasts.length === 0
+            isStatic: true
         };
 
-        apiCache.set('best_podcasts', { page: page }, result);
-        return result;
-
     } catch (error) {
+        console.error('Get best podcasts error:', error);
         return {
-            podcasts: staticPodcastData.popularKidsPodcasts,
+            podcasts: [],
             has_next: false,
             has_previous: false,
             page_number: 1,
-            total: staticPodcastData.popularKidsPodcasts.length,
+            total: 0,
             fromCache: true,
             isStatic: true,
-            error: 'Using fallback data due to API error'
+            error: 'Failed to load podcasts'
         };
     }
 }
@@ -2727,52 +2798,55 @@ async function parseRSSForEpisodes(feedUrl, limit = 20) {
     });
 }
 
-async function getPodcastEpisodes(podcastId, feedUrl = null) {
+async function getPodcastEpisodes(podcastId, feedUrl = null, feedId = null) {
     try {
-        const cacheKey = `${podcastId}_all_episodes`;
+        const cacheKey = `${feedId || podcastId}_all_episodes`;
 
         let allEpisodes = apiCache.get('podcast_episodes_all', { key: cacheKey }, 720);
 
         if (!allEpisodes) {
-            const response = await fetch(
-                `https://itunes.apple.com/lookup?id=${podcastId}&media=podcast&entity=podcastEpisode&limit=100`
-            );
+            // Try the proxy's episodes endpoint if we have a feedId
+            if (feedId) {
+                try {
+                    const proxyUrl = CONFIG.PROXY_SERVER_URL;
+                    const response = await fetch(
+                        `${proxyUrl}/api/podcast/episodes/${feedId}?max=1000`
+                    );
 
-            if (!response.ok) {
-                if (response.status === 403 || response.status === 429) {
-                    return {
-                        error: 'rate_limited',
-                        rateLimited: true,
-                        message: "We've reached the maximum allowed use of the podcast service for now. Please try again later."
-                    };
+                    if (response.ok) {
+                        const data = await response.json();
+                        const episodesData = data.items || [];
+
+                        if (episodesData.length > 0) {
+                            allEpisodes = episodesData.map(ep => ({
+                                id: String(ep.id),
+                                title: cleanEpisodeTitle(ep.title || 'Untitled'),
+                                description: ep.description || '',
+                                audio: ep.enclosureUrl,
+                                audio_length_sec: ep.duration || 0,
+                                thumbnail: ep.image || ep.feedImage || '',
+                                pub_date_ms: (ep.datePublished || 0) * 1000
+                            }));
+                        }
+                    } else {
+                        console.error('[getPodcastEpisodes] Episodes API failed:', response.status, response.statusText);
+                    }
+                } catch (apiError) {
+                    console.error('[getPodcastEpisodes] Episodes API error, falling back to RSS:', apiError);
                 }
-                return { error: `Failed to get podcast episodes: ${response.statusText}` };
             }
 
-            const data = await response.json();
-
-            // First result is the podcast info, rest are episodes
-            const podcastInfo = data.results[0];
-            const episodesData = data.results.slice(1);
-
-            // iTunes episodeUrl is preferred; fall back to RSS parsing when unavailable
-            if (episodesData.length > 0 && episodesData[0].episodeUrl) {
-                allEpisodes = episodesData.map(ep => ({
-                    id: String(ep.trackId),
-                    title: cleanEpisodeTitle(ep.trackName || 'Untitled'),
-                    description: ep.description || '',
-                    audio: ep.episodeUrl,
-                    audio_length_sec: Math.round((ep.trackTimeMillis || 0) / 1000),
-                    thumbnail: ep.artworkUrl600 || ep.artworkUrl160 || podcastInfo?.artworkUrl600 || '',
-                    pub_date_ms: new Date(ep.releaseDate).getTime()
-                }));
-            } else if (feedUrl || podcastInfo?.feedUrl) {
+            // Fall back to direct RSS parsing if API failed or no feedId
+            if (!allEpisodes && feedUrl) {
                 try {
-                    allEpisodes = await parseRSSForEpisodes(feedUrl || podcastInfo.feedUrl, 100);
+                    allEpisodes = await parseRSSForEpisodes(feedUrl);
                 } catch (rssError) {
+                    console.error('RSS parsing error:', rssError);
                     return { error: 'Failed to parse podcast RSS feed' };
                 }
-            } else {
+            }
+
+            if (!allEpisodes) {
                 return { error: 'No episode source available for this podcast' };
             }
 
@@ -2784,6 +2858,7 @@ async function getPodcastEpisodes(podcastId, feedUrl = null) {
             total_episodes: allEpisodes.length
         };
     } catch (error) {
+        console.error('Get podcast episodes error:', error);
         return { error: 'Failed to get podcast episodes' };
     }
 }
@@ -2833,11 +2908,6 @@ async function importPodcastEpisodes(episodes, options = {}) {
         podcast = null
     } = options;
 
-    // Calculate total estimated duration for logging
-    const totalDurationMin = episodes.reduce((sum, ep) => sum + (ep.audio_length_sec || 0), 0) / 60;
-    console.log(`[PodcastImport] Starting import of ${episodes.length} episodes (~${Math.round(totalDurationMin)} min total audio)`);
-    console.log(`[PodcastImport] Podcast: ${podcast?.title || 'Unknown'}`);
-
     podcastImportAbortController = new AbortController();
     const signal = podcastImportAbortController.signal;
     const isCancelled = () => signal.aborted;
@@ -2866,15 +2936,19 @@ async function importPodcastEpisodes(episodes, options = {}) {
         }
 
         let playlistName;
+        const andMoreSuffix = chrome.i18n.getMessage('suffix_andMore') || '& More';
         if (providedPlaylistName) {
             playlistName = providedPlaylistName;
         } else if (podcast && podcast.title) {
-            playlistName = `${podcast.title} - Podcast`;
+            // Use first podcast title, add localized "& More" suffix if episodes from multiple podcasts
+            const uniquePodcasts = [...new Set(episodes.map(ep => ep.podcast?.title).filter(Boolean))];
+            playlistName = uniquePodcasts.length > 1 ? `${podcast.title} ${andMoreSuffix}` : podcast.title;
         } else if (episodes.length > 0 && episodes[0].podcast && episodes[0].podcast.title) {
             const uniquePodcasts = [...new Set(episodes.map(ep => ep.podcast?.title).filter(Boolean))];
-            playlistName = uniquePodcasts.length === 1 ? `${uniquePodcasts[0]} - Podcast` : (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape');
+            const firstPodcastTitle = episodes[0].podcast.title;
+            playlistName = uniquePodcasts.length === 1 ? firstPodcastTitle : `${firstPodcastTitle} ${andMoreSuffix}`;
         } else {
-            playlistName = 'Podcast Episodes';
+            playlistName = chrome.i18n.getMessage('label_podcastEpisodes') || 'Podcast Episodes';
         }
 
         // Reduce concurrency for stability with large audio files
@@ -3331,9 +3405,9 @@ async function importPodcastEpisodes(episodes, options = {}) {
 
         const totalImportTime = ((Date.now() - importStartTime) / 1000 / 60).toFixed(1);
         if (isPartialImport) {
-            console.log(`[PodcastImport] Import completed with ${audioTracks.length}/${episodes.length} episodes in ${totalImportTime} min`);
+            console.info(`[PodcastImport] Completed: ${audioTracks.length}/${episodes.length} episodes in ${totalImportTime} min`);
         } else {
-            console.log(`[PodcastImport] Import completed successfully - all ${audioTracks.length} episodes imported in ${totalImportTime} min`);
+            console.info(`[PodcastImport] Completed: ${audioTracks.length} episodes in ${totalImportTime} min`);
         }
 
         await chrome.storage.local.set({
@@ -3354,7 +3428,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
         if (audioTracks.length > 0) {
             try {
                 const partialResult = await createPlaylistContent(
-                    `${podcast.title} - Podcast`,
+                    playlistName,
                     audioTracks,
                     [],
                     null
@@ -3479,6 +3553,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 case 'EXCHANGE_CODE':
                     const exchangeResult = await exchangeCodeForTokens(request.code);
                     sendResponse(exchangeResult);
+                    break;
+
+                case 'VERIFY_ACCOUNT_MATCH':
+                    // Verify the stored token still works and matches the current Yoto session
+                    // Use this before critical operations (imports, exports, etc.)
+                    const accountVerification = await verifyAccountMatch();
+                    if (accountVerification.mismatch || !accountVerification.valid) {
+                        await invalidateSession('pre_operation_account_mismatch');
+                    }
+                    sendResponse(accountVerification);
+                    break;
+
+                case 'GET_STORED_USER_INFO':
+                    // Get the stored user info from the JWT token
+                    const storedUserInfo = await getStoredUserInfo();
+                    sendResponse(storedUserInfo || { userId: null, email: null });
                     break;
 
                 case 'GET_CARDS':
@@ -4138,12 +4228,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
 
                 case 'SEARCH_PODCASTS':
-                    const searchResults = await searchPodcasts(request.query);
+                    const searchResults = await searchPodcasts(request.query, request.searchType || 'bytitle');
                     sendResponse(searchResults);
                     break;
 
                 case 'GET_PODCAST_EPISODES':
-                    const episodesResult = await getPodcastEpisodes(request.podcastId, request.feedUrl);
+                    const episodesResult = await getPodcastEpisodes(request.podcastId, request.feedUrl, request.feedId);
                     sendResponse(episodesResult);
                     break;
 

@@ -91,6 +91,10 @@
     "message": "Importar podcast",
     "description": "Button to import a podcast"
   },
+  "button_addEpisodes": {
+    "message": "Añadir episodios",
+    "description": "Button to add episodes to existing playlist"
+  },
   "button_importZipFile": {
     "message": "Importar archivo ZIP",
     "description": "Button to import from ZIP file"
@@ -733,10 +737,6 @@
     "message": "Nombre de la lista de reproducción",
     "description": "Label for playlist name input"
   },
-  "label_podcastMixtape": {
-    "message": "Mezcla de Podcasts",
-    "description": "Default playlist name when importing episodes from multiple podcasts"
-  },
   "label_playlistNameColon": {
     "message": "Nombre de la lista de reproducción:",
     "description": "Label for playlist name input with colon"
@@ -1011,6 +1011,10 @@
     "message": "Revisa tu lista",
     "description": "Title for review modal before import"
   },
+  "modal_addEpisodesToPlaylist": {
+    "message": "Añadir episodios a la lista",
+    "description": "Title for review modal when adding to existing playlist"
+  },
   "button_addToQueue": {
     "message": "Agregar",
     "description": "Button to add episode to queue"
@@ -1232,6 +1236,18 @@
   "notification_authRequiredForIconMatch": {
     "message": "Se requiere autenticación para la correspondencia de iconos.",
     "description": "Notification when auth is needed for icon match"
+  },
+  "notification_accountMismatch": {
+    "message": "Tu cuenta de Yoto ha cambiado. Por favor, inicia sesión de nuevo para continuar.",
+    "description": "Warning when user's Yoto account has changed since authenticating with MYO Magic"
+  },
+  "notification_accountMismatchWithEmail": {
+    "message": "Tu cuenta de Yoto ha cambiado (estabas conectado como {{email}}). Por favor, inicia sesión de nuevo.",
+    "description": "Warning with previous email when user's Yoto account has changed"
+  },
+  "notification_sessionExpired": {
+    "message": "Tu sesión ha expirado. Por favor, inicia sesión de nuevo.",
+    "description": "Warning when the authentication session has expired"
   },
   "notification_authRequiredForImport": {
     "message": "Se requiere autenticación para importar contenido.",
@@ -1666,6 +1682,10 @@
   "popup_visitYoto": {
     "message": "Visita la página de listas de reproducción de Yoto para usar las funciones.",
     "description": "Footer note in popup"
+  },
+  "suffix_andMore": {
+    "message": "y más",
+    "description": "Suffix added to playlist name when importing episodes from multiple podcasts (e.g. 'Podcast Name & More')"
   },
   "status_analyzingFolder": {
     "message": "Analizando estructura de carpeta...",

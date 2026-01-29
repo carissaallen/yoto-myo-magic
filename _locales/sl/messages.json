@@ -91,6 +91,10 @@
     "message": "Uvozi podcast",
     "description": "Button to import a podcast"
   },
+  "button_addEpisodes": {
+    "message": "Dodaj epizode",
+    "description": "Button to add episodes to existing playlist"
+  },
   "button_importZipFile": {
     "message": "Uvoz ZIP datoteke",
     "description": "Button to import from ZIP file"
@@ -733,10 +737,6 @@
     "message": "Ime seznama predvajanja",
     "description": "Label for playlist name input"
   },
-  "label_podcastMixtape": {
-    "message": "Podcast Mixtape",
-    "description": "Default playlist name when importing episodes from multiple podcasts"
-  },
   "label_playlistNameColon": {
     "message": "Ime seznama predvajanja:",
     "description": "Label for playlist name input with colon"
@@ -1011,6 +1011,10 @@
     "message": "Preglej svoj seznam",
     "description": "Title for review modal before import"
   },
+  "modal_addEpisodesToPlaylist": {
+    "message": "Dodaj epizode na seznam",
+    "description": "Title for review modal when adding to existing playlist"
+  },
   "button_addToQueue": {
     "message": "Dodaj",
     "description": "Button to add episode to queue"
@@ -1226,6 +1230,18 @@
   "notification_authRequiredForIconMatch": {
     "message": "Avtentificirajte se, da boste lahko uporabljali ujemanje ikon",
     "description": "Info message for icon matching"
+  },
+  "notification_accountMismatch": {
+    "message": "Vaš račun Yoto se je spremenil. Za nadaljevanje se znova prijavite.",
+    "description": "Warning when user's Yoto account has changed since authenticating with MYO Magic"
+  },
+  "notification_accountMismatchWithEmail": {
+    "message": "Vaš račun Yoto se je spremenil (bili ste prijavljeni kot {{email}}). Prijavite se znova.",
+    "description": "Warning with previous email when user's Yoto account has changed"
+  },
+  "notification_sessionExpired": {
+    "message": "Vaša seja je potekla. Prijavite se znova.",
+    "description": "Warning when the authentication session has expired"
   },
   "notification_authRequiredForImport": {
     "message": "Avtentificirajte se, da boste lahko uporabljali funkcije uvoza",
@@ -1636,6 +1652,10 @@
   "popup_visitYoto": {
     "message": "Obiščite stran s predvajalnimi seznami Yoto za uporabo funkcij.",
     "description": "Footer note in popup"
+  },
+  "suffix_andMore": {
+    "message": "in več",
+    "description": "Suffix added to playlist name when importing episodes from multiple podcasts (e.g. 'Podcast Name & More')"
   },
   "status_analyzingFolder": {
     "message": "Analiza strukture mape...",
