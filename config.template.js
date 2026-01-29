@@ -18,6 +18,9 @@ if (typeof ExtensionConfig === 'undefined') {
     // API Endpoints (don't change these)
     YOTO_API_BASE: 'https://api.yotoplay.com',
     YOTO_AUTH_BASE: 'https://login.yotoplay.com',
+
+    // Proxy server for API calls
+    PROXY_SERVER_URL: 'https://api.yotomyomagic.com',
     
     // Storage Keys (don't change these)
     TOKEN_STORAGE_KEY: 'yoto_auth_tokens',

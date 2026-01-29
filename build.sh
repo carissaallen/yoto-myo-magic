@@ -30,6 +30,7 @@ zip -r "$OUTPUT_FILE" \
     assets/ \
     background/ \
     content/ \
+    images/ \
     lib/ \
     offscreen/ \
     options/ \

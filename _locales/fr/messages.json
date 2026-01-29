@@ -91,6 +91,10 @@
     "message": "Importer un podcast",
     "description": "Button to import a podcast"
   },
+  "button_addEpisodes": {
+    "message": "Ajouter des épisodes",
+    "description": "Button to add episodes to existing playlist"
+  },
   "button_importZipFile": {
     "message": "Importer un fichier ZIP",
     "description": "Button to import from ZIP file"
@@ -733,10 +737,6 @@
     "message": "Nom de la liste de lecture",
     "description": "Label for playlist name input"
   },
-  "label_podcastMixtape": {
-    "message": "Mixtape Podcast",
-    "description": "Default playlist name when importing episodes from multiple podcasts"
-  },
   "label_playlistNameColon": {
     "message": "Nom de la playlist :",
     "description": "Label for playlist name input with colon"
@@ -1011,6 +1011,10 @@
     "message": "Vérifiez votre playlist",
     "description": "Title for review modal before import"
   },
+  "modal_addEpisodesToPlaylist": {
+    "message": "Ajouter des épisodes à la playlist",
+    "description": "Title for review modal when adding to existing playlist"
+  },
   "button_addToQueue": {
     "message": "Ajouter",
     "description": "Button to add episode to queue"
@@ -1232,6 +1236,18 @@
   "notification_authRequiredForIconMatch": {
     "message": "Authentification requise pour la correspondance d'icônes.",
     "description": "Notification when auth is needed for icon match"
+  },
+  "notification_accountMismatch": {
+    "message": "Votre compte Yoto a changé. Veuillez vous reconnecter pour continuer.",
+    "description": "Warning when user's Yoto account has changed since authenticating with MYO Magic"
+  },
+  "notification_accountMismatchWithEmail": {
+    "message": "Votre compte Yoto a changé (était connecté en tant que {{email}}). Veuillez vous reconnecter.",
+    "description": "Warning with previous email when user's Yoto account has changed"
+  },
+  "notification_sessionExpired": {
+    "message": "Votre session a expiré. Veuillez vous reconnecter.",
+    "description": "Warning when the authentication session has expired"
   },
   "notification_authRequiredForImport": {
     "message": "Authentification requise pour importer du contenu.",

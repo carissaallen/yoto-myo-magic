@@ -87,6 +87,10 @@
     "message": "Import Podcast",
     "description": "Button to import a podcast"
   },
+  "button_addEpisodes": {
+    "message": "Add Episodes",
+    "description": "Button to add episodes to existing playlist"
+  },
   "button_updatePlaylist": {
     "message": "Update Playlist",
     "description": "Button to update an existing playlist"
@@ -169,6 +173,10 @@
     "message": "Review Your Playlist",
     "description": "Title for review modal before import"
   },
+  "modal_addEpisodesToPlaylist": {
+    "message": "Add Episodes to Playlist",
+    "description": "Title for review modal when adding to existing playlist"
+  },
   "button_addToQueue": {
     "message": "Add",
     "description": "Button to add episode to queue"
@@ -196,10 +204,6 @@
   "label_playlistName": {
     "message": "Playlist Name",
     "description": "Label for playlist name input"
-  },
-  "label_podcastMixtape": {
-    "message": "Podcast Mixtape",
-    "description": "Default playlist name when importing episodes from multiple podcasts"
   },
   "label_dragToReorder": {
     "message": "Drag to reorder",
@@ -698,6 +702,18 @@
   "notification_authRequiredForIconMatch": {
     "message": "Please authenticate to use icon matching",
     "description": "Info message for icon matching"
+  },
+  "notification_accountMismatch": {
+    "message": "Your Yoto account has changed. Please sign in again to continue.",
+    "description": "Warning when user's Yoto account has changed since authenticating with MYO Magic"
+  },
+  "notification_accountMismatchWithEmail": {
+    "message": "Your Yoto account has changed (was signed in as {{email}}). Please sign in again.",
+    "description": "Warning with previous email when user's Yoto account has changed"
+  },
+  "notification_sessionExpired": {
+    "message": "Your session has expired. Please sign in again.",
+    "description": "Warning when the authentication session has expired"
   },
   "notification_permissionGranted": {
     "message": "Permission granted! You can now import podcasts.",

@@ -5,10 +5,58 @@ let state = {
   observer: null,
   injectedUI: false,
   authCacheTime: 0,
-  iconMatchCache: new Map()
+  iconMatchCache: new Map(),
+  pageType: null,
+  currentCardId: null
 };
 
 const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Verifies that the current session is still valid and matches the Yoto account.
+ * Should be called before critical operations (imports, exports) to prevent
+ * operations being performed on the wrong account after a user switches accounts.
+ *
+ * @returns {Promise<{valid: boolean, userEmail?: string, error?: string}>}
+ */
+async function verifyAccountBeforeOperation() {
+  try {
+    const verification = await chrome.runtime.sendMessage({ action: 'VERIFY_ACCOUNT_MATCH' });
+
+    if (!verification.valid || verification.mismatch || verification.needsReauth) {
+      // Session is invalid or account mismatch detected
+      state.authenticated = false;
+      state.authCacheTime = 0;
+
+      // Build notification message, including the previous email if available
+      let message;
+      if (verification.mismatch && verification.previousEmail) {
+        // Show which account they were signed into
+        const template = chrome.i18n.getMessage('notification_accountMismatchWithEmail') ||
+          'Your Yoto account has changed (was: {{email}}). Please sign in again.';
+        message = template.replace('{{email}}', verification.previousEmail);
+      } else if (verification.mismatch) {
+        message = chrome.i18n.getMessage('notification_accountMismatch') || 'Your Yoto account has changed. Please sign in again.';
+      } else {
+        message = chrome.i18n.getMessage('notification_sessionExpired') || 'Your session has expired. Please sign in again.';
+      }
+
+      showNotification(message, 'warning');
+      showAuthBanner();
+
+      return { valid: false, error: message };
+    }
+
+    // Session is valid
+    state.authenticated = true;
+    state.authCacheTime = Date.now();
+    return { valid: true, userEmail: verification.userEmail };
+  } catch (error) {
+    console.warn('[Session] Account verification failed:', error.message);
+    // On error, allow operation to proceed but log the issue
+    return { valid: true, error: 'Verification check failed, proceeding anyway' };
+  }
+}
 
 function init() {
 
@@ -222,13 +270,19 @@ function checkForMyoPage() {
   if (path.includes('/my-cards/playlists') || path === '/my-cards' || path === '/my-cards/') {
     state.isMyoPage = true;
     state.pageType = 'my-playlists';
+    state.currentCardId = null;
     waitForMyoElements();
   } else if (path.includes('/card/') && path.includes('/edit')) {
     state.isMyoPage = true;
     state.pageType = 'edit-card';
+    // Extract cardId from URL: /card/{cardId}/edit
+    const cardIdMatch = path.match(/\/card\/([^\/]+)\/edit/);
+    state.currentCardId = cardIdMatch ? cardIdMatch[1] : null;
+    waitForMyoElements();
   } else {
     state.isMyoPage = false;
     state.pageType = null;
+    state.currentCardId = null;
   }
 }
 
@@ -533,6 +587,7 @@ function waitForMyoElements() {
 function checkAndInjectImportButton() {
   const path = window.location.pathname;
 
+  // Skip card/edit pages - they have their own "Add Content" dropdown
   if (path.includes('/edit') || path.includes('/card/')) {
     return false;
   }
@@ -971,6 +1026,20 @@ async function handlePodcastImportClick() {
     eventName: 'podcast_import_click',
     parameters: {}
   });
+
+  // Set update mode if we're on an edit page with a cardId
+  if (state.pageType === 'edit-card' && state.currentCardId) {
+    window.yotoUpdateMode = {
+      isUpdateMode: true,
+      cardId: state.currentCardId
+    };
+  } else {
+    // Clear any previous update mode
+    if (window.yotoUpdateMode) {
+      delete window.yotoUpdateMode;
+    }
+  }
+
   // Check if we have permission for all URLs first
   const permissionCheck = await chrome.runtime.sendMessage({
     action: 'CHECK_ALL_URLS_PERMISSION'
@@ -1217,11 +1286,12 @@ async function handleUpdateClick() {
 
 async function handleImportClick() {
   try {
-    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+    // Verify account match before proceeding with import
+    // This prevents importing to wrong account after user switches Yoto accounts
+    const verification = await verifyAccountBeforeOperation();
 
-    if (!authResponse || !authResponse.authenticated) {
-      showNotification(chrome.i18n.getMessage('notification_authRequiredForImport'), 'info');
-      showAuthBanner();
+    if (!verification.valid) {
+      // Account mismatch or session expired - user has been notified
       return;
     }
 
@@ -1250,15 +1320,15 @@ function openFolderSelector() {
 
 async function handleBulkImportClick() {
   try {
-    const authResponse = await chrome.runtime.sendMessage({ action: 'CHECK_AUTH' });
+    // Verify account match before proceeding with bulk import
+    const verification = await verifyAccountBeforeOperation();
 
-    if (!authResponse || !authResponse.authenticated) {
-      showNotification(chrome.i18n.getMessage('notification_authRequiredForBulkImport'), 'info');
-      showAuthBanner();
+    if (!verification.valid) {
+      // Account mismatch or session expired - user has been notified
       return;
     }
 
-    // User is authenticated, show bulk import modal
+    // User is authenticated and account verified, show bulk import modal
     showBulkImportOptionsModal();
   } catch (error) {
     showNotification(chrome.i18n.getMessage('notification_errorOccurred'), 'error');
@@ -1673,6 +1743,14 @@ function displaySortedPlaylists(sortType) {
 }
 
 async function startBulkExport(allPlaylists) {
+  // Verify account match before starting export
+  // This prevents exporting from wrong account after user switches Yoto accounts
+  const verification = await verifyAccountBeforeOperation();
+
+  if (!verification.valid) {
+    // Account mismatch or session expired - user has been notified
+    return;
+  }
 
   const selectedCheckboxes = document.querySelectorAll('.playlist-checkbox:checked');
 
@@ -5334,188 +5412,25 @@ async function loadBestKidsPodcasts() {
   const listDiv = document.getElementById('best-podcasts-list');
 
   try {
-    const userLanguage = chrome.i18n.getUILanguage().split('-')[0]; // Get language code (e.g., 'en', 'es', 'fr', 'de')
-
-    // Define kids genre IDs - only kid-friendly genres
-    const kidsGenreIds = {
-      'Stories for Kids': 198,
-      'Education for Kids': 195
-    };
-    
-    // Randomly choose a strategy for variety
-    const strategies = [
-      'stories-only',     // Show only story podcasts
-      'education-only',   // Show only educational podcasts
-      'mixed-balanced',   // Equal mix of both genres
-      'stories-heavy',    // Mostly stories with some educational
-      'education-heavy'   // Mostly educational with some stories
-    ];
-    
-    const randomStrategy = strategies[Math.floor(Math.random() * strategies.length)];
-    
-    let allPodcasts = [];
-    
-    switch (randomStrategy) {
-      case 'stories-only': {
-        const randomPage = Math.floor(Math.random() * 3) + 1; // Pages 1-3
-        
-        const response = await chrome.runtime.sendMessage({
-          action: 'GET_BEST_PODCASTS',
-          genreId: kidsGenreIds['Stories for Kids'],
-          page: randomPage,
-          language: userLanguage
-        });
-        
-        if (!response.error && response.podcasts) {
-          allPodcasts = response.podcasts;
-        }
-        break;
-      }
-      
-      case 'education-only': {
-        const randomPage = Math.floor(Math.random() * 3) + 1; // Pages 1-3
-        
-        const response = await chrome.runtime.sendMessage({
-          action: 'GET_BEST_PODCASTS',
-          genreId: kidsGenreIds['Education for Kids'],
-          page: randomPage,
-          language: userLanguage
-        });
-        
-        if (!response.error && response.podcasts) {
-          allPodcasts = response.podcasts;
-        }
-        break;
-      }
-      
-      case 'mixed-balanced': {
-        // Equal mix from both genres
-        
-        const [storiesResponse, eduResponse] = await Promise.all([
-          chrome.runtime.sendMessage({
-            action: 'GET_BEST_PODCASTS',
-            genreId: kidsGenreIds['Stories for Kids'],
-            page: 1,
-            language: userLanguage
-          }),
-          chrome.runtime.sendMessage({
-            action: 'GET_BEST_PODCASTS',
-            genreId: kidsGenreIds['Education for Kids'],
-            page: 1,
-            language: userLanguage
-          })
-        ]);
-        
-        const stories = storiesResponse.podcasts || [];
-        const educational = eduResponse.podcasts || [];
-        
-        // Interleave for balanced mix
-        const maxLength = Math.max(stories.length, educational.length);
-        for (let i = 0; i < maxLength; i++) {
-          if (i < stories.length) {
-            allPodcasts.push(stories[i]);
-          }
-          if (i < educational.length) {
-            allPodcasts.push(educational[i]);
-          }
-        }
-        
-        // Limit to reasonable number
-        allPodcasts = allPodcasts.slice(0, 14);
-        break;
-      }
-      
-      case 'stories-heavy': {
-        // Mostly stories with some educational
-
-        const storiesResponse = await chrome.runtime.sendMessage({
-          action: 'GET_BEST_PODCASTS',
-          genreId: kidsGenreIds['Stories for Kids'],
-          page: 1,
-          language: userLanguage
-        });
-
-        const eduResponse = await chrome.runtime.sendMessage({
-          action: 'GET_BEST_PODCASTS',
-          genreId: kidsGenreIds['Education for Kids'],
-          page: 1,
-          language: userLanguage
-        });
-        
-        if (!storiesResponse.error && storiesResponse.podcasts) {
-          // Take mostly stories
-          allPodcasts = storiesResponse.podcasts.slice(0, 9);
-          
-          if (!eduResponse.error && eduResponse.podcasts) {
-            allPodcasts.push(...eduResponse.podcasts.slice(0, 3));
-          }
-        }
-        break;
-      }
-      
-      case 'education-heavy':
-      default: {
-        // Mostly educational with some stories
-
-        const eduResponse = await chrome.runtime.sendMessage({
-          action: 'GET_BEST_PODCASTS',
-          genreId: kidsGenreIds['Education for Kids'],
-          page: 1,
-          language: userLanguage
-        });
-
-        const storiesResponse = await chrome.runtime.sendMessage({
-          action: 'GET_BEST_PODCASTS',
-          genreId: kidsGenreIds['Stories for Kids'],
-          page: 1,
-          language: userLanguage
-        });
-        
-        if (!eduResponse.error && eduResponse.podcasts) {
-          // Take mostly educational
-          allPodcasts = eduResponse.podcasts.slice(0, 9);
-          
-          if (!storiesResponse.error && storiesResponse.podcasts) {
-            allPodcasts.push(...storiesResponse.podcasts.slice(0, 3));
-          }
-        }
-        break;
-      }
-    }
-
-    // Remove duplicates by podcast ID
-    const seenIds = new Set();
-    allPodcasts = allPodcasts.filter(podcast => {
-      if (seenIds.has(podcast.id)) {
-        return false;
-      }
-      seenIds.add(podcast.id);
-      return true;
+    // Fetch curated kids podcasts (already shuffled in service worker)
+    const response = await chrome.runtime.sendMessage({
+      action: 'GET_BEST_PODCASTS'
     });
 
-    // Shuffle the final podcast list for additional randomness
-    if (allPodcasts.length > 0) {
-      // Fisher-Yates shuffle
-      for (let i = allPodcasts.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allPodcasts[i], allPodcasts[j]] = [allPodcasts[j], allPodcasts[i]];
-      }
-      
-      // Limit display to avoid overwhelming the carousel
-      const displayPodcasts = allPodcasts.slice(0, 12);
-      
+    if (!response.error && response.podcasts && response.podcasts.length > 0) {
       listDiv.innerHTML = '';
-      displayPodcasts.forEach(podcast => {
+      response.podcasts.forEach(podcast => {
         const podcastCard = createPodcastCardForMix(podcast, true);
         listDiv.appendChild(podcastCard);
       });
-      
+
       carouselDiv.style.display = 'block';
     }
-    
+
     loadingDiv.style.display = 'none';
-    
+
   } catch (error) {
+    console.error('[Podcast Carousel] Error loading podcasts:', error);
     loadingDiv.style.display = 'none';
   }
 }
@@ -5643,9 +5558,9 @@ function createPodcastCard(podcast, isCompact = false) {
       background: white;
       flex-shrink: 0;
     `;
-    
+
     card.innerHTML = `
-      ${podcast.thumbnail ? 
+      ${podcast.thumbnail ?
         `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
           width: 100%;
           height: 120px;
@@ -5653,7 +5568,7 @@ function createPodcastCard(podcast, isCompact = false) {
           border-radius: 6px;
           margin-bottom: 8px;
           background: #f3f4f6;
-        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+                  " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
         ''
       }
       <div style="
@@ -5691,12 +5606,12 @@ function createPodcastCard(podcast, isCompact = false) {
         white-space: nowrap;
       ">${podcast.publisher || ''}</p>
     `;
-    
+
     card.onmouseenter = () => {
       card.style.transform = 'translateY(-2px)';
       card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
     };
-    
+
     card.onmouseleave = () => {
       card.style.transform = 'translateY(0)';
       card.style.boxShadow = 'none';
@@ -5716,7 +5631,7 @@ function createPodcastCard(podcast, isCompact = false) {
     `;
     
     card.innerHTML = `
-      ${podcast.thumbnail ? 
+      ${podcast.thumbnail ?
         `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
           width: 60px;
           height: 60px;
@@ -5724,7 +5639,7 @@ function createPodcastCard(podcast, isCompact = false) {
           border-radius: 6px;
           flex-shrink: 0;
           background: #f3f4f6;
-        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+                  " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
         ''
       }
       <div style="
@@ -5813,14 +5728,14 @@ async function selectPodcast(podcast) {
   content.innerHTML = `
     <h2 style="margin: 0 0 20px 0; color: #2c3e50; font-size: 24px;">${chrome.i18n.getMessage('label_import')} ${podcast.title}</h2>
     <div style="display: flex; gap: 16px; margin-bottom: 20px;">
-      ${podcast.thumbnail ? 
+      ${podcast.thumbnail ?
         `<img src="${podcast.thumbnail}" alt="${podcast.title}" style="
           width: 80px;
           height: 80px;
           border-radius: 8px;
           object-fit: cover;
           background: #f3f4f6;
-        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" />` :
+                  " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" />` :
         ''
       }
       <div style="
@@ -5922,7 +5837,8 @@ async function selectPodcast(podcast) {
     const response = await chrome.runtime.sendMessage({
       action: 'GET_PODCAST_EPISODES',
       podcastId: podcast.id,
-      feedUrl: podcast.feedUrl
+      feedUrl: podcast.feedUrl,
+      feedId: podcast.feedId
     });
 
     document.getElementById('episode-loading').style.display = 'none';
@@ -6139,7 +6055,17 @@ async function selectPodcast(podcast) {
       
       // Replace the existing cancel handler
       cancelBtn.onclick = cancelHandler;
-      
+
+      // Verify account match before starting podcast import
+      const accountVerification = await verifyAccountBeforeOperation();
+      if (!accountVerification.valid) {
+        // Account mismatch or session expired - user has been notified
+        progressDiv.style.display = 'none';
+        importBtn.disabled = false;
+        importBtn.textContent = chrome.i18n.getMessage('button_startImport') || 'Start Import';
+        return;
+      }
+
       try {
         const isUpdateMode = window.yotoUpdateMode && window.yotoUpdateMode.isUpdateMode;
         const updateCardId = isUpdateMode ? window.yotoUpdateMode.cardId : null;
@@ -6398,14 +6324,70 @@ function showPodcastSearchModal() {
         </button>
       </div>
       <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-        <input type="text" id="podcast-search-input" placeholder="${chrome.i18n.getMessage('placeholder_podcastSearch')}" style="
-          flex: 1;
-          padding: 10px 12px;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 14px;
-          box-sizing: border-box;
-        " />
+        <div style="flex: 1; position: relative;">
+          <input type="text" id="podcast-search-input" placeholder="${chrome.i18n.getMessage('placeholder_podcastSearch')}" style="
+            width: 100%;
+            padding: 10px 40px 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+          " />
+          <button id="podcast-filter-btn" title="Search filters" style="
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            transition: color 0.15s;
+          " onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#6b7280'">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 7L20 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+              <path d="M4 7L8 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+              <path d="M17 17L20 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+              <path d="M4 17L12 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
+              <circle cx="10" cy="7" r="2" transform="rotate(90 10 7)" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></circle>
+              <circle cx="15" cy="17" r="2" transform="rotate(90 15 17)" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></circle>
+            </svg>
+          </button>
+          <div id="podcast-filter-dropdown" style="
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 200px;
+            padding: 8px 0;
+          ">
+            <div style="padding: 8px 12px; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">
+              Search By
+            </div>
+            <label style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+              <input type="radio" name="podcast-search-type" value="bytitle" checked style="margin-right: 10px; accent-color: #3b82f6;">
+              <span style="color: #374151; font-size: 14px;">Podcast Title</span>
+            </label>
+            <label style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+              <input type="radio" name="podcast-search-type" value="byperson" style="margin-right: 10px; accent-color: #3b82f6;">
+              <span style="color: #374151; font-size: 14px;">Episodes by Person</span>
+            </label>
+            <label style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+              <input type="radio" name="podcast-search-type" value="music" style="margin-right: 10px; accent-color: #3b82f6;">
+              <span style="color: #374151; font-size: 14px;">Music</span>
+            </label>
+          </div>
+        </div>
         <button id="podcast-search-btn" style="
           padding: 10px 16px;
           background: #3b82f6;
@@ -6544,6 +6526,29 @@ function showPodcastSearchModal() {
   const searchInput = document.getElementById('podcast-search-input');
   searchInput.focus();
 
+  // Filter dropdown toggle
+  const filterBtn = document.getElementById('podcast-filter-btn');
+  const filterDropdown = document.getElementById('podcast-filter-dropdown');
+
+  filterBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = filterDropdown.style.display === 'block';
+    filterDropdown.style.display = isVisible ? 'none' : 'block';
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (filterDropdown && !filterDropdown.contains(e.target) && e.target !== filterBtn) {
+      filterDropdown.style.display = 'none';
+    }
+  });
+
+  // Get current search type
+  const getSearchType = () => {
+    const selected = document.querySelector('input[name="podcast-search-type"]:checked');
+    return selected ? selected.value : 'bytitle';
+  };
+
   const searchBtn = document.getElementById('podcast-search-btn');
   const handleSearch = async () => {
     const query = searchInput.value.trim();
@@ -6552,6 +6557,10 @@ function showPodcastSearchModal() {
       return;
     }
 
+    // Close filter dropdown if open
+    filterDropdown.style.display = 'none';
+
+    const searchType = getSearchType();
     showSearchViewInMixModal();
 
     const resultsDiv = document.getElementById('podcast-search-results');
@@ -6567,7 +6576,8 @@ function showPodcastSearchModal() {
     try {
       const response = await chrome.runtime.sendMessage({
         action: 'SEARCH_PODCASTS',
-        query: query
+        query: query,
+        searchType: searchType
       });
 
       loadingDiv.style.display = 'none';
@@ -6605,6 +6615,29 @@ function showPodcastSearchModal() {
         return;
       }
 
+      // Handle byperson search (returns episodes directly)
+      if (response.searchType === 'byperson') {
+        if (!response.episodes || response.episodes.length === 0) {
+          errorDiv.textContent = `No episodes found for "${query}"`;
+          errorDiv.style.display = 'block';
+          return;
+        }
+
+        // Show episodes directly - they can be added to the queue
+        listDiv.innerHTML = `
+          <div style="margin-bottom: 12px;">
+            <span style="font-size: 14px; color: #6b7280;">${response.episodes.length} episodes found</span>
+          </div>
+        `;
+
+        response.episodes.forEach(episode => {
+          const episodeRow = createEpisodeRowForPersonSearch(episode);
+          listDiv.appendChild(episodeRow);
+        });
+        return;
+      }
+
+      // Handle podcast search (bytitle and music)
       if (!response.podcasts || response.podcasts.length === 0) {
         errorDiv.textContent = chrome.i18n.getMessage('error_noPodcastsFound', [query]);
         errorDiv.style.display = 'block';
@@ -6651,6 +6684,91 @@ function showSearchViewInMixModal() {
   currentPodcastView = null;
 }
 
+function createEpisodeRowForPersonSearch(episode) {
+  const row = document.createElement('div');
+  row.className = 'podcast-episode-row';
+  row.style.cssText = `
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    gap: 12px;
+    transition: background 0.15s;
+  `;
+
+  const isInQueue = episodeQueue.some(ep => ep.id === episode.id);
+  const durationMin = Math.floor((episode.audio_length_sec || 0) / 60);
+  const durationSec = (episode.audio_length_sec || 0) % 60;
+  const durationStr = `${durationMin}:${durationSec.toString().padStart(2, '0')}`;
+
+  const pubDate = episode.pub_date_ms ? new Date(episode.pub_date_ms).toLocaleDateString() : '';
+
+  row.innerHTML = `
+    <img src="${episode.thumbnail || episode.feedImage || ''}" alt="" style="
+      width: 50px;
+      height: 50px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #f3f4f6;
+      flex-shrink: 0;
+    " onerror="this.style.display='none'">
+    <div style="flex: 1; min-width: 0;">
+      <div style="font-weight: 500; color: #1f2937; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        ${episode.title}
+      </div>
+      <div style="font-size: 12px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        ${episode.feedTitle || 'Unknown Podcast'}
+      </div>
+      <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">
+        ${durationStr}${pubDate ? ` • ${pubDate}` : ''}
+      </div>
+    </div>
+    <button class="episode-add-btn" style="
+      padding: 6px 12px;
+      background: ${isInQueue ? '#ef4444' : '#3b82f6'};
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      flex-shrink: 0;
+    ">${isInQueue ? 'Remove' : 'Add'}</button>
+  `;
+
+  const addBtn = row.querySelector('.episode-add-btn');
+  addBtn.addEventListener('click', () => {
+    const currentlyInQueue = episodeQueue.some(ep => ep.id === episode.id);
+
+    if (currentlyInQueue) {
+      removeFromEpisodeQueue(episode.id);
+      addBtn.textContent = 'Add';
+      addBtn.style.background = '#3b82f6';
+    } else {
+      if (episodeQueue.length >= 100) {
+        showNotification('Maximum 100 episodes allowed per playlist', 'error');
+        return;
+      }
+      addToEpisodeQueue({
+        id: episode.id,
+        title: episode.title,
+        audio: episode.audio,
+        duration: episode.audio_length_sec,
+        thumbnail: episode.thumbnail || episode.feedImage,
+        podcastTitle: episode.feedTitle || 'Unknown Podcast'
+      });
+      addBtn.textContent = 'Remove';
+      addBtn.style.background = '#ef4444';
+    }
+    updateQueueFooter();
+  });
+
+  return row;
+}
+
 function createPodcastCardForMix(podcast, isCompact = false) {
   const card = document.createElement('div');
 
@@ -6679,7 +6797,7 @@ function createPodcastCardForMix(podcast, isCompact = false) {
           border-radius: 6px;
           margin-bottom: 8px;
           background: #f3f4f6;
-        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+                  " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
         ''
       }
       <div style="
@@ -6749,7 +6867,7 @@ function createPodcastCardForMix(podcast, isCompact = false) {
           border-radius: 6px;
           flex-shrink: 0;
           background: #f3f4f6;
-        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
+                  " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">` :
         ''
       }
       <div style="
@@ -6821,7 +6939,7 @@ async function showEpisodesInMixModal(podcast) {
           object-fit: cover;
           background: #f3f4f6;
           flex-shrink: 0;
-        " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" />` :
+                  " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'" />` :
         ''
       }
       <div style="
@@ -6932,7 +7050,8 @@ async function showEpisodesInMixModal(podcast) {
     const response = await chrome.runtime.sendMessage({
       action: 'GET_PODCAST_EPISODES',
       podcastId: podcast.id,
-      feedUrl: podcast.feedUrl
+      feedUrl: podcast.feedUrl,
+      feedId: podcast.feedId
     });
 
     document.getElementById('episode-loading').style.display = 'none';
@@ -7264,10 +7383,19 @@ function showPodcastReviewModal() {
 
   const podcasts = getQueuedPodcasts();
 
+  // Check if we're in update mode (adding to existing playlist)
+  const isUpdateMode = window.yotoUpdateMode && window.yotoUpdateMode.isUpdateMode;
+  const modalTitle = isUpdateMode
+    ? (chrome.i18n.getMessage('modal_addEpisodesToPlaylist') || 'Add Episodes to Playlist')
+    : (chrome.i18n.getMessage('modal_reviewYourPlaylist') || 'Review Your Playlist');
+  const importButtonText = isUpdateMode
+    ? (chrome.i18n.getMessage('button_addEpisodes') || 'Add Episodes')
+    : (chrome.i18n.getMessage('button_import') || 'Import');
+
   content.innerHTML = `
     <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h2 style="margin: 0; color: #2c3e50; font-size: 20px;">${chrome.i18n.getMessage('modal_reviewYourPlaylist') || 'Review Your Playlist'}</h2>
+        <h2 style="margin: 0; color: #2c3e50; font-size: 20px;">${modalTitle}</h2>
         <button id="review-close" style="background: none; border: none; cursor: pointer; padding: 4px; color: #6b7280;">
           ${getSvgIcon('remove')}
         </button>
@@ -7277,7 +7405,7 @@ function showPodcastReviewModal() {
           `<img src="${firstPodcast.thumbnail}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; background: #f3f4f6;">` :
           `<div style="width: 60px; height: 60px; border-radius: 8px; background: linear-gradient(135deg, #1558d1 0%, #0f47a8 100%); display: flex; align-items: center; justify-content: center; font-size: 24px; color: white;">🎙️</div>`
         }
-        <div style="flex: 1;">
+        <div style="flex: 1; ${isUpdateMode ? 'display: none;' : ''}">
           <label style="display: block; margin-bottom: 6px; font-size: 13px; color: #6b7280;">${chrome.i18n.getMessage('label_playlistName') || 'Playlist Name'}</label>
           <input type="text" id="playlist-name-input" style="
             width: 100%;
@@ -7339,7 +7467,7 @@ function showPodcastReviewModal() {
         cursor: pointer;
         font-size: 14px;
         font-weight: 500;
-      ">${chrome.i18n.getMessage('button_import') || 'Import'}</button>
+      ">${importButtonText}</button>
     </div>
   `;
 
@@ -7349,9 +7477,10 @@ function showPodcastReviewModal() {
   // Set the playlist name input value programmatically to avoid HTML escaping issues with special characters
   const playlistNameInput = document.getElementById('playlist-name-input');
   if (playlistNameInput) {
+    // Use first podcast title, add "& More" if episodes from multiple podcasts
     const defaultPlaylistName = podcasts.length === 1
-      ? firstPodcast.title + ' - Podcast'
-      : (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape');
+      ? firstPodcast.title
+      : firstPodcast.title + ' & More';
     playlistNameInput.value = defaultPlaylistName;
   }
 
@@ -7390,7 +7519,9 @@ function showPodcastReviewModal() {
   });
 
   document.getElementById('review-import').addEventListener('click', async () => {
-    const playlistName = document.getElementById('playlist-name-input').value.trim() || (chrome.i18n.getMessage('label_podcastMixtape') || 'Podcast Mixtape');
+    // Fallback to first podcast title (with "& More" if multiple podcasts)
+    const fallbackName = podcasts.length === 1 ? firstPodcast.title : firstPodcast.title + ' & More';
+    const playlistName = document.getElementById('playlist-name-input').value.trim() || fallbackName;
     const coverImageUrl = firstPodcast.thumbnail || null;
 
     const progressDiv = document.getElementById('review-progress');
@@ -7406,12 +7537,28 @@ function showPodcastReviewModal() {
     statusText.textContent = chrome.i18n.getMessage('status_startingImport') || 'Starting import...';
     progressBar.style.width = '5%';
 
+    // Verify account match before starting podcast import
+    const accountVerification = await verifyAccountBeforeOperation();
+    if (!accountVerification.valid) {
+      // Account mismatch or session expired - user has been notified
+      progressDiv.style.display = 'none';
+      importBtn.disabled = false;
+      importBtn.textContent = chrome.i18n.getMessage('button_import') || 'Import';
+      return;
+    }
+
     try {
+      // Check if we're in update mode (adding to existing playlist)
+      const isUpdateMode = window.yotoUpdateMode && window.yotoUpdateMode.isUpdateMode;
+      const updateCardId = isUpdateMode ? window.yotoUpdateMode.cardId : null;
+
       const startResponse = await chrome.runtime.sendMessage({
         action: 'IMPORT_PODCAST_EPISODES',
         episodes: podcastEpisodeQueue,
         playlistName: playlistName,
-        coverImageUrl: coverImageUrl
+        coverImageUrl: coverImageUrl,
+        updateMode: isUpdateMode,
+        cardId: updateCardId
       });
 
       if (startResponse.error) {
@@ -11405,7 +11552,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     const retryCount = failedUploads.length;
     progressCallback(35, `Retrying ${retryCount} failed upload${retryCount > 1 ? 's' : ''}...`);
 
-    console.log(`[Bulk Import] Retrying ${retryCount} failed uploads sequentially...`);
+    console.info(`[Bulk Import] Retrying ${retryCount} failed uploads...`);
 
     // Retry failed uploads sequentially (not in parallel) to avoid overwhelming the API
     for (let retryIndex = 0; retryIndex < failedUploads.length; retryIndex++) {
@@ -11563,7 +11710,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
 
         if (retryResult.status === 'fulfilled') {
           uploadedTracks[originalIndex] = retryResult.value;
-          console.log(`[Bulk Import] ✓ Retry successful: ${failedUpload.fileName}`);
+          console.info(`[Bulk Import] Retry successful: ${failedUpload.fileName}`);
         } else {
           console.error(`[Bulk Import] ✗ Retry failed: ${failedUpload.fileName} - ${retryResult.reason?.message}`);
         }
@@ -11578,7 +11725,7 @@ async function importSinglePlaylist(audioFiles, trackIcons, coverImage, playlist
     }
 
     const retriedSuccessCount = failedUploads.filter(fu => uploadedTracks[fu.originalIndex]).length;
-    console.log(`[Bulk Import] Retry complete: ${retriedSuccessCount}/${retryCount} succeeded`);
+    console.info(`[Bulk Import] Retry complete: ${retriedSuccessCount}/${retryCount} succeeded`);
   }
 
   const successfulUploads = uploadedTracks.filter(t => t).length;
