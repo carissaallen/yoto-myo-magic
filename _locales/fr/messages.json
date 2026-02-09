@@ -2816,5 +2816,123 @@
   "error_failedToImportPodcastEpisodes": {
     "message": "Échec de l'importation des épisodes du podcast",
     "description": "Generic error when podcast episode import fails"
+  },
+  "groups_addGroup": {
+    "message": "Ajouter un groupe",
+    "description": "Button to add a new group"
+  },
+  "groups_createGroup": {
+    "message": "Créer un groupe",
+    "description": "Title for create group modal"
+  },
+  "groups_groupName": {
+    "message": "Entrez le nom du groupe",
+    "description": "Placeholder for group name input"
+  },
+  "groups_uploadCustomImage": {
+    "message": "Télécharger une image personnalisée",
+    "description": "Button to upload custom group image"
+  },
+  "groups_createSuccess": {
+    "message": "Groupe créé avec succès",
+    "description": "Success message when group is created"
+  },
+  "groups_createError": {
+    "message": "Échec de la création du groupe",
+    "description": "Error message when group creation fails"
+  },
+  "groups_loadError": {
+    "message": "Échec du chargement des groupes",
+    "description": "Error message when groups fail to load"
+  },
+  "groups_nameRequired": {
+    "message": "Veuillez entrer un nom de groupe",
+    "description": "Validation message when group name is empty"
+  },
+  "groups_filterActive": {
+    "message": "Affichage des cartes dans le groupe: $NAME$",
+    "description": "Message shown when filtering by group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "Mes Favoris"
+      }
+    }
+  },
+  "groups_showAll": {
+    "message": "Afficher tout",
+    "description": "Button to show all cards"
+  },
+  "groups_addToGroup": {
+    "message": "Ajouter à $NAME$",
+    "description": "Header shown above cards that can be added to a group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "Mes Favoris"
+      }
+    }
+  },
+  "groups_deleteGroups": {
+    "message": "Supprimer des groupes",
+    "description": "Title for delete groups modal"
+  },
+  "groups_deleteWarning": {
+    "message": "Sélectionnez les groupes que vous souhaitez supprimer. Cette action est irréversible.",
+    "description": "Warning message in delete groups modal"
+  },
+  "groups_cancel": {
+    "message": "Annuler",
+    "description": "Cancel button in modal"
+  },
+  "groups_delete": {
+    "message": "Supprimer",
+    "description": "Delete button in modal"
+  },
+  "groups_noGroupsToDelete": {
+    "message": "Aucun groupe à supprimer",
+    "description": "Message when there are no groups to delete"
+  },
+  "groups_selectAtLeastOne": {
+    "message": "Veuillez sélectionner au moins un groupe à supprimer",
+    "description": "Validation message when no groups selected for deletion"
+  },
+  "groups_deleting": {
+    "message": "Suppression...",
+    "description": "Button state while deleting groups"
+  },
+  "groups_deleteError": {
+    "message": "Échec de la suppression de $COUNT$ groupe(s)",
+    "description": "Error message when some groups fail to delete",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "groups_cardNotIdentified": {
+    "message": "Impossible d'identifier la carte",
+    "description": "Error when card cannot be identified"
+  },
+  "groups_cardAlreadyInGroup": {
+    "message": "La carte est déjà dans le groupe",
+    "description": "Message when card is already in the group"
+  },
+  "groups_cardNotInGroup": {
+    "message": "La carte n'est pas dans le groupe",
+    "description": "Message when card is not in the group"
+  },
+  "groups_dataNotAvailable": {
+    "message": "Données du groupe non disponibles",
+    "description": "Error when group data is not available"
+  },
+  "groups_addCardError": {
+    "message": "Échec de l'ajout de la carte au groupe",
+    "description": "Error when adding card to group fails"
+  },
+  "groups_removeCardError": {
+    "message": "Échec de la suppression de la carte du groupe",
+    "description": "Error when removing card from group fails"
   }
 }
