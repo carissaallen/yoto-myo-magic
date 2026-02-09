@@ -2826,5 +2826,51 @@
   "error_failedToImportPodcastEpisodes": {
     "message": "Failed to import podcast episodes",
     "description": "Generic error when podcast episode import fails"
+  },
+  "groups_addGroup": {
+    "message": "Add Group",
+    "description": "Button to add a new group"
+  },
+  "groups_createGroup": {
+    "message": "Create Group",
+    "description": "Title for create group modal and submit button"
+  },
+  "groups_groupName": {
+    "message": "Enter group name",
+    "description": "Placeholder for group name input"
+  },
+  "groups_uploadCustomImage": {
+    "message": "Upload custom image",
+    "description": "Button to upload a custom group image"
+  },
+  "groups_createSuccess": {
+    "message": "Group created successfully",
+    "description": "Success message when group is created"
+  },
+  "groups_createError": {
+    "message": "Failed to create group",
+    "description": "Error message when group creation fails"
+  },
+  "groups_loadError": {
+    "message": "Failed to load groups",
+    "description": "Error message when groups fail to load"
+  },
+  "groups_nameRequired": {
+    "message": "Please enter a group name",
+    "description": "Error message when group name is empty"
+  },
+  "groups_filterActive": {
+    "message": "Showing cards in group: $NAME$",
+    "description": "Message shown when filtering by group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Favourites"
+      }
+    }
+  },
+  "groups_showAll": {
+    "message": "Show All",
+    "description": "Button to clear group filter and show all cards"
   }
 }

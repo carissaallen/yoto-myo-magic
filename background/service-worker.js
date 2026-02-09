@@ -3721,6 +3721,52 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     sendResponse(userCards);
                     break;
 
+                case 'FETCH_GROUPS':
+                    try {
+                        const groupsResult = await makeAuthenticatedRequest('/card/family/library/groups');
+                        if (groupsResult.error) {
+                            sendResponse({ success: false, error: groupsResult.error });
+                        } else {
+                            sendResponse({ success: true, groups: groupsResult || [] });
+                        }
+                    } catch (error) {
+                        console.error('[Groups] Failed to fetch groups:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+
+                case 'FETCH_GROUP':
+                    try {
+                        const groupResult = await makeAuthenticatedRequest(`/card/family/library/groups/${request.groupId}`);
+                        if (groupResult.error) {
+                            sendResponse({ success: false, error: groupResult.error });
+                        } else {
+                            sendResponse({ success: true, group: groupResult });
+                        }
+                    } catch (error) {
+                        console.error('[Groups] Failed to fetch group:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+
+                case 'CREATE_GROUP':
+                    try {
+                        const createGroupResult = await makeAuthenticatedRequest('/card/family/library/groups', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(request.data)
+                        });
+                        if (createGroupResult.error) {
+                            sendResponse({ success: false, error: createGroupResult.error });
+                        } else {
+                            sendResponse({ success: true, group: createGroupResult });
+                        }
+                    } catch (error) {
+                        console.error('[Groups] Failed to create group:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+
                 case 'MATCH_ICONS':
                     const matches = await matchIcons(request.tracks);
                     sendResponse({matches});

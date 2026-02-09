@@ -10,6 +10,34 @@ let state = {
   currentCardId: null
 };
 
+// Groups feature state
+const groupsState = {
+  groups: [],
+  selectedGroupId: null,
+  currentImageIndex: 0,
+  customImageId: null,
+  isSubmitting: false,
+  initialized: false
+};
+
+// Default group images from Yoto CDN
+const DEFAULT_GROUP_IMAGES = [
+  'black-cat', 'black-chickens', 'black-dog', 'black-fave', 'black-guitar',
+  'black-music', 'black-night', 'black-rabbit', 'black-sunglasses',
+  'fp-frog', 'fp-mini', 'fp-music', 'fp-party', 'fp-robot',
+  'white-bat', 'white-cards', 'white-robot', 'white-pig', 'white-sheep',
+  'white-mini', 'white-sunglasses'
+];
+
+const GROUP_CDN_BASE = 'https://cdn.yoto.io/library/groups/';
+
+// Utility function to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 const AUTH_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -695,6 +723,9 @@ function injectButtonsAfterElement(targetElement, descriptionPatterns) {
   } else {
     injectionPoint.parentNode.appendChild(buttonContainer);
   }
+
+  // Initialize groups feature after button container is injected
+  initGroupsFeature();
 
   return true;
 }
@@ -13112,6 +13143,716 @@ function showImportModal(audioFiles, trackIcons, coverImage, defaultName = chrom
     e.stopPropagation();
   };
 }
+
+// ========================================
+// Groups Feature
+// ========================================
+
+async function initGroupsFeature() {
+  // Only run on playlists page and only once
+  if (groupsState.initialized) return;
+  if (state.pageType !== 'my-playlists') return;
+
+  const buttonContainer = document.querySelector('#yoto-import-container');
+  if (!buttonContainer) return;
+
+  // Check if groups container already exists
+  if (document.querySelector('#yoto-groups-container')) return;
+
+  groupsState.initialized = true;
+
+  // Fetch groups from API
+  try {
+    const response = await chrome.runtime.sendMessage({ action: 'FETCH_GROUPS' });
+    if (response.success) {
+      groupsState.groups = response.groups || [];
+    } else {
+      console.warn('[Groups] Failed to fetch groups:', response.error);
+    }
+  } catch (error) {
+    console.warn('[Groups] Error fetching groups:', error.message);
+  }
+
+  // Inject groups container
+  injectGroupsContainer(buttonContainer);
+
+  // Inject create group modal (hidden)
+  injectCreateGroupModal();
+}
+
+function injectGroupsContainer(buttonContainer) {
+  const groupsContainer = document.createElement('div');
+  groupsContainer.id = 'yoto-groups-container';
+
+  // Apply inline styles to ensure proper display
+  groupsContainer.style.cssText = `
+    margin: 0 0 24px 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+  `;
+
+  // Add group pills
+  groupsState.groups.forEach(group => {
+    const pill = createGroupPill(group);
+    groupsContainer.appendChild(pill);
+  });
+
+  // Add "Add Group" button
+  const addGroupBtn = createAddGroupButton();
+  groupsContainer.appendChild(addGroupBtn);
+
+  // Insert after button container
+  buttonContainer.after(groupsContainer);
+}
+
+function createGroupPill(group) {
+  const pill = document.createElement('button');
+  pill.className = 'yoto-group-pill';
+  pill.dataset.groupId = group.id;
+  pill.dataset.groupName = group.name;
+
+  // Apply inline styles to match extension button styling
+  pill.style.cssText = `
+    background-color: rgba(0, 0, 0, 0.04);
+    color: #1f2937;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    height: 40px;
+  `;
+
+  // Just show the group name, no image
+  pill.textContent = group.name;
+
+  // Hover effects
+  pill.onmouseenter = () => {
+    if (!pill.classList.contains('selected')) {
+      pill.style.backgroundColor = 'rgba(0, 0, 0, 0.08)';
+      pill.style.transform = 'translateY(-1px)';
+    }
+  };
+
+  pill.onmouseleave = () => {
+    if (!pill.classList.contains('selected')) {
+      pill.style.backgroundColor = 'rgba(0, 0, 0, 0.04)';
+      pill.style.transform = 'translateY(0)';
+    }
+  };
+
+  // Click handler
+  pill.onclick = () => handleGroupClick(group.id);
+
+  return pill;
+}
+
+function createAddGroupButton() {
+  const btn = document.createElement('button');
+  btn.id = 'yoto-add-group-btn';
+
+  // Apply inline styles - blue fill with white text, matching selected group style
+  btn.style.cssText = `
+    background-color: #3b82f6;
+    color: #ffffff;
+    border: none;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  `;
+
+  // Use SVG for the plus icon - properly centered
+  btn.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: block;">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  `;
+  btn.title = chrome.i18n.getMessage('groups_addGroup') || 'Add Group';
+
+  // Hover effects - darker blue
+  btn.onmouseenter = () => {
+    btn.style.backgroundColor = '#2563eb';
+    btn.style.transform = 'translateY(-1px)';
+  };
+
+  btn.onmouseleave = () => {
+    btn.style.backgroundColor = '#3b82f6';
+    btn.style.transform = 'translateY(0)';
+  };
+
+  btn.onclick = () => openCreateGroupModal();
+
+  return btn;
+}
+
+async function handleGroupClick(groupId) {
+  // If clicking the already-selected group, deselect it (show all)
+  if (groupsState.selectedGroupId === groupId) {
+    await filterPlaylistsByGroup(null);
+    return;
+  }
+
+  // Otherwise, select this group and filter
+  await filterPlaylistsByGroup(groupId);
+}
+
+async function filterPlaylistsByGroup(groupId) {
+  // If no group selected (null), show all playlists
+  if (!groupId) {
+    restoreAllPlaylists();
+    groupsState.selectedGroupId = null;
+    updateGroupButtonStates();
+    return;
+  }
+
+  // Update button state IMMEDIATELY (before API call) for responsive feel
+  groupsState.selectedGroupId = groupId;
+  updateGroupButtonStates();
+
+  // Fetch group details to get card IDs
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'FETCH_GROUP',
+      groupId: groupId
+    });
+
+    if (!response.success) {
+      showNotification(chrome.i18n.getMessage('groups_loadError') || 'Failed to load group', 'error');
+      // Revert selection on error
+      groupsState.selectedGroupId = null;
+      updateGroupButtonStates();
+      return;
+    }
+
+    const group = response.group;
+    const allowedCardIds = new Set((group.items || []).map(item => item.contentId));
+
+    // Find all playlist card wrapper elements on the page
+    const { cardWrappers, gridContainer } = findPlaylistCardWrappers();
+    if (cardWrappers.length === 0) {
+      console.warn('[Groups] No playlist cards found on page');
+      return;
+    }
+
+    // Separate cards into matching and non-matching
+    const matchingWrappers = [];
+    const nonMatchingWrappers = [];
+
+    cardWrappers.forEach(wrapper => {
+      const cardId = extractCardIdFromWrapper(wrapper);
+      if (allowedCardIds.has(cardId)) {
+        matchingWrappers.push(wrapper);
+        wrapper.style.display = '';
+      } else {
+        nonMatchingWrappers.push(wrapper);
+        wrapper.style.display = 'none';
+      }
+    });
+
+    // Move matching card wrappers to the beginning of the grid container
+    // Reverse first to maintain original order when inserting at beginning
+    const orderedMatching = [...matchingWrappers].reverse();
+    orderedMatching.forEach(wrapper => {
+      gridContainer.insertBefore(wrapper, gridContainer.firstChild);
+    });
+
+  } catch (error) {
+    console.error('[Groups] Error filtering:', error);
+    showNotification(chrome.i18n.getMessage('groups_loadError') || 'Failed to load group', 'error');
+    // Revert selection on error
+    groupsState.selectedGroupId = null;
+    updateGroupButtonStates();
+  }
+}
+
+function restoreAllPlaylists() {
+  // Restore visibility of all card wrappers
+  const { cardWrappers } = findPlaylistCardWrappers();
+  cardWrappers.forEach(wrapper => {
+    wrapper.style.display = '';
+  });
+  // Note: Card order remains as last filtered - page refresh restores original order
+}
+
+function findPlaylistCards() {
+  // Try multiple selectors to find playlist cards
+  // The Yoto website structure may vary, so we try several approaches
+
+  // Look for cards in the grid container after our groups container
+  const groupsContainer = document.querySelector('#yoto-groups-container');
+  if (!groupsContainer) return [];
+
+  // Find the parent container that holds the playlist grid
+  let parent = groupsContainer.parentElement;
+  if (!parent) return [];
+
+  // Common selectors for Yoto playlist cards
+  const selectors = [
+    'a[href*="/card/"]',
+    '[data-card-id]',
+    '[data-content-id]'
+  ];
+
+  for (const selector of selectors) {
+    // Look in siblings and their children
+    let sibling = groupsContainer.nextElementSibling;
+    while (sibling) {
+      // Check if sibling itself matches
+      if (sibling.matches && sibling.matches(selector)) {
+        // Collect all matching siblings
+        const cards = [];
+        let current = sibling;
+        while (current) {
+          if (current.matches && current.matches(selector)) {
+            cards.push(current);
+          }
+          current = current.nextElementSibling;
+        }
+        if (cards.length > 0) return cards;
+      }
+
+      // Check children
+      const cards = sibling.querySelectorAll(selector);
+      if (cards.length > 0) {
+        return Array.from(cards);
+      }
+      sibling = sibling.nextElementSibling;
+    }
+  }
+
+  // Fallback: search entire page for card links
+  const allCardLinks = document.querySelectorAll('a[href*="/card/"]');
+  return Array.from(allCardLinks).filter(link => {
+    // Filter out links that are in our extension UI
+    return !link.closest('#yoto-import-container') &&
+           !link.closest('#yoto-groups-container') &&
+           !link.closest('.yoto-magic-overlay');
+  });
+}
+
+function extractCardId(cardElement) {
+  // Try data attribute first
+  if (cardElement.dataset?.cardId) return cardElement.dataset.cardId;
+  if (cardElement.dataset?.contentId) return cardElement.dataset.contentId;
+
+  // Extract from href
+  const href = cardElement.href || cardElement.querySelector('a')?.href;
+  if (href) {
+    const match = href.match(/\/card\/([^\/]+)/);
+    if (match) return match[1];
+  }
+
+  return null;
+}
+
+function findPlaylistCardWrappers() {
+  // Find the grid container and its direct children (card wrappers)
+  // The Yoto website uses a grid layout where each card is wrapped in a div
+
+  // First, find card links to identify the grid
+  const cardLinks = document.querySelectorAll('a[href*="/card/"]');
+  const validLinks = Array.from(cardLinks).filter(link => {
+    return !link.closest('#yoto-import-container') &&
+           !link.closest('#yoto-groups-container') &&
+           !link.closest('.yoto-magic-overlay');
+  });
+
+  if (validLinks.length === 0) {
+    return { cardWrappers: [], gridContainer: null };
+  }
+
+  // Find the common grid container - go up from a card link to find the grid
+  // The grid container is typically 2-3 levels up from the link
+  let gridContainer = null;
+  let cardWrappers = [];
+
+  // Try to find a container with CSS grid or flex that contains multiple cards
+  const firstLink = validLinks[0];
+  let parent = firstLink.parentElement;
+
+  // Walk up the DOM to find the grid container
+  for (let i = 0; i < 5 && parent; i++) {
+    const parentOfParent = parent.parentElement;
+    if (!parentOfParent) break;
+
+    // Check if this parent's parent contains multiple card links as descendants
+    const linksInParent = parentOfParent.querySelectorAll('a[href*="/card/"]');
+    const validLinksInParent = Array.from(linksInParent).filter(link => {
+      return !link.closest('#yoto-import-container') &&
+             !link.closest('#yoto-groups-container') &&
+             !link.closest('.yoto-magic-overlay');
+    });
+
+    if (validLinksInParent.length > 1) {
+      // This could be the grid container
+      // The card wrappers are the direct children that contain card links
+      const children = Array.from(parentOfParent.children);
+      const wrappersWithCards = children.filter(child => {
+        return child.querySelector('a[href*="/card/"]') !== null;
+      });
+
+      if (wrappersWithCards.length > 1) {
+        gridContainer = parentOfParent;
+        cardWrappers = wrappersWithCards;
+        break;
+      }
+    }
+
+    parent = parentOfParent;
+  }
+
+  // Fallback: use the immediate parent of the links if we couldn't find a grid
+  if (!gridContainer && validLinks.length > 0) {
+    // Group links by their parent element
+    const parentMap = new Map();
+    validLinks.forEach(link => {
+      // Find the wrapper - typically the link's parent or grandparent
+      let wrapper = link.parentElement;
+      // Go up until we find a sibling that also has a card link
+      while (wrapper && wrapper.parentElement) {
+        const siblings = Array.from(wrapper.parentElement.children);
+        const siblingsWithCards = siblings.filter(s => s.querySelector('a[href*="/card/"]'));
+        if (siblingsWithCards.length > 1) {
+          gridContainer = wrapper.parentElement;
+          cardWrappers = siblingsWithCards;
+          break;
+        }
+        wrapper = wrapper.parentElement;
+      }
+      if (gridContainer) return;
+    });
+  }
+
+  return { cardWrappers, gridContainer };
+}
+
+function extractCardIdFromWrapper(wrapper) {
+  // Find the card link within the wrapper and extract its ID
+  const link = wrapper.querySelector('a[href*="/card/"]');
+  if (link) {
+    const href = link.href;
+    const match = href.match(/\/card\/([^\/]+)/);
+    if (match) return match[1];
+  }
+
+  // Try data attributes on the wrapper itself
+  if (wrapper.dataset?.cardId) return wrapper.dataset.cardId;
+  if (wrapper.dataset?.contentId) return wrapper.dataset.contentId;
+
+  return null;
+}
+
+function updateGroupButtonStates() {
+  document.querySelectorAll('.yoto-group-pill').forEach(pill => {
+    const isSelected = pill.dataset.groupId === groupsState.selectedGroupId;
+
+    if (isSelected) {
+      pill.classList.add('selected');
+      pill.style.backgroundColor = '#3b82f6';
+      pill.style.color = '#ffffff';
+      pill.style.borderColor = '#3b82f6';
+    } else {
+      pill.classList.remove('selected');
+      pill.style.backgroundColor = 'rgba(0, 0, 0, 0.04)';
+      pill.style.color = '#1f2937';
+      pill.style.borderColor = 'rgba(0, 0, 0, 0.08)';
+    }
+  });
+}
+
+function injectCreateGroupModal() {
+  // Check if modal already exists
+  if (document.querySelector('#yoto-create-group-modal')) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-create-group-modal';
+  modal.className = 'yoto-magic-overlay';
+  modal.style.display = 'none';
+
+  const closeIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
+
+  const prevIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  const nextIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  `;
+
+  modal.innerHTML = `
+    <div class="yoto-magic-modal" style="max-width: 400px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #1f2937;">
+          ${chrome.i18n.getMessage('groups_createGroup') || 'Create Group'}
+        </h2>
+        <button id="yoto-create-group-close" style="
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: none;
+          background: #f3f4f6;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          ${closeIcon}
+        </button>
+      </div>
+
+      <div class="yoto-group-image-picker">
+        <button id="yoto-group-image-prev" class="yoto-group-image-nav">
+          ${prevIcon}
+        </button>
+        <div class="yoto-group-image-preview">
+          <img id="yoto-group-image-img" src="${GROUP_CDN_BASE}${DEFAULT_GROUP_IMAGES[0]}.png" alt="Group image" />
+        </div>
+        <button id="yoto-group-image-next" class="yoto-group-image-nav">
+          ${nextIcon}
+        </button>
+      </div>
+
+      <input type="hidden" id="yoto-group-image-id" value="${DEFAULT_GROUP_IMAGES[0]}" />
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <input type="file" id="yoto-group-custom-image" accept="image/*" style="display: none;" />
+        <button id="yoto-group-upload-btn" class="yoto-group-upload-btn">
+          ${chrome.i18n.getMessage('groups_uploadCustomImage') || 'Upload custom image'}
+        </button>
+      </div>
+
+      <div style="margin-bottom: 24px;">
+        <input type="text" id="yoto-group-name-input"
+               class="yoto-group-name-input"
+               placeholder="${chrome.i18n.getMessage('groups_groupName') || 'Enter group name'}"
+               maxlength="100" />
+      </div>
+
+      <button id="yoto-create-group-submit" class="yoto-group-submit-btn">
+        ${chrome.i18n.getMessage('groups_createGroup') || 'Create Group'}
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Bind events
+  bindCreateGroupModalEvents();
+}
+
+function bindCreateGroupModalEvents() {
+  const modal = document.querySelector('#yoto-create-group-modal');
+  if (!modal) return;
+
+  // Close button
+  modal.querySelector('#yoto-create-group-close').onclick = () => closeCreateGroupModal();
+
+  // Close on overlay click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      closeCreateGroupModal();
+    }
+  };
+
+  // Close on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.style.display !== 'none') {
+      closeCreateGroupModal();
+    }
+  });
+
+  // Image navigation
+  modal.querySelector('#yoto-group-image-prev').onclick = () => {
+    groupsState.customImageId = null;
+    groupsState.currentImageIndex = (groupsState.currentImageIndex - 1 + DEFAULT_GROUP_IMAGES.length) % DEFAULT_GROUP_IMAGES.length;
+    updateGroupImagePreview();
+  };
+
+  modal.querySelector('#yoto-group-image-next').onclick = () => {
+    groupsState.customImageId = null;
+    groupsState.currentImageIndex = (groupsState.currentImageIndex + 1) % DEFAULT_GROUP_IMAGES.length;
+    updateGroupImagePreview();
+  };
+
+  // Custom image upload button
+  modal.querySelector('#yoto-group-upload-btn').onclick = () => {
+    modal.querySelector('#yoto-group-custom-image').click();
+  };
+
+  // Custom image file selection
+  modal.querySelector('#yoto-group-custom-image').onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // For now, just show a preview - full upload would require more API work
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        modal.querySelector('#yoto-group-image-img').src = ev.target.result;
+        // Note: Custom image upload to Yoto API not implemented in this version
+        // Would need to POST to /media/familyImage/upload
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Submit button
+  modal.querySelector('#yoto-create-group-submit').onclick = () => handleCreateGroupSubmit();
+
+  // Enter key on name input
+  modal.querySelector('#yoto-group-name-input').onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCreateGroupSubmit();
+    }
+  };
+}
+
+function openCreateGroupModal() {
+  const modal = document.querySelector('#yoto-create-group-modal');
+  if (!modal) return;
+
+  // Reset state
+  groupsState.currentImageIndex = 0;
+  groupsState.customImageId = null;
+  groupsState.isSubmitting = false;
+
+  // Reset UI
+  updateGroupImagePreview();
+  modal.querySelector('#yoto-group-name-input').value = '';
+  modal.querySelector('#yoto-create-group-submit').disabled = false;
+  modal.querySelector('#yoto-create-group-submit').textContent =
+    chrome.i18n.getMessage('groups_createGroup') || 'Create Group';
+
+  // Show modal
+  modal.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+
+  // Focus name input
+  setTimeout(() => {
+    modal.querySelector('#yoto-group-name-input').focus();
+  }, 100);
+}
+
+function closeCreateGroupModal() {
+  const modal = document.querySelector('#yoto-create-group-modal');
+  if (!modal || groupsState.isSubmitting) return;
+
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function updateGroupImagePreview() {
+  const modal = document.querySelector('#yoto-create-group-modal');
+  if (!modal) return;
+
+  const imageId = DEFAULT_GROUP_IMAGES[groupsState.currentImageIndex];
+  modal.querySelector('#yoto-group-image-img').src = `${GROUP_CDN_BASE}${imageId}.png`;
+  modal.querySelector('#yoto-group-image-id').value = imageId;
+}
+
+async function handleCreateGroupSubmit() {
+  if (groupsState.isSubmitting) return;
+
+  const modal = document.querySelector('#yoto-create-group-modal');
+  if (!modal) return;
+
+  const nameInput = modal.querySelector('#yoto-group-name-input');
+  const submitBtn = modal.querySelector('#yoto-create-group-submit');
+  const name = nameInput.value.trim();
+
+  if (!name) {
+    showNotification(chrome.i18n.getMessage('groups_nameRequired') || 'Please enter a group name', 'warning');
+    nameInput.focus();
+    return;
+  }
+
+  groupsState.isSubmitting = true;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creating...';
+
+  try {
+    const imageId = modal.querySelector('#yoto-group-image-id').value || DEFAULT_GROUP_IMAGES[0];
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'CREATE_GROUP',
+      data: {
+        name: name,
+        imageId: imageId,
+        items: []
+      }
+    });
+
+    if (response.success) {
+      showNotification(chrome.i18n.getMessage('groups_createSuccess') || 'Group created successfully', 'success');
+
+      // Add the new group to state
+      groupsState.groups.push(response.group);
+
+      // Add pill to UI
+      const groupsContainer = document.querySelector('#yoto-groups-container');
+      const addGroupBtn = document.querySelector('#yoto-add-group-btn');
+      if (groupsContainer && addGroupBtn) {
+        const pill = createGroupPill(response.group);
+        groupsContainer.insertBefore(pill, addGroupBtn);
+      }
+
+      closeCreateGroupModal();
+    } else {
+      showNotification(
+        chrome.i18n.getMessage('groups_createError') || 'Failed to create group',
+        'error'
+      );
+    }
+  } catch (error) {
+    console.error('[Groups] Error creating group:', error);
+    showNotification(
+      chrome.i18n.getMessage('groups_createError') || 'Failed to create group',
+      'error'
+    );
+  } finally {
+    groupsState.isSubmitting = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = chrome.i18n.getMessage('groups_createGroup') || 'Create Group';
+  }
+}
+
+// Reset groups state when navigating away
+function resetGroupsState() {
+  groupsState.groups = [];
+  groupsState.selectedGroupId = null;
+  groupsState.currentImageIndex = 0;
+  groupsState.customImageId = null;
+  groupsState.isSubmitting = false;
+  groupsState.initialized = false;
+}
+
+// ========================================
+// End of Groups Feature
+// ========================================
 
 function checkForAuthReturn() {
   const urlParams = new URLSearchParams(window.location.search);
