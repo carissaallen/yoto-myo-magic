@@ -2772,5 +2772,123 @@
   "error_failedToImportPodcastEpisodes": {
     "message": "Impossibile importare gli episodi del podcast",
     "description": "Generic error when podcast episode import fails"
+  },
+  "groups_addGroup": {
+    "message": "Aggiungi gruppo",
+    "description": "Button text to add a new group"
+  },
+  "groups_createGroup": {
+    "message": "Crea gruppo",
+    "description": "Button text to create a group"
+  },
+  "groups_groupName": {
+    "message": "Inserisci il nome del gruppo",
+    "description": "Placeholder text for group name input"
+  },
+  "groups_uploadCustomImage": {
+    "message": "Carica immagine personalizzata",
+    "description": "Button text to upload a custom image for the group"
+  },
+  "groups_createSuccess": {
+    "message": "Gruppo creato con successo",
+    "description": "Success message when group is created"
+  },
+  "groups_createError": {
+    "message": "Impossibile creare il gruppo",
+    "description": "Error message when group creation fails"
+  },
+  "groups_loadError": {
+    "message": "Impossibile caricare i gruppi",
+    "description": "Error message when groups fail to load"
+  },
+  "groups_nameRequired": {
+    "message": "Inserisci un nome per il gruppo",
+    "description": "Error message when group name is empty"
+  },
+  "groups_filterActive": {
+    "message": "Mostrando le carte nel gruppo: $NAME$",
+    "description": "Message shown when filtering by group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "I miei preferiti"
+      }
+    }
+  },
+  "groups_showAll": {
+    "message": "Mostra tutto",
+    "description": "Button text to show all cards (remove group filter)"
+  },
+  "groups_addToGroup": {
+    "message": "Aggiungi a $NAME$",
+    "description": "Header shown above cards that can be added to a group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "I miei preferiti"
+      }
+    }
+  },
+  "groups_deleteGroups": {
+    "message": "Elimina gruppi",
+    "description": "Button text to delete groups"
+  },
+  "groups_deleteWarning": {
+    "message": "Seleziona i gruppi che desideri eliminare. Questa azione non può essere annullata.",
+    "description": "Warning message shown in delete groups modal"
+  },
+  "groups_cancel": {
+    "message": "Annulla",
+    "description": "Cancel button text"
+  },
+  "groups_delete": {
+    "message": "Elimina",
+    "description": "Delete button text"
+  },
+  "groups_noGroupsToDelete": {
+    "message": "Nessun gruppo da eliminare",
+    "description": "Message when there are no groups to delete"
+  },
+  "groups_selectAtLeastOne": {
+    "message": "Seleziona almeno un gruppo da eliminare",
+    "description": "Error message when no groups are selected for deletion"
+  },
+  "groups_deleting": {
+    "message": "Eliminazione...",
+    "description": "Button text while deleting groups"
+  },
+  "groups_deleteError": {
+    "message": "Impossibile eliminare $COUNT$ gruppo/i",
+    "description": "Error message when some groups fail to delete",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "groups_cardNotIdentified": {
+    "message": "Impossibile identificare la carta",
+    "description": "Error message when card cannot be identified"
+  },
+  "groups_cardAlreadyInGroup": {
+    "message": "La carta è già nel gruppo",
+    "description": "Error message when card is already in the group"
+  },
+  "groups_cardNotInGroup": {
+    "message": "La carta non è nel gruppo",
+    "description": "Error message when card is not in the group"
+  },
+  "groups_dataNotAvailable": {
+    "message": "Dati del gruppo non disponibili",
+    "description": "Error message when group data is not available"
+  },
+  "groups_addCardError": {
+    "message": "Impossibile aggiungere la carta al gruppo",
+    "description": "Error message when adding card to group fails"
+  },
+  "groups_removeCardError": {
+    "message": "Impossibile rimuovere la carta dal gruppo",
+    "description": "Error message when removing card from group fails"
   }
 }

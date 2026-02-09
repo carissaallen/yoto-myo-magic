@@ -2872,5 +2872,77 @@
   "groups_showAll": {
     "message": "Show All",
     "description": "Button to clear group filter and show all cards"
+  },
+  "groups_addToGroup": {
+    "message": "Add to $NAME$",
+    "description": "Header shown above cards that can be added to a group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Favourites"
+      }
+    }
+  },
+  "groups_deleteGroups": {
+    "message": "Delete Groups",
+    "description": "Title for delete groups modal"
+  },
+  "groups_deleteWarning": {
+    "message": "Select the groups you want to delete. This action cannot be undone.",
+    "description": "Warning text in delete groups modal"
+  },
+  "groups_cancel": {
+    "message": "Cancel",
+    "description": "Cancel button text"
+  },
+  "groups_delete": {
+    "message": "Delete",
+    "description": "Delete button text"
+  },
+  "groups_noGroupsToDelete": {
+    "message": "No groups to delete",
+    "description": "Message when there are no groups to delete"
+  },
+  "groups_selectAtLeastOne": {
+    "message": "Please select at least one group to delete",
+    "description": "Error when no groups are selected for deletion"
+  },
+  "groups_deleting": {
+    "message": "Deleting...",
+    "description": "Button text while deleting groups"
+  },
+  "groups_deleteError": {
+    "message": "Failed to delete $COUNT$ group(s)",
+    "description": "Error message when some groups fail to delete",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "groups_cardNotIdentified": {
+    "message": "Could not identify card",
+    "description": "Error when card ID cannot be determined"
+  },
+  "groups_cardAlreadyInGroup": {
+    "message": "Card already in group",
+    "description": "Info when trying to add a card that's already in the group"
+  },
+  "groups_cardNotInGroup": {
+    "message": "Card not in group",
+    "description": "Info when trying to remove a card that's not in the group"
+  },
+  "groups_dataNotAvailable": {
+    "message": "Group data not available",
+    "description": "Error when group data is not loaded"
+  },
+  "groups_addCardError": {
+    "message": "Failed to add card to group",
+    "description": "Error when adding card to group fails"
+  },
+  "groups_removeCardError": {
+    "message": "Failed to remove card from group",
+    "description": "Error when removing card from group fails"
   }
 }

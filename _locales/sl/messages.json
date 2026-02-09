@@ -2786,5 +2786,123 @@
   "error_failedToImportPodcastEpisodes": {
     "message": "Uvoz epizod podcasta ni uspel",
     "description": "Generic error when podcast episode import fails"
+  },
+  "groups_addGroup": {
+    "message": "Dodaj skupino",
+    "description": "Button to add a new group"
+  },
+  "groups_createGroup": {
+    "message": "Ustvari skupino",
+    "description": "Title for create group dialog"
+  },
+  "groups_groupName": {
+    "message": "Vnesite ime skupine",
+    "description": "Placeholder for group name input"
+  },
+  "groups_uploadCustomImage": {
+    "message": "Naloži sliko po meri",
+    "description": "Button to upload custom group image"
+  },
+  "groups_createSuccess": {
+    "message": "Skupina uspešno ustvarjena",
+    "description": "Success message when group is created"
+  },
+  "groups_createError": {
+    "message": "Skupine ni bilo mogoče ustvariti",
+    "description": "Error message when group creation fails"
+  },
+  "groups_loadError": {
+    "message": "Skupin ni bilo mogoče naložiti",
+    "description": "Error message when groups fail to load"
+  },
+  "groups_nameRequired": {
+    "message": "Prosimo, vnesite ime skupine",
+    "description": "Error message when group name is empty"
+  },
+  "groups_filterActive": {
+    "message": "Prikazujem kartice v skupini: $NAME$",
+    "description": "Message shown when filtering by group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Favourites"
+      }
+    }
+  },
+  "groups_showAll": {
+    "message": "Prikaži vse",
+    "description": "Button to show all cards (clear group filter)"
+  },
+  "groups_addToGroup": {
+    "message": "Dodaj v $NAME$",
+    "description": "Header shown above cards that can be added to a group",
+    "placeholders": {
+      "name": {
+        "content": "$1",
+        "example": "My Favourites"
+      }
+    }
+  },
+  "groups_deleteGroups": {
+    "message": "Izbriši skupine",
+    "description": "Title for delete groups dialog"
+  },
+  "groups_deleteWarning": {
+    "message": "Izberite skupine, ki jih želite izbrisati. Tega dejanja ni mogoče razveljaviti.",
+    "description": "Warning message in delete groups dialog"
+  },
+  "groups_cancel": {
+    "message": "Prekliči",
+    "description": "Cancel button in delete groups dialog"
+  },
+  "groups_delete": {
+    "message": "Izbriši",
+    "description": "Delete button in delete groups dialog"
+  },
+  "groups_noGroupsToDelete": {
+    "message": "Ni skupin za brisanje",
+    "description": "Message when there are no groups to delete"
+  },
+  "groups_selectAtLeastOne": {
+    "message": "Prosimo, izberite vsaj eno skupino za brisanje",
+    "description": "Error message when no groups are selected for deletion"
+  },
+  "groups_deleting": {
+    "message": "Brisanje...",
+    "description": "Button state while deleting groups"
+  },
+  "groups_deleteError": {
+    "message": "Ni bilo mogoče izbrisati $COUNT$ skupin(e)",
+    "description": "Error message when some groups fail to delete",
+    "placeholders": {
+      "count": {
+        "content": "$1",
+        "example": "2"
+      }
+    }
+  },
+  "groups_cardNotIdentified": {
+    "message": "Kartice ni bilo mogoče prepoznati",
+    "description": "Error message when card cannot be identified"
+  },
+  "groups_cardAlreadyInGroup": {
+    "message": "Kartica je že v skupini",
+    "description": "Error message when card is already in group"
+  },
+  "groups_cardNotInGroup": {
+    "message": "Kartica ni v skupini",
+    "description": "Error message when card is not in group"
+  },
+  "groups_dataNotAvailable": {
+    "message": "Podatki o skupini niso na voljo",
+    "description": "Error message when group data is not available"
+  },
+  "groups_addCardError": {
+    "message": "Kartice ni bilo mogoče dodati v skupino",
+    "description": "Error message when adding card to group fails"
+  },
+  "groups_removeCardError": {
+    "message": "Kartice ni bilo mogoče odstraniti iz skupine",
+    "description": "Error message when removing card from group fails"
   }
 }

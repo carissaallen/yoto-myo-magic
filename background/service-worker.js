@@ -3767,6 +3767,46 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     }
                     break;
 
+                case 'UPDATE_GROUP':
+                    try {
+                        console.log('[Groups] UPDATE_GROUP request:', {
+                            groupId: request.groupId,
+                            data: request.data,
+                            stringifiedBody: JSON.stringify(request.data)
+                        });
+                        const updateGroupResult = await makeAuthenticatedRequest(`/card/family/library/groups/${request.groupId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(request.data)
+                        });
+                        console.log('[Groups] UPDATE_GROUP response:', updateGroupResult);
+                        if (updateGroupResult.error) {
+                            sendResponse({ success: false, error: updateGroupResult.error });
+                        } else {
+                            sendResponse({ success: true, group: updateGroupResult });
+                        }
+                    } catch (error) {
+                        console.error('[Groups] Failed to update group:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+
+                case 'DELETE_GROUP':
+                    try {
+                        const deleteGroupResult = await makeAuthenticatedRequest(`/card/family/library/groups/${request.groupId}`, {
+                            method: 'DELETE'
+                        });
+                        if (deleteGroupResult.error) {
+                            sendResponse({ success: false, error: deleteGroupResult.error });
+                        } else {
+                            sendResponse({ success: true, deletedId: deleteGroupResult.id || request.groupId });
+                        }
+                    } catch (error) {
+                        console.error('[Groups] Failed to delete group:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+
                 case 'MATCH_ICONS':
                     const matches = await matchIcons(request.tracks);
                     sendResponse({matches});

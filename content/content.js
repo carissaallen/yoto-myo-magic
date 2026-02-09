@@ -14,6 +14,7 @@ let state = {
 const groupsState = {
   groups: [],
   selectedGroupId: null,
+  currentGroup: null,
   currentImageIndex: 0,
   customImageId: null,
   isSubmitting: false,
@@ -13201,9 +13202,21 @@ function injectGroupsContainer(buttonContainer) {
     groupsContainer.appendChild(pill);
   });
 
-  // Add "Add Group" button
-  const addGroupBtn = createAddGroupButton();
-  groupsContainer.appendChild(addGroupBtn);
+  // Show different UI based on whether user has groups
+  const hasGroups = groupsState.groups.length > 0;
+
+  if (hasGroups) {
+    // Show compact icon buttons when groups exist
+    const addGroupBtn = createAddGroupButton();
+    groupsContainer.appendChild(addGroupBtn);
+
+    const deleteGroupBtn = createDeleteGroupButton();
+    groupsContainer.appendChild(deleteGroupBtn);
+  } else {
+    // Show text button when no groups exist
+    const addGroupBtn = createAddGroupTextButton();
+    groupsContainer.appendChild(addGroupBtn);
+  }
 
   // Insert after button container
   buttonContainer.after(groupsContainer);
@@ -13262,11 +13275,11 @@ function createAddGroupButton() {
   const btn = document.createElement('button');
   btn.id = 'yoto-add-group-btn';
 
-  // Apply inline styles - blue fill with white text, matching selected group style
+  // Apply inline styles - white background with blue outline and icon
   btn.style.cssText = `
-    background-color: #3b82f6;
-    color: #ffffff;
-    border: none;
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 2px solid #3b82f6;
     width: 40px;
     height: 40px;
     padding: 0;
@@ -13286,18 +13299,110 @@ function createAddGroupButton() {
   `;
   btn.title = chrome.i18n.getMessage('groups_addGroup') || 'Add Group';
 
-  // Hover effects - darker blue
+  // Hover effects - light blue background
   btn.onmouseenter = () => {
-    btn.style.backgroundColor = '#2563eb';
+    btn.style.backgroundColor = '#eff6ff';
     btn.style.transform = 'translateY(-1px)';
   };
 
   btn.onmouseleave = () => {
-    btn.style.backgroundColor = '#3b82f6';
+    btn.style.backgroundColor = '#ffffff';
     btn.style.transform = 'translateY(0)';
   };
 
   btn.onclick = () => openCreateGroupModal();
+
+  return btn;
+}
+
+function createAddGroupTextButton() {
+  const btn = document.createElement('button');
+  btn.id = 'yoto-add-group-btn';
+
+  // Apply inline styles - white background with blue outline and text
+  btn.style.cssText = `
+    background-color: #ffffff;
+    color: #3b82f6;
+    border: 2px solid #3b82f6;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    height: 40px;
+  `;
+
+  // Plus icon + text
+  btn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: block;">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    <span>${chrome.i18n.getMessage('groups_addGroup') || 'Add Group'}</span>
+  `;
+
+  // Hover effects - light blue background
+  btn.onmouseenter = () => {
+    btn.style.backgroundColor = '#eff6ff';
+    btn.style.transform = 'translateY(-1px)';
+  };
+
+  btn.onmouseleave = () => {
+    btn.style.backgroundColor = '#ffffff';
+    btn.style.transform = 'translateY(0)';
+  };
+
+  btn.onclick = () => openCreateGroupModal();
+
+  return btn;
+}
+
+function createDeleteGroupButton() {
+  const btn = document.createElement('button');
+  btn.id = 'yoto-delete-group-btn';
+
+  // Apply inline styles - white background with red outline and icon
+  btn.style.cssText = `
+    background-color: #ffffff;
+    color: #ef4444;
+    border: 2px solid #ef4444;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  `;
+
+  // Use SVG for the minus icon
+  btn.innerHTML = `
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: block;">
+      <path d="M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+  `;
+  btn.title = chrome.i18n.getMessage('groups_deleteGroups') || 'Delete Groups';
+
+  // Hover effects - light red background
+  btn.onmouseenter = () => {
+    btn.style.backgroundColor = '#fef2f2';
+    btn.style.transform = 'translateY(-1px)';
+  };
+
+  btn.onmouseleave = () => {
+    btn.style.backgroundColor = '#ffffff';
+    btn.style.transform = 'translateY(0)';
+  };
+
+  btn.onclick = () => openDeleteGroupsModal();
 
   return btn;
 }
@@ -13318,6 +13423,7 @@ async function filterPlaylistsByGroup(groupId) {
   if (!groupId) {
     restoreAllPlaylists();
     groupsState.selectedGroupId = null;
+    groupsState.currentGroup = null;
     updateGroupButtonStates();
     return;
   }
@@ -13337,11 +13443,13 @@ async function filterPlaylistsByGroup(groupId) {
       showNotification(chrome.i18n.getMessage('groups_loadError') || 'Failed to load group', 'error');
       // Revert selection on error
       groupsState.selectedGroupId = null;
+      groupsState.currentGroup = null;
       updateGroupButtonStates();
       return;
     }
 
     const group = response.group;
+    groupsState.currentGroup = group; // Store for later use
     const allowedCardIds = new Set((group.items || []).map(item => item.contentId));
 
     // Find all playlist card wrapper elements on the page
@@ -13351,18 +13459,34 @@ async function filterPlaylistsByGroup(groupId) {
       return;
     }
 
-    // Separate cards into matching and non-matching
+    // First, clean up any existing divider and overlays
+    removeGroupDividerAndOverlays();
+
+    // Separate cards into matching, non-matching, and the "Add Playlist" button
     const matchingWrappers = [];
     const nonMatchingWrappers = [];
+    let addPlaylistWrapper = null;
 
     cardWrappers.forEach(wrapper => {
+      // Check if this is the "Add Playlist" button - skip it from filtering
+      if (isAddPlaylistButton(wrapper)) {
+        addPlaylistWrapper = wrapper;
+        return; // Skip this card
+      }
+
       const cardId = extractCardIdFromWrapper(wrapper);
       if (allowedCardIds.has(cardId)) {
         matchingWrappers.push(wrapper);
         wrapper.style.display = '';
+        // Remove addable class if it was set before
+        wrapper.classList.remove('yoto-card-wrapper-addable');
+        // Add in-group class
+        wrapper.classList.add('yoto-card-wrapper-in-group');
       } else {
         nonMatchingWrappers.push(wrapper);
-        wrapper.style.display = 'none';
+        wrapper.style.display = ''; // Show non-matching cards too
+        // Remove in-group class if it was set before
+        wrapper.classList.remove('yoto-card-wrapper-in-group');
       }
     });
 
@@ -13373,22 +13497,446 @@ async function filterPlaylistsByGroup(groupId) {
       gridContainer.insertBefore(wrapper, gridContainer.firstChild);
     });
 
+    // Keep the "Add Playlist" button at the very beginning (first position)
+    if (addPlaylistWrapper) {
+      gridContainer.insertBefore(addPlaylistWrapper, gridContainer.firstChild);
+    }
+
+    // Add minus overlays to matching cards (cards in the group)
+    matchingWrappers.forEach(wrapper => {
+      addRemoveFromGroupOverlay(wrapper, groupId);
+    });
+
+    // Create and insert the divider element after the matching cards
+    if (nonMatchingWrappers.length > 0) {
+      const divider = createGroupDivider(group.name);
+
+      // Insert divider after the last matching card (or after Add Playlist if no matches)
+      if (matchingWrappers.length > 0) {
+        const lastMatchingWrapper = matchingWrappers[matchingWrappers.length - 1];
+        lastMatchingWrapper.after(divider);
+      } else if (addPlaylistWrapper) {
+        addPlaylistWrapper.after(divider);
+      } else {
+        gridContainer.insertBefore(divider, gridContainer.firstChild);
+      }
+
+      // Add plus overlays to non-matching cards
+      nonMatchingWrappers.forEach(wrapper => {
+        wrapper.classList.add('yoto-card-wrapper-addable');
+        addAddToGroupOverlay(wrapper, groupId);
+      });
+    }
+
   } catch (error) {
     console.error('[Groups] Error filtering:', error);
     showNotification(chrome.i18n.getMessage('groups_loadError') || 'Failed to load group', 'error');
     // Revert selection on error
     groupsState.selectedGroupId = null;
+    groupsState.currentGroup = null;
     updateGroupButtonStates();
   }
 }
 
 function restoreAllPlaylists() {
-  // Restore visibility of all card wrappers
+  // Remove divider and overlays first
+  removeGroupDividerAndOverlays();
+
+  // Restore visibility and styling of all card wrappers
   const { cardWrappers } = findPlaylistCardWrappers();
   cardWrappers.forEach(wrapper => {
     wrapper.style.display = '';
+    wrapper.classList.remove('yoto-card-wrapper-addable');
+    wrapper.classList.remove('yoto-card-wrapper-in-group');
   });
   // Note: Card order remains as last filtered - page refresh restores original order
+}
+
+function removeGroupDividerAndOverlays() {
+  // Remove divider
+  const existingDivider = document.querySelector('.yoto-group-divider');
+  if (existingDivider) {
+    existingDivider.remove();
+  }
+
+  // Remove all plus overlay buttons
+  const addOverlays = document.querySelectorAll('.yoto-add-to-group-overlay');
+  addOverlays.forEach(overlay => overlay.remove());
+
+  // Remove all minus overlay buttons
+  const removeOverlays = document.querySelectorAll('.yoto-remove-from-group-overlay');
+  removeOverlays.forEach(overlay => overlay.remove());
+}
+
+function isAddPlaylistButton(wrapper) {
+  // Check if this card wrapper is the "Add Playlist" button
+  // It has text "Add Playlist" and/or links to create a new playlist
+
+  // Check for "Add Playlist" text
+  const textContent = wrapper.textContent || '';
+  if (textContent.trim() === 'Add Playlist') {
+    return true;
+  }
+
+  // Check for links that might indicate it's a create button
+  const link = wrapper.querySelector('a');
+  if (link) {
+    const href = link.getAttribute('href') || '';
+    // Check for create/new playlist URLs
+    if (href.includes('/create') || href.includes('/new') || href.includes('create-playlist')) {
+      return true;
+    }
+  }
+
+  // Check for aria-label or title attributes
+  const ariaLabel = wrapper.getAttribute('aria-label') || wrapper.querySelector('[aria-label]')?.getAttribute('aria-label') || '';
+  if (ariaLabel.toLowerCase().includes('add playlist')) {
+    return true;
+  }
+
+  return false;
+}
+
+function createGroupDivider(groupName) {
+  const divider = document.createElement('div');
+  divider.className = 'yoto-group-divider';
+  divider.style.cssText = 'grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 24px 0 16px 0; margin: 0;';
+
+  const leftLine = document.createElement('div');
+  leftLine.className = 'yoto-group-divider-line';
+  leftLine.style.cssText = 'flex: 1; height: 1px; background-color: rgba(0, 0, 0, 0.1);';
+
+  const text = document.createElement('span');
+  text.className = 'yoto-group-divider-text';
+  text.style.cssText = 'font-size: 14px; font-weight: 500; color: #6b7280; white-space: nowrap;';
+
+  // Use i18n message with group name placeholder
+  const addToGroupMsg = chrome.i18n.getMessage('groups_addToGroup', [groupName]);
+  text.textContent = addToGroupMsg || `Add to ${groupName}`;
+
+  const rightLine = document.createElement('div');
+  rightLine.className = 'yoto-group-divider-line';
+  rightLine.style.cssText = 'flex: 1; height: 1px; background-color: rgba(0, 0, 0, 0.1);';
+
+  divider.appendChild(leftLine);
+  divider.appendChild(text);
+  divider.appendChild(rightLine);
+
+  return divider;
+}
+
+function addAddToGroupOverlay(wrapper, groupId) {
+  // Check if overlay already exists
+  if (wrapper.querySelector('.yoto-add-to-group-overlay')) {
+    return;
+  }
+
+  // Make sure wrapper has position relative for absolute overlay positioning
+  const currentPosition = window.getComputedStyle(wrapper).position;
+  if (currentPosition === 'static') {
+    wrapper.style.position = 'relative';
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'yoto-add-to-group-overlay';
+  overlay.style.cssText = 'position: absolute; top: -6px; right: -6px; width: 32px; height: 32px; background-color: #3b82f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.9; transition: all 0.2s ease; z-index: 10; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);';
+
+  // Add the plus SVG icon
+  overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: #ffffff; display: block;"><path d="M19 11h-6V5a1 1 0 0 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0v-6h6a1 1 0 0 0 0-2z"/></svg>';
+
+  // Add hover effect
+  overlay.addEventListener('mouseenter', () => {
+    overlay.style.backgroundColor = '#2563eb';
+    overlay.style.opacity = '1';
+    overlay.style.transform = 'scale(1.1)';
+  });
+
+  overlay.addEventListener('mouseleave', () => {
+    overlay.style.backgroundColor = '#3b82f6';
+    overlay.style.opacity = '0.9';
+    overlay.style.transform = 'scale(1)';
+  });
+
+  // Add click handler to add card to group
+  overlay.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const cardId = extractCardIdFromWrapper(wrapper);
+    if (!cardId) {
+      showNotification(chrome.i18n.getMessage('groups_cardNotIdentified') || 'Could not identify card', 'error');
+      return;
+    }
+
+    await addCardToGroup(cardId, groupId, wrapper);
+  });
+
+  wrapper.appendChild(overlay);
+}
+
+function addRemoveFromGroupOverlay(wrapper, groupId) {
+  // Check if overlay already exists
+  if (wrapper.querySelector('.yoto-remove-from-group-overlay')) {
+    return;
+  }
+
+  // Make sure wrapper has position relative for absolute overlay positioning
+  const currentPosition = window.getComputedStyle(wrapper).position;
+  if (currentPosition === 'static') {
+    wrapper.style.position = 'relative';
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'yoto-remove-from-group-overlay';
+  overlay.style.cssText = 'position: absolute; top: -6px; right: -6px; width: 32px; height: 32px; background-color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0.9; transition: all 0.2s ease; z-index: 10; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);';
+
+  // Add the minus SVG icon (white stroke)
+  overlay.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; display: block;"><path d="M17 12H7" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+
+  // Add hover effect
+  overlay.addEventListener('mouseenter', () => {
+    overlay.style.backgroundColor = '#dc2626';
+    overlay.style.opacity = '1';
+    overlay.style.transform = 'scale(1.1)';
+  });
+
+  overlay.addEventListener('mouseleave', () => {
+    overlay.style.backgroundColor = '#ef4444';
+    overlay.style.opacity = '0.9';
+    overlay.style.transform = 'scale(1)';
+  });
+
+  // Add click handler to remove card from group
+  overlay.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const cardId = extractCardIdFromWrapper(wrapper);
+    if (!cardId) {
+      showNotification(chrome.i18n.getMessage('groups_cardNotIdentified') || 'Could not identify card', 'error');
+      return;
+    }
+
+    await removeCardFromGroup(cardId, groupId, wrapper);
+  });
+
+  wrapper.appendChild(overlay);
+}
+
+async function removeCardFromGroup(cardId, groupId, wrapperElement) {
+  // Get the current group to access existing items
+  if (!groupsState.currentGroup) {
+    showNotification(chrome.i18n.getMessage('groups_dataNotAvailable') || 'Group data not available', 'error');
+    return;
+  }
+
+  const group = groupsState.currentGroup;
+
+  // Check if card is in the group
+  const existingItems = group.items || [];
+  if (!existingItems.some(item => item.contentId === cardId)) {
+    showNotification(chrome.i18n.getMessage('groups_cardNotInGroup') || 'Card not in group', 'info');
+    return;
+  }
+
+  // Build items array without this card
+  const updatedItems = existingItems
+    .filter(item => item.contentId !== cardId)
+    .map(item => ({ contentId: item.contentId }));
+
+  // Prepare the update payload per API docs format
+  const updateData = {
+    name: group.name,
+    imageId: group.imageId,
+    items: updatedItems
+  };
+
+  console.log('[Groups] Removing card from group:', {
+    cardId,
+    groupId,
+    updatedItems,
+    updateData
+  });
+
+  try {
+    // Show loading state on the overlay
+    const overlay = wrapperElement.querySelector('.yoto-remove-from-group-overlay');
+    if (overlay) {
+      overlay.innerHTML = '<div style="width: 16px; height: 16px; border: 2px solid #ffffff; border-top-color: transparent; border-radius: 50%; animation: yoto-spin 0.8s linear infinite;"></div>';
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'UPDATE_GROUP',
+      groupId: groupId,
+      data: updateData
+    });
+
+    if (!response.success) {
+      // Restore the minus icon on error
+      if (overlay) {
+        overlay.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; display: block;"><path d="M17 12H7" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+      }
+      showNotification(response.error || chrome.i18n.getMessage('groups_removeCardError') || 'Failed to remove card from group', 'error');
+      return;
+    }
+
+    // Update local state with the new group data
+    groupsState.currentGroup = response.group;
+
+    // Update the group count in the pill button
+    const groupPill = document.querySelector(`.yoto-group-pill[data-group-id="${groupId}"]`);
+    if (groupPill) {
+      const itemCount = (response.group.items || []).length;
+      const groupName = response.group.name;
+      groupPill.textContent = `${groupName} (${itemCount})`;
+    }
+
+    // Move the card from above the divider to below it
+    const { gridContainer } = findPlaylistCardWrappers();
+    const divider = document.querySelector('.yoto-group-divider');
+
+    if (gridContainer && divider) {
+      // Remove the in-group class and minus overlay
+      wrapperElement.classList.remove('yoto-card-wrapper-in-group');
+      if (overlay) {
+        overlay.remove();
+      }
+
+      // Add the addable class and plus overlay
+      wrapperElement.classList.add('yoto-card-wrapper-addable');
+      addAddToGroupOverlay(wrapperElement, groupId);
+
+      // Move the wrapper to after the divider
+      divider.after(wrapperElement);
+    }
+
+    // Brief flash on the card
+    wrapperElement.style.transition = 'box-shadow 0.3s ease';
+    wrapperElement.style.boxShadow = '0 0 0 3px #ef4444';
+    setTimeout(() => {
+      wrapperElement.style.boxShadow = '';
+    }, 500);
+
+  } catch (error) {
+    console.error('[Groups] Error removing card from group:', error);
+    const overlay = wrapperElement.querySelector('.yoto-remove-from-group-overlay');
+    if (overlay) {
+      overlay.innerHTML = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px; display: block;"><path d="M17 12H7" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
+    }
+    showNotification(chrome.i18n.getMessage('groups_removeCardError') || 'Failed to remove card from group', 'error');
+  }
+}
+
+async function addCardToGroup(cardId, groupId, wrapperElement) {
+  // Get the current group to access existing items
+  if (!groupsState.currentGroup) {
+    showNotification(chrome.i18n.getMessage('groups_dataNotAvailable') || 'Group data not available', 'error');
+    return;
+  }
+
+  const group = groupsState.currentGroup;
+
+  // Build the updated items array with the new card added
+  const existingItems = group.items || [];
+
+  // Check if card is already in the group
+  if (existingItems.some(item => item.contentId === cardId)) {
+    showNotification(chrome.i18n.getMessage('groups_cardAlreadyInGroup') || 'Card already in group', 'info');
+    return;
+  }
+
+  // Build items array as objects with just contentId (per API docs)
+  const existingItemsFormatted = existingItems.map(item => ({ contentId: item.contentId }));
+  const updatedItems = [...existingItemsFormatted, { contentId: cardId }];
+
+  // Prepare the update payload per API docs format
+  const updateData = {
+    name: group.name,
+    imageId: group.imageId,
+    items: updatedItems
+  };
+
+  console.log('[Groups] Adding card to group:', {
+    cardId,
+    groupId,
+    currentGroup: group,
+    existingItemsFormatted,
+    updatedItems,
+    updateData
+  });
+
+  try {
+    // Show loading state on the overlay
+    const overlay = wrapperElement.querySelector('.yoto-add-to-group-overlay');
+    if (overlay) {
+      overlay.innerHTML = '<div style="width: 16px; height: 16px; border: 2px solid #ffffff; border-top-color: transparent; border-radius: 50%; animation: yoto-spin 0.8s linear infinite;"></div>';
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'UPDATE_GROUP',
+      groupId: groupId,
+      data: updateData
+    });
+
+    if (!response.success) {
+      // Restore the plus icon on error
+      if (overlay) {
+        overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: #ffffff; display: block;"><path d="M19 11h-6V5a1 1 0 0 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0v-6h6a1 1 0 0 0 0-2z"/></svg>';
+      }
+      showNotification(response.error || chrome.i18n.getMessage('groups_addCardError') || 'Failed to add card to group', 'error');
+      return;
+    }
+
+    // Update local state with the new group data
+    groupsState.currentGroup = response.group;
+
+    // Update the group count in the pill button
+    const groupPill = document.querySelector(`.yoto-group-pill[data-group-id="${groupId}"]`);
+    if (groupPill) {
+      const itemCount = (response.group.items || []).length;
+      const groupName = response.group.name;
+      groupPill.textContent = `${groupName} (${itemCount})`;
+    }
+
+    // Move the card from below the divider to above it
+    const { gridContainer } = findPlaylistCardWrappers();
+    const divider = document.querySelector('.yoto-group-divider');
+
+    if (gridContainer && divider) {
+      // Remove the addable class and overlay
+      wrapperElement.classList.remove('yoto-card-wrapper-addable');
+      if (overlay) {
+        overlay.remove();
+      }
+      // Reset opacity on the card's anchor
+      const cardLink = wrapperElement.querySelector('a');
+      if (cardLink) {
+        cardLink.style.opacity = '';
+      }
+
+      // Add the in-group class and minus overlay
+      wrapperElement.classList.add('yoto-card-wrapper-in-group');
+      addRemoveFromGroupOverlay(wrapperElement, groupId);
+
+      // Move the wrapper to just before the divider
+      gridContainer.insertBefore(wrapperElement, divider);
+    }
+
+    // Brief success flash on the card
+    wrapperElement.style.transition = 'box-shadow 0.3s ease';
+    wrapperElement.style.boxShadow = '0 0 0 3px #3b82f6';
+    setTimeout(() => {
+      wrapperElement.style.boxShadow = '';
+    }, 500);
+
+  } catch (error) {
+    console.error('[Groups] Error adding card to group:', error);
+    const overlay = wrapperElement.querySelector('.yoto-add-to-group-overlay');
+    if (overlay) {
+      overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="width: 16px; height: 16px; fill: #ffffff; display: block;"><path d="M19 11h-6V5a1 1 0 0 0-2 0v6H5a1 1 0 0 0 0 2h6v6a1 1 0 0 0 2 0v-6h6a1 1 0 0 0 0-2z"/></svg>';
+    }
+    showNotification(chrome.i18n.getMessage('groups_addCardError') || 'Failed to add card to group', 'error');
+  }
 }
 
 function findPlaylistCards() {
@@ -13583,8 +14131,19 @@ function injectCreateGroupModal() {
 
   const modal = document.createElement('div');
   modal.id = 'yoto-create-group-modal';
-  modal.className = 'yoto-magic-overlay';
-  modal.style.display = 'none';
+  // Use inline styles for the overlay to ensure proper display
+  modal.style.cssText = `
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+  `;
 
   const closeIcon = `
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -13604,62 +14163,153 @@ function injectCreateGroupModal() {
     </svg>
   `;
 
-  modal.innerHTML = `
-    <div class="yoto-magic-modal" style="max-width: 400px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #1f2937;">
-          ${chrome.i18n.getMessage('groups_createGroup') || 'Create Group'}
-        </h2>
-        <button id="yoto-create-group-close" style="
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: none;
-          background: #f3f4f6;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        ">
-          ${closeIcon}
-        </button>
-      </div>
-
-      <div class="yoto-group-image-picker">
-        <button id="yoto-group-image-prev" class="yoto-group-image-nav">
-          ${prevIcon}
-        </button>
-        <div class="yoto-group-image-preview">
-          <img id="yoto-group-image-img" src="${GROUP_CDN_BASE}${DEFAULT_GROUP_IMAGES[0]}.png" alt="Group image" />
-        </div>
-        <button id="yoto-group-image-next" class="yoto-group-image-nav">
-          ${nextIcon}
-        </button>
-      </div>
-
-      <input type="hidden" id="yoto-group-image-id" value="${DEFAULT_GROUP_IMAGES[0]}" />
-
-      <div style="text-align: center; margin-bottom: 20px;">
-        <input type="file" id="yoto-group-custom-image" accept="image/*" style="display: none;" />
-        <button id="yoto-group-upload-btn" class="yoto-group-upload-btn">
-          ${chrome.i18n.getMessage('groups_uploadCustomImage') || 'Upload custom image'}
-        </button>
-      </div>
-
-      <div style="margin-bottom: 24px;">
-        <input type="text" id="yoto-group-name-input"
-               class="yoto-group-name-input"
-               placeholder="${chrome.i18n.getMessage('groups_groupName') || 'Enter group name'}"
-               maxlength="100" />
-      </div>
-
-      <button id="yoto-create-group-submit" class="yoto-group-submit-btn">
-        ${chrome.i18n.getMessage('groups_createGroup') || 'Create Group'}
-      </button>
-    </div>
+  // Create modal content with all inline styles
+  const content = document.createElement('div');
+  content.style.cssText = `
+    background: white;
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   `;
 
+  content.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #1f2937;">
+        ${chrome.i18n.getMessage('groups_createGroup') || 'Create Group'}
+      </h2>
+      <button id="yoto-create-group-close" style="
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: none;
+        background: #f3f4f6;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease;
+      ">
+        ${closeIcon}
+      </button>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 24px;">
+      <button id="yoto-group-image-prev" style="
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      ">
+        ${prevIcon}
+      </button>
+      <div style="width: 80px; height: 80px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+        <img id="yoto-group-image-img" src="${GROUP_CDN_BASE}${DEFAULT_GROUP_IMAGES[0]}.png" alt="Group image" style="width: 100%; height: 100%; object-fit: cover;" />
+      </div>
+      <button id="yoto-group-image-next" style="
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid #e5e7eb;
+        background: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      ">
+        ${nextIcon}
+      </button>
+    </div>
+
+    <input type="hidden" id="yoto-group-image-id" value="${DEFAULT_GROUP_IMAGES[0]}" />
+
+    <div style="text-align: center; margin-bottom: 20px;">
+      <input type="file" id="yoto-group-custom-image" accept="image/*" style="display: none;" />
+      <button id="yoto-group-upload-btn" style="
+        background: transparent;
+        border: 1px dashed #d1d5db;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 13px;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      ">
+        ${chrome.i18n.getMessage('groups_uploadCustomImage') || 'Upload custom image'}
+      </button>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <input type="text" id="yoto-group-name-input"
+             placeholder="${chrome.i18n.getMessage('groups_groupName') || 'Enter group name'}"
+             maxlength="100"
+             style="
+               width: 100%;
+               padding: 12px 14px;
+               border: 1px solid #e5e7eb;
+               border-radius: 8px;
+               font-size: 14px;
+               font-family: inherit;
+               box-sizing: border-box;
+               outline: none;
+               transition: border-color 0.2s ease;
+             " />
+    </div>
+
+    <button id="yoto-create-group-submit" style="
+      width: 100%;
+      padding: 12px 20px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    ">
+      ${chrome.i18n.getMessage('groups_createGroup') || 'Create Group'}
+    </button>
+  `;
+
+  modal.appendChild(content);
   document.body.appendChild(modal);
+
+  // Add hover effects via JavaScript
+  const closeBtn = content.querySelector('#yoto-create-group-close');
+  closeBtn.onmouseenter = () => closeBtn.style.background = '#e5e7eb';
+  closeBtn.onmouseleave = () => closeBtn.style.background = '#f3f4f6';
+
+  const prevBtn = content.querySelector('#yoto-group-image-prev');
+  prevBtn.onmouseenter = () => { prevBtn.style.background = '#f3f4f6'; prevBtn.style.borderColor = '#d1d5db'; };
+  prevBtn.onmouseleave = () => { prevBtn.style.background = 'white'; prevBtn.style.borderColor = '#e5e7eb'; };
+
+  const nextBtn = content.querySelector('#yoto-group-image-next');
+  nextBtn.onmouseenter = () => { nextBtn.style.background = '#f3f4f6'; nextBtn.style.borderColor = '#d1d5db'; };
+  nextBtn.onmouseleave = () => { nextBtn.style.background = 'white'; nextBtn.style.borderColor = '#e5e7eb'; };
+
+  const uploadBtn = content.querySelector('#yoto-group-upload-btn');
+  uploadBtn.onmouseenter = () => { uploadBtn.style.borderColor = '#9ca3af'; uploadBtn.style.color = '#374151'; };
+  uploadBtn.onmouseleave = () => { uploadBtn.style.borderColor = '#d1d5db'; uploadBtn.style.color = '#6b7280'; };
+
+  const nameInput = content.querySelector('#yoto-group-name-input');
+  nameInput.onfocus = () => nameInput.style.borderColor = '#3b82f6';
+  nameInput.onblur = () => nameInput.style.borderColor = '#e5e7eb';
+
+  const submitBtn = content.querySelector('#yoto-create-group-submit');
+  submitBtn.onmouseenter = () => submitBtn.style.background = '#2563eb';
+  submitBtn.onmouseleave = () => submitBtn.style.background = '#3b82f6';
 
   // Bind events
   bindCreateGroupModalEvents();
@@ -13747,8 +14397,8 @@ function openCreateGroupModal() {
   modal.querySelector('#yoto-create-group-submit').textContent =
     chrome.i18n.getMessage('groups_createGroup') || 'Create Group';
 
-  // Show modal
-  modal.style.display = 'block';
+  // Show modal with flex for centering
+  modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 
   // Focus name input
@@ -13807,19 +14457,31 @@ async function handleCreateGroupSubmit() {
     });
 
     if (response.success) {
-      showNotification(chrome.i18n.getMessage('groups_createSuccess') || 'Group created successfully', 'success');
+      // Check if this is the first group (need to re-render buttons)
+      const isFirstGroup = groupsState.groups.length === 0;
 
       // Add the new group to state
       groupsState.groups.push(response.group);
 
-      // Add pill to UI
-      const groupsContainer = document.querySelector('#yoto-groups-container');
-      const addGroupBtn = document.querySelector('#yoto-add-group-btn');
-      if (groupsContainer && addGroupBtn) {
-        const pill = createGroupPill(response.group);
-        groupsContainer.insertBefore(pill, addGroupBtn);
+      if (isFirstGroup) {
+        // Re-render entire groups container to switch from text button to icon buttons
+        const existingContainer = document.querySelector('#yoto-groups-container');
+        if (existingContainer) {
+          existingContainer.remove();
+        }
+        renderGroupsUI();
+      } else {
+        // Add pill to UI
+        const groupsContainer = document.querySelector('#yoto-groups-container');
+        const addGroupBtn = document.querySelector('#yoto-add-group-btn');
+        if (groupsContainer && addGroupBtn) {
+          const pill = createGroupPill(response.group);
+          groupsContainer.insertBefore(pill, addGroupBtn);
+        }
       }
 
+      // Reset submitting state before closing modal
+      groupsState.isSubmitting = false;
       closeCreateGroupModal();
     } else {
       showNotification(
@@ -13837,6 +14499,282 @@ async function handleCreateGroupSubmit() {
     groupsState.isSubmitting = false;
     submitBtn.disabled = false;
     submitBtn.textContent = chrome.i18n.getMessage('groups_createGroup') || 'Create Group';
+  }
+}
+
+// ========================================
+// Delete Groups Modal
+// ========================================
+
+function injectDeleteGroupsModal() {
+  // Check if modal already exists
+  if (document.querySelector('#yoto-delete-groups-modal')) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'yoto-delete-groups-modal';
+  modal.style.cssText = `
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+  `;
+
+  const content = document.createElement('div');
+  content.id = 'yoto-delete-groups-content';
+  content.style.cssText = `
+    background: white;
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  `;
+
+  const closeIcon = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  `;
+
+  content.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #1f2937;">
+        ${chrome.i18n.getMessage('groups_deleteGroups') || 'Delete Groups'}
+      </h2>
+      <button id="yoto-delete-groups-close" style="
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: none;
+        background: #f3f4f6;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease;
+      ">
+        ${closeIcon}
+      </button>
+    </div>
+
+    <p style="margin: 0 0 16px 0; font-size: 14px; color: #6b7280;">
+      ${chrome.i18n.getMessage('groups_deleteWarning') || 'Select the groups you want to delete. This action cannot be undone.'}
+    </p>
+
+    <div id="yoto-delete-groups-list" style="
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 24px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    ">
+      <!-- Groups will be populated here -->
+    </div>
+
+    <div style="display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="yoto-delete-groups-cancel" style="
+        padding: 10px 20px;
+        background: #f3f4f6;
+        color: #374151;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      ">
+        ${chrome.i18n.getMessage('groups_cancel') || 'Cancel'}
+      </button>
+      <button id="yoto-delete-groups-confirm" style="
+        padding: 10px 20px;
+        background: #ef4444;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      ">
+        ${chrome.i18n.getMessage('groups_delete') || 'Delete'}
+      </button>
+    </div>
+  `;
+
+  modal.appendChild(content);
+  document.body.appendChild(modal);
+
+  // Add hover effects
+  const closeBtn = content.querySelector('#yoto-delete-groups-close');
+  closeBtn.onmouseenter = () => closeBtn.style.background = '#e5e7eb';
+  closeBtn.onmouseleave = () => closeBtn.style.background = '#f3f4f6';
+
+  const cancelBtn = content.querySelector('#yoto-delete-groups-cancel');
+  cancelBtn.onmouseenter = () => cancelBtn.style.background = '#e5e7eb';
+  cancelBtn.onmouseleave = () => cancelBtn.style.background = '#f3f4f6';
+
+  const confirmBtn = content.querySelector('#yoto-delete-groups-confirm');
+  confirmBtn.onmouseenter = () => confirmBtn.style.background = '#dc2626';
+  confirmBtn.onmouseleave = () => confirmBtn.style.background = '#ef4444';
+
+  // Bind events
+  closeBtn.onclick = () => closeDeleteGroupsModal();
+  cancelBtn.onclick = () => closeDeleteGroupsModal();
+  confirmBtn.onclick = () => handleDeleteGroupsSubmit();
+
+  // Close on overlay click
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      closeDeleteGroupsModal();
+    }
+  };
+
+  // Close on escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.style.display !== 'none') {
+      closeDeleteGroupsModal();
+    }
+  });
+}
+
+function openDeleteGroupsModal() {
+  // Make sure modal exists
+  injectDeleteGroupsModal();
+
+  const modal = document.querySelector('#yoto-delete-groups-modal');
+  if (!modal) return;
+
+  // Populate the groups list
+  const listContainer = modal.querySelector('#yoto-delete-groups-list');
+  listContainer.innerHTML = '';
+
+  if (groupsState.groups.length === 0) {
+    listContainer.innerHTML = `
+      <div style="padding: 20px; text-align: center; color: #6b7280; font-size: 14px;">
+        ${chrome.i18n.getMessage('groups_noGroupsToDelete') || 'No groups to delete'}
+      </div>
+    `;
+  } else {
+    groupsState.groups.forEach(group => {
+      const item = document.createElement('label');
+      item.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid #e5e7eb;
+        transition: background 0.2s ease;
+      `;
+
+      item.innerHTML = `
+        <input type="checkbox" value="${group.id}" style="
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: #ef4444;
+        "/>
+        <span style="font-size: 14px; color: #1f2937;">${escapeHtml(group.name)}</span>
+      `;
+
+      item.onmouseenter = () => item.style.background = '#f9fafb';
+      item.onmouseleave = () => item.style.background = 'transparent';
+
+      listContainer.appendChild(item);
+    });
+
+    // Remove border from last item
+    if (listContainer.lastChild) {
+      listContainer.lastChild.style.borderBottom = 'none';
+    }
+  }
+
+  // Show modal
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteGroupsModal() {
+  const modal = document.querySelector('#yoto-delete-groups-modal');
+  if (!modal) return;
+
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+async function handleDeleteGroupsSubmit() {
+  const modal = document.querySelector('#yoto-delete-groups-modal');
+  if (!modal) return;
+
+  // Get selected group IDs
+  const checkboxes = modal.querySelectorAll('#yoto-delete-groups-list input[type="checkbox"]:checked');
+  const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+
+  if (selectedIds.length === 0) {
+    showNotification(chrome.i18n.getMessage('groups_selectAtLeastOne') || 'Please select at least one group to delete', 'error');
+    return;
+  }
+
+  const confirmBtn = modal.querySelector('#yoto-delete-groups-confirm');
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = chrome.i18n.getMessage('groups_deleting') || 'Deleting...';
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  // Delete each selected group
+  for (const groupId of selectedIds) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'DELETE_GROUP',
+        groupId: groupId
+      });
+
+      if (response.success) {
+        successCount++;
+
+        // Remove from state
+        groupsState.groups = groupsState.groups.filter(g => g.id !== groupId);
+
+        // Remove pill from UI
+        const pill = document.querySelector(`.yoto-group-pill[data-group-id="${groupId}"]`);
+        if (pill) {
+          pill.remove();
+        }
+
+        // If the deleted group was selected, clear the filter
+        if (groupsState.selectedGroupId === groupId) {
+          await filterPlaylistsByGroup(null);
+        }
+      } else {
+        errorCount++;
+        console.error(`Failed to delete group ${groupId}:`, response.error);
+      }
+    } catch (error) {
+      errorCount++;
+      console.error(`Error deleting group ${groupId}:`, error);
+    }
+  }
+
+  // Reset button
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = chrome.i18n.getMessage('groups_delete') || 'Delete';
+
+  // Close modal
+  closeDeleteGroupsModal();
+
+  // Show result notification only if there were errors
+  if (errorCount > 0) {
+    showNotification(chrome.i18n.getMessage('groups_deleteError', [errorCount.toString()]) || `Failed to delete ${errorCount} group(s)`, 'error');
   }
 }
 
