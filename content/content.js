@@ -14469,7 +14469,10 @@ async function handleCreateGroupSubmit() {
         if (existingContainer) {
           existingContainer.remove();
         }
-        renderGroupsUI();
+        const buttonContainer = document.querySelector('#yoto-import-container');
+        if (buttonContainer) {
+          injectGroupsContainer(buttonContainer);
+        }
       } else {
         // Add pill to UI
         const groupsContainer = document.querySelector('#yoto-groups-container');
