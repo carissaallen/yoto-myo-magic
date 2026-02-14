@@ -2883,6 +2883,10 @@
       }
     }
   },
+  "groups_removeGroup": {
+    "message": "Remove Group",
+    "description": "Button text for remove group button"
+  },
   "groups_deleteGroups": {
     "message": "Delete Groups",
     "description": "Title for delete groups modal"

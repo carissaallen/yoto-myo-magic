@@ -2539,6 +2539,20 @@ async function createPlaylistContent(title, audioTracks, iconIds = [], coverUrl 
             }
         }
         
+        // Log the API response shape to identify the correct cardId field
+        console.info('[CreatePlaylist] API response keys:', Object.keys(createResponse));
+        if (createResponse.card) {
+            console.info('[CreatePlaylist] card object keys:', Object.keys(createResponse.card));
+            console.info('[CreatePlaylist] card.cardId:', createResponse.card.cardId, '| card._id:', createResponse.card._id);
+        }
+        console.info('[CreatePlaylist] Top-level cardId:', createResponse.cardId, '| id:', createResponse.id, '| contentId:', createResponse.contentId);
+
+        // Normalize cardId from various possible API response fields
+        const resolvedId = createResponse.cardId || createResponse.id || createResponse.contentId || createResponse.card?.cardId || createResponse.card?.id || createResponse.card?._id;
+        if (resolvedId && !createResponse.cardId) {
+            createResponse.cardId = resolvedId;
+        }
+
         if (createResponse.cardId) {
             // Try to fetch the created card to verify it exists
             try {
@@ -3447,25 +3461,52 @@ async function importPodcastEpisodes(episodes, options = {}) {
             return { cancelled: true, message: 'Import cancelled by user' };
         }
 
+        // Check if cardId is a valid existing card ID (not 'new' or 'temp-*')
+        const isValidExistingCard = cardId && cardId !== 'new' && !cardId.startsWith('temp-');
+        let willUpdate = updateMode && isValidExistingCard;
+
+        // Verify card exists on server (handles Yoto draft cards with real-looking IDs)
+        if (willUpdate) {
+            const cardCheck = await getCardContent(cardId);
+            if (cardCheck.error) {
+                console.info(`[PodcastImport] Card ${cardId} not found on server, switching to create mode`);
+                willUpdate = false;
+            }
+        }
+
         await chrome.storage.local.set({
             podcastImportProgress: {
                 status: 'in_progress',
                 current: audioTracks.length,
                 total: episodes.length,
-                message: updateMode ? chrome.i18n.getMessage('status_updatingCard') : chrome.i18n.getMessage('status_creatingMyoCardPlaylist')
+                message: willUpdate ? chrome.i18n.getMessage('status_updatingCard') : chrome.i18n.getMessage('status_creatingMyoCardPlaylist')
             }
         });
 
         let result;
 
-        if (updateMode && cardId) {
+        if (willUpdate) {
             result = await updateCardWithPodcastEpisodes(cardId, audioTracks, coverImageUrl);
         } else {
             result = await createPlaylistContent(playlistName, audioTracks, [], coverImageUrl);
         }
 
         if (result.error) {
-            const errorResult = { error: updateMode ? chrome.i18n.getMessage('error_failedToUpdateCard', [result.error]) : chrome.i18n.getMessage('error_failedToCreateMyoCard', [result.error]) };
+            const errorResult = { error: willUpdate ? chrome.i18n.getMessage('error_failedToUpdateCard', [result.error]) : chrome.i18n.getMessage('error_failedToCreateMyoCard', [result.error]) };
+            await chrome.storage.local.set({
+                podcastImportResult: errorResult,
+                podcastImportTimestamp: Date.now(),
+                podcastImportProgress: { status: 'error', message: errorResult.error }
+            });
+            return errorResult;
+        }
+
+        // Extract cardId from various possible fields in the API response
+        const resolvedCardId = result.cardId || result.id || result.contentId || result.card?.cardId || result.card?.id || result.card?._id;
+
+        // For new playlists, ensure we have a valid cardId
+        if (!willUpdate && !resolvedCardId) {
+            const errorResult = { error: chrome.i18n.getMessage('error_failedToCreateMyoCard', ['No card ID returned from server']) };
             await chrome.storage.local.set({
                 podcastImportResult: errorResult,
                 podcastImportTimestamp: Date.now(),
@@ -3476,12 +3517,13 @@ async function importPodcastEpisodes(episodes, options = {}) {
 
         const successResult = {
             success: true,
-            contentId: result.contentId,
+            contentId: result.contentId || resolvedCardId,
+            cardId: resolvedCardId,
             tracksImported: audioTracks.length,
             totalEpisodes: episodes.length,
             failedCount: failedCount,
             partial: isPartialImport,
-            updated: updateMode,
+            updated: willUpdate,
             failureReasons: isPartialImport ? failureReasons : undefined
         };
 
@@ -3497,7 +3539,7 @@ async function importPodcastEpisodes(episodes, options = {}) {
             podcastImportTimestamp: Date.now(),
             podcastImportProgress: {
                 status: 'complete',
-                message: updateMode ? chrome.i18n.getMessage('status_successfullyAddedEpisodes', [audioTracks.length]) : chrome.i18n.getMessage('status_successfullyImportedEpisodes', [audioTracks.length])
+                message: willUpdate ? chrome.i18n.getMessage('status_successfullyAddedEpisodes', [audioTracks.length]) : chrome.i18n.getMessage('status_successfullyImportedEpisodes', [audioTracks.length])
             }
         });
 
@@ -3519,15 +3561,17 @@ async function importPodcastEpisodes(episodes, options = {}) {
                 if (!partialResult.error) {
                     console.info(`Saved partial import: ${audioTracks.length} tracks`);
 
+                    const partialCardId = partialResult.cardId || partialResult.id || partialResult.contentId || partialResult.card?.cardId || partialResult.card?.id || partialResult.card?._id;
                     const partialSuccess = {
                         success: true,
                         partial: true,
-                        contentId: partialResult.contentId,
+                        contentId: partialResult.contentId || partialCardId,
+                        cardId: partialCardId,
                         tracksImported: audioTracks.length,
                         totalEpisodes: episodes.length,
                         failedCount: failedCount,
                         originalError: error.message,
-                        updated: updateMode
+                        updated: false // Error recovery always creates a new playlist
                     };
 
                     await chrome.storage.local.set({
@@ -4477,6 +4521,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                     break;
                     
                 case 'IMPORT_PODCAST_EPISODES':
+                    // Clear any stale import results before starting
+                    await chrome.storage.local.remove(['podcastImportResult', 'podcastImportTimestamp', 'podcastImportProgress']);
+
                     sendResponse({status: 'started', message: 'Import process started'});
 
                     importPodcastEpisodes(

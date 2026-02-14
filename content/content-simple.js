@@ -3411,6 +3411,9 @@ async function showUpdateFileSelectionModal(cardId, ignoreAudio = false) {
   const existingModal = document.getElementById('yoto-update-file-selection-modal');
   if (existingModal) existingModal.remove();
 
+  // Check if this is a new card (no existing playlist)
+  const isNewCard = !cardId || cardId === 'new' || cardId.startsWith('temp-');
+
   // First try to get the title from the input field on the page (for new cards)
   let cardTitle = chrome.i18n.getMessage('label_untitledCard') || 'Untitled Card';
   const inputTitle = document.querySelector('input[placeholder="Give me a name"]')?.value;
@@ -3419,7 +3422,7 @@ async function showUpdateFileSelectionModal(cardId, ignoreAudio = false) {
   }
 
   // Only fetch card content if it's an existing playlist
-  if (cardId && cardId !== 'new' && !cardId.startsWith('temp-')) {
+  if (!isNewCard) {
     try {
       const cardContent = await chrome.runtime.sendMessage({
         action: 'GET_CARD_CONTENT',
@@ -3460,7 +3463,7 @@ async function showUpdateFileSelectionModal(cardId, ignoreAudio = false) {
       margin: 0 16px;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     ">
-      <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">${chrome.i18n.getMessage('label_update')} ${cardTitle}</h2>
+      <h2 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #1f2937;">${isNewCard ? chrome.i18n.getMessage('button_addContent') : chrome.i18n.getMessage('label_update')} ${cardTitle}</h2>
       <p style="color: #6b7280; margin-bottom: 24px;">${chrome.i18n.getMessage('modal_selectFilesToAdd')}</p>
 
       <div style="display: flex; flex-direction: column; gap: 12px;">
@@ -3574,17 +3577,46 @@ async function handleUpdatePlaylistPodcast() {
     parameters: { source: 'edit_card_page', cardId: cardId }
   });
 
+  // Verify the card exists on the server (handles Yoto draft cards with real-looking IDs)
+  let isExistingCard = false;
+  if (cardId && cardId !== 'new' && !cardId.startsWith('temp-')) {
+    try {
+      const cardContent = await chrome.runtime.sendMessage({
+        action: 'GET_CARD_CONTENT',
+        cardId: cardId
+      });
+      isExistingCard = !cardContent.error;
+    } catch (e) {
+      // If check fails, default to create mode
+    }
+  }
+
   // Check for all URLs permission (same as Import Podcast)
   const permissionCheck = await chrome.runtime.sendMessage({
     action: 'CHECK_ALL_URLS_PERMISSION'
   });
 
-  if (!permissionCheck.granted) {
-    // Show permission modal first
-    showPodcastPermissionModalForUpdate(cardId);
+  if (isExistingCard) {
+    // Card exists on server, use update flow
+    if (!permissionCheck.granted) {
+      showPodcastPermissionModalForUpdate(cardId);
+    } else {
+      showPodcastSearchModalForUpdate(cardId);
+    }
   } else {
-    // We have permission, proceed directly to podcast search
-    showPodcastSearchModalForUpdate(cardId);
+    // Card doesn't exist yet (draft), use create flow
+    if (window.yotoUpdateMode) {
+      delete window.yotoUpdateMode;
+    }
+    if (!permissionCheck.granted) {
+      if (typeof showPodcastPermissionModal !== 'undefined') {
+        showPodcastPermissionModal();
+      }
+    } else {
+      if (typeof showPodcastSearchModal !== 'undefined') {
+        showPodcastSearchModal();
+      }
+    }
   }
 }
 

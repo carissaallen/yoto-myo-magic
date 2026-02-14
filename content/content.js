@@ -1059,12 +1059,33 @@ async function handlePodcastImportClick() {
     parameters: {}
   });
 
-  // Set update mode if we're on an edit page with a cardId
+  // Set update mode if we're on an edit page with a cardId, but only if the card exists on the server
   if (state.pageType === 'edit-card' && state.currentCardId) {
-    window.yotoUpdateMode = {
-      isUpdateMode: true,
-      cardId: state.currentCardId
-    };
+    const cardId = state.currentCardId;
+    let isExistingCard = false;
+    if (cardId && cardId !== 'new' && !cardId.startsWith('temp-')) {
+      try {
+        const cardContent = await chrome.runtime.sendMessage({
+          action: 'GET_CARD_CONTENT',
+          cardId: cardId
+        });
+        isExistingCard = !cardContent.error;
+      } catch (e) {
+        // If check fails, default to create mode
+      }
+    }
+
+    if (isExistingCard) {
+      window.yotoUpdateMode = {
+        isUpdateMode: true,
+        cardId: cardId
+      };
+    } else {
+      // Draft card - clear any previous update mode
+      if (window.yotoUpdateMode) {
+        delete window.yotoUpdateMode;
+      }
+    }
   } else {
     // Clear any previous update mode
     if (window.yotoUpdateMode) {
@@ -6198,7 +6219,12 @@ async function selectPodcast(podcast) {
 
               setTimeout(() => {
                 modal.remove();
-                window.location.reload();
+                // If a new card was created (not updated), navigate to the new card's edit page
+                if (!statusResponse.updated && statusResponse.cardId) {
+                  window.location.href = `https://my.yotoplay.com/card/${statusResponse.cardId}/edit`;
+                } else {
+                  window.location.reload();
+                }
               }, statusResponse.partial ? 4000 : 2000); // Give more time to read partial message
             } else if (statusResponse.cancelled) {
               // Import was cancelled
@@ -6250,7 +6276,12 @@ async function selectPodcast(podcast) {
 
               setTimeout(() => {
                 modal.remove();
-                window.location.reload();
+                // If a new card was created (not updated), navigate to the new card's edit page
+                if (!finalStatus.updated && finalStatus.cardId) {
+                  window.location.href = `https://my.yotoplay.com/card/${finalStatus.cardId}/edit`;
+                } else {
+                  window.location.reload();
+                }
               }, 2000);
             } else {
               throw new Error(chrome.i18n.getMessage('error_importTakingTooLong'));
@@ -7671,26 +7702,64 @@ function showPodcastReviewModal() {
               `;
 
               document.getElementById('review-done').addEventListener('click', () => {
-                modal.remove();
-                if (podcastMixModalRef) {
-                  podcastMixModalRef.remove();
-                  podcastMixModalRef = null;
+                try {
+                  modal.remove();
+                  if (podcastMixModalRef) {
+                    podcastMixModalRef.remove();
+                    podcastMixModalRef = null;
+                  }
+                  clearEpisodeQueue();
+                  // Clear update mode after successful import
+                  if (window.yotoUpdateMode) {
+                    delete window.yotoUpdateMode;
+                  }
+                  // If a new card was created (not updated), navigate to the new card's edit page
+                  if (!statusResponse.updated && statusResponse.cardId) {
+                    window.location.href = `https://my.yotoplay.com/card/${statusResponse.cardId}/edit`;
+                  } else if (statusResponse.updated) {
+                    // Updated existing card - reload to show changes
+                    window.location.reload();
+                  } else {
+                    // Fallback: new card but no cardId (shouldn't happen, but handle gracefully)
+                    console.warn('[PodcastImport] New card created but no cardId returned');
+                    window.location.reload();
+                  }
+                } catch (e) {
+                  console.error('[PodcastImport] Error during post-import cleanup:', e);
+                  window.location.reload();
                 }
-                clearEpisodeQueue();
-                window.location.reload();
               });
             } else {
               statusText.textContent = chrome.i18n.getMessage('status_successfullyImportedEpisodes', [statusResponse.tracksImported || podcastEpisodeQueue.length]);
               buttonsDiv.style.display = 'none';
 
               setTimeout(() => {
-                modal.remove();
-                if (podcastMixModalRef) {
-                  podcastMixModalRef.remove();
-                  podcastMixModalRef = null;
+                try {
+                  modal.remove();
+                  if (podcastMixModalRef) {
+                    podcastMixModalRef.remove();
+                    podcastMixModalRef = null;
+                  }
+                  clearEpisodeQueue();
+                  // Clear update mode after successful import
+                  if (window.yotoUpdateMode) {
+                    delete window.yotoUpdateMode;
+                  }
+                  // If a new card was created (not updated), navigate to the new card's edit page
+                  if (!statusResponse.updated && statusResponse.cardId) {
+                    window.location.href = `https://my.yotoplay.com/card/${statusResponse.cardId}/edit`;
+                  } else if (statusResponse.updated) {
+                    // Updated existing card - reload to show changes
+                    window.location.reload();
+                  } else {
+                    // Fallback: new card but no cardId (shouldn't happen, but handle gracefully)
+                    console.warn('[PodcastImport] New card created but no cardId returned');
+                    window.location.reload();
+                  }
+                } catch (e) {
+                  console.error('[PodcastImport] Error during post-import cleanup:', e);
+                  window.location.reload();
                 }
-                clearEpisodeQueue();
-                window.location.reload();
               }, 1500);
             }
 
@@ -10683,7 +10752,7 @@ async function performCardUpdate(audioFiles, iconFiles, cardId, modal, sourceNam
       modal.remove();
 
       // Try to find the card ID from various possible locations in the response
-      const cardId = result.cardId || result.id || result.card?.id || result.card?.cardId;
+      const cardId = result.cardId || result.id || result.contentId || result.card?.cardId || result.card?.id || result.card?._id;
 
       // For new cards, navigate to the newly created card's URL
       if (isNewCard && cardId) {
@@ -13206,7 +13275,7 @@ function injectGroupsContainer(buttonContainer) {
   const hasGroups = groupsState.groups.length > 0;
 
   if (hasGroups) {
-    // Show compact icon buttons when groups exist
+    // Show compact buttons when groups exist
     const addGroupBtn = createAddGroupButton();
     groupsContainer.appendChild(addGroupBtn);
 
@@ -13275,38 +13344,41 @@ function createAddGroupButton() {
   const btn = document.createElement('button');
   btn.id = 'yoto-add-group-btn';
 
-  // Apply inline styles - white background with blue outline and icon
+  // Apply inline styles - matching Import Playlist button style
   btn.style.cssText = `
     background-color: #ffffff;
     color: #3b82f6;
-    border: 2px solid #3b82f6;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border-radius: 50%;
+    border: 1px solid #3b82f6;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 32px;
   `;
 
-  // Use SVG for the plus icon - properly centered
-  btn.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: block;">
-      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-  `;
+  btn.textContent = chrome.i18n.getMessage('groups_addGroup') || 'Add Group';
   btn.title = chrome.i18n.getMessage('groups_addGroup') || 'Add Group';
 
-  // Hover effects - light blue background
+  // Hover effects - match Bulk Import button (green)
   btn.onmouseenter = () => {
-    btn.style.backgroundColor = '#eff6ff';
+    btn.style.backgroundColor = '#ffffff';
+    btn.style.color = '#10b981';
+    btn.style.borderColor = '#10b981';
     btn.style.transform = 'translateY(-1px)';
   };
 
   btn.onmouseleave = () => {
     btn.style.backgroundColor = '#ffffff';
+    btn.style.color = '#3b82f6';
+    btn.style.borderColor = '#3b82f6';
     btn.style.transform = 'translateY(0)';
   };
 
@@ -13319,42 +13391,40 @@ function createAddGroupTextButton() {
   const btn = document.createElement('button');
   btn.id = 'yoto-add-group-btn';
 
-  // Apply inline styles - white background with blue outline and text
+  // Apply inline styles - matching Import Playlist button style
   btn.style.cssText = `
     background-color: #ffffff;
     color: #3b82f6;
-    border: 2px solid #3b82f6;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 14px;
+    border: 1px solid #3b82f6;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 500;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
     transition: all 0.2s ease;
     white-space: nowrap;
-    height: 40px;
+    line-height: 1.5;
+    height: 32px;
   `;
 
-  // Plus icon + text
-  btn.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="display: block;">
-      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-    <span>${chrome.i18n.getMessage('groups_addGroup') || 'Add Group'}</span>
-  `;
+  btn.textContent = chrome.i18n.getMessage('groups_addGroup') || 'Add Group';
 
-  // Hover effects - light blue background
+  // Hover effects - match Bulk Import button (green)
   btn.onmouseenter = () => {
-    btn.style.backgroundColor = '#eff6ff';
+    btn.style.backgroundColor = '#ffffff';
+    btn.style.color = '#10b981';
+    btn.style.borderColor = '#10b981';
     btn.style.transform = 'translateY(-1px)';
   };
 
   btn.onmouseleave = () => {
     btn.style.backgroundColor = '#ffffff';
+    btn.style.color = '#3b82f6';
+    btn.style.borderColor = '#3b82f6';
     btn.style.transform = 'translateY(0)';
   };
 
@@ -13367,38 +13437,41 @@ function createDeleteGroupButton() {
   const btn = document.createElement('button');
   btn.id = 'yoto-delete-group-btn';
 
-  // Apply inline styles - white background with red outline and icon
+  // Apply inline styles - matching Import Playlist button style but with red color
   btn.style.cssText = `
     background-color: #ffffff;
     color: #ef4444;
-    border: 2px solid #ef4444;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border-radius: 50%;
+    border: 1px solid #ef4444;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    line-height: 1.5;
+    height: 32px;
   `;
 
-  // Use SVG for the minus icon
-  btn.innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: block;">
-      <path d="M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-  `;
-  btn.title = chrome.i18n.getMessage('groups_deleteGroups') || 'Delete Groups';
+  btn.textContent = chrome.i18n.getMessage('groups_removeGroup') || 'Remove Group';
+  btn.title = chrome.i18n.getMessage('groups_removeGroup') || 'Remove Group';
 
-  // Hover effects - light red background
+  // Hover effects - darker red on hover
   btn.onmouseenter = () => {
     btn.style.backgroundColor = '#fef2f2';
+    btn.style.color = '#dc2626';
+    btn.style.borderColor = '#dc2626';
     btn.style.transform = 'translateY(-1px)';
   };
 
   btn.onmouseleave = () => {
     btn.style.backgroundColor = '#ffffff';
+    btn.style.color = '#ef4444';
+    btn.style.borderColor = '#ef4444';
     btn.style.transform = 'translateY(0)';
   };
 
@@ -14105,6 +14178,28 @@ function extractCardIdFromWrapper(wrapper) {
   if (wrapper.dataset?.contentId) return wrapper.dataset.contentId;
 
   return null;
+}
+
+function extractCardTitleFromWrapper(wrapper) {
+  // Find the card link and get its text content (title)
+  const link = wrapper.querySelector('a[href*="/card/"]');
+  if (link) {
+    // First try to get text content from the link or its children
+    const textContent = link.textContent?.trim();
+    if (textContent && textContent !== 'Add Playlist') {
+      return textContent.toLowerCase();
+    }
+  }
+
+  // Fallback: try image alt attribute
+  const img = wrapper.querySelector('img');
+  if (img?.alt) {
+    return img.alt.toLowerCase();
+  }
+
+  // Last resort: use card ID
+  const cardId = extractCardIdFromWrapper(wrapper);
+  return cardId || '';
 }
 
 function updateGroupButtonStates() {

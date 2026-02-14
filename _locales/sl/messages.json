@@ -2843,6 +2843,10 @@
       }
     }
   },
+  "groups_removeGroup": {
+    "message": "Odstrani skupino",
+    "description": "Button text for remove group button"
+  },
   "groups_deleteGroups": {
     "message": "Izbriši skupine",
     "description": "Title for delete groups dialog"

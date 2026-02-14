@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "default_locale": "en",
-  "name": "__MSG_extensionName__",
-  "version": "1.19.1",
-  "description": "__MSG_extensionDescription__",
+  "name": "Yoto MYO Magic",
+  "version": "1.19.2",
+  "description": "Transform how you create Yoto MYO cards with smart imports, automatic icon matching, and more delightful shortcuts.",
 
   "permissions": [
     "storage",

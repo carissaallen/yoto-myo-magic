@@ -2873,6 +2873,10 @@
       }
     }
   },
+  "groups_removeGroup": {
+    "message": "Eliminar grupo",
+    "description": "Button text for remove group button"
+  },
   "groups_deleteGroups": {
     "message": "Eliminar grupos",
     "description": "Button to delete groups"
