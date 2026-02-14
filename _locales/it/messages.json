@@ -2829,6 +2829,10 @@
       }
     }
   },
+  "groups_removeGroup": {
+    "message": "Rimuovi gruppo",
+    "description": "Button text for remove group button"
+  },
   "groups_deleteGroups": {
     "message": "Elimina gruppi",
     "description": "Button text to delete groups"
