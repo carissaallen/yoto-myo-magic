@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "Yoto MYO Magic",
-  "version": "1.19.2",
+  "version": "1.19.3",
   "description": "Transform how you create Yoto MYO cards with smart imports, automatic icon matching, and more delightful shortcuts.",
 
   "permissions": [
