@@ -3608,6 +3608,13 @@ async function handleUpdatePlaylistPodcast() {
     if (window.yotoUpdateMode) {
       delete window.yotoUpdateMode;
     }
+    // Capture the draft card's title so the new playlist uses it
+    const inputTitle = document.querySelector('input[placeholder="Give me a name"]')?.value;
+    if (inputTitle && inputTitle.trim() !== '') {
+      window.yotoDraftCardTitle = inputTitle.trim();
+    } else {
+      delete window.yotoDraftCardTitle;
+    }
     if (!permissionCheck.granted) {
       if (typeof showPodcastPermissionModal !== 'undefined') {
         showPodcastPermissionModal();

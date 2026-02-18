@@ -1085,12 +1085,14 @@ async function handlePodcastImportClick() {
       if (window.yotoUpdateMode) {
         delete window.yotoUpdateMode;
       }
+      delete window.yotoDraftCardTitle;
     }
   } else {
     // Clear any previous update mode
     if (window.yotoUpdateMode) {
       delete window.yotoUpdateMode;
     }
+    delete window.yotoDraftCardTitle;
   }
 
   // Check if we have permission for all URLs first
@@ -6123,11 +6125,15 @@ async function selectPodcast(podcast) {
         const isUpdateMode = window.yotoUpdateMode && window.yotoUpdateMode.isUpdateMode;
         const updateCardId = isUpdateMode ? window.yotoUpdateMode.cardId : null;
 
+        // Use draft card title if creating a new playlist from the edit page
+        const draftTitle = (!isUpdateMode && window.yotoDraftCardTitle) ? window.yotoDraftCardTitle : null;
+
         // Start the import process
         const startResponse = await chrome.runtime.sendMessage({
           action: 'IMPORT_PODCAST_EPISODES',
           podcast: podcast,
           episodes: selectedEpisodes,
+          playlistName: draftTitle,
           updateMode: isUpdateMode,
           cardId: updateCardId
         });
@@ -6292,6 +6298,7 @@ async function selectPodcast(podcast) {
         if (window.yotoUpdateMode) {
           delete window.yotoUpdateMode;
         }
+        delete window.yotoDraftCardTitle;
 
       } catch (error) {
         console.error(`[PodcastImport:UI] Import error:`, error.message);
@@ -6307,6 +6314,7 @@ async function selectPodcast(podcast) {
         if (window.yotoUpdateMode) {
           delete window.yotoUpdateMode;
         }
+        delete window.yotoDraftCardTitle;
       }
     });
     
@@ -6315,6 +6323,7 @@ async function selectPodcast(podcast) {
       if (window.yotoUpdateMode) {
         delete window.yotoUpdateMode;
       }
+      delete window.yotoDraftCardTitle;
     });
     
   } catch (error) {
@@ -7617,10 +7626,13 @@ function showPodcastReviewModal() {
       const isUpdateMode = window.yotoUpdateMode && window.yotoUpdateMode.isUpdateMode;
       const updateCardId = isUpdateMode ? window.yotoUpdateMode.cardId : null;
 
+      // Use draft card title if creating a new playlist from the edit page
+      const finalPlaylistName = (!isUpdateMode && window.yotoDraftCardTitle) ? window.yotoDraftCardTitle : playlistName;
+
       const startResponse = await chrome.runtime.sendMessage({
         action: 'IMPORT_PODCAST_EPISODES',
         episodes: podcastEpisodeQueue,
-        playlistName: playlistName,
+        playlistName: finalPlaylistName,
         coverImageUrl: coverImageUrl,
         updateMode: isUpdateMode,
         cardId: updateCardId
@@ -7713,6 +7725,7 @@ function showPodcastReviewModal() {
                   if (window.yotoUpdateMode) {
                     delete window.yotoUpdateMode;
                   }
+                  delete window.yotoDraftCardTitle;
                   // If a new card was created (not updated), navigate to the new card's edit page
                   if (!statusResponse.updated && statusResponse.cardId) {
                     window.location.href = `https://my.yotoplay.com/card/${statusResponse.cardId}/edit`;
@@ -7745,6 +7758,7 @@ function showPodcastReviewModal() {
                   if (window.yotoUpdateMode) {
                     delete window.yotoUpdateMode;
                   }
+                  delete window.yotoDraftCardTitle;
                   // If a new card was created (not updated), navigate to the new card's edit page
                   if (!statusResponse.updated && statusResponse.cardId) {
                     window.location.href = `https://my.yotoplay.com/card/${statusResponse.cardId}/edit`;
